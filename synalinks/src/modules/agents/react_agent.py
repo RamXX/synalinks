@@ -178,7 +178,7 @@ class ReACTAgent(Program):
 
         self.prompt_template = prompt_template
 
-        if examples:
+        if not examples:
             examples = []
         self.examples = examples
 
