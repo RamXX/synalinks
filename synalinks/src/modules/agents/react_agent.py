@@ -181,7 +181,7 @@ class ReACTAgent(Program):
         else:
             raise ValueError(
                 "You must set either `language_model` "
-                " or both `action_language_model` and `decision_language_model`.
+                " or both `action_language_model` and `decision_language_model`."
             )
 
         self.prompt_template = prompt_template
