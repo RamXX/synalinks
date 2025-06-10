@@ -9,6 +9,9 @@ from synalinks.src.programs.program import Program
 from synalinks.src.utils.tool_utils import Tool
 
 
+_fn_END = "finish"
+
+
 def get_decision_question():
     """The default question used for decision-making"""
     return "Choose the next function to use based on its name."
@@ -172,9 +175,14 @@ class ReACTAgent(Program):
         if language_model:
             self.decision_language_model = language_model
             self.action_language_model = language_model
-        else:
+        elif action_language_model and decision_language_model:
             self.decision_language_model = decision_language_model
             self.action_language_model = action_language_model
+        else:
+            raise ValueError(
+                "You must set either `language_model` "
+                " or both `action_language_model` and `decision_language_model`.
+            )
 
         self.prompt_template = prompt_template
 
@@ -191,8 +199,8 @@ class ReACTAgent(Program):
         if return_inputs_only and return_inputs_with_trajectory:
             raise ValueError(
                 "You cannot set both "
-                "`return_inputs_only` and `return_inputs_with_trajectory`"
-                " arguments to True. Choose only one."
+                "`return_inputs_only` and `return_inputs_with_trajectory` "
+                "arguments to True. Choose only one."
             )
         self.return_inputs_with_trajectory = return_inputs_with_trajectory
         self.return_inputs_only = return_inputs_only
@@ -209,7 +217,9 @@ class ReACTAgent(Program):
         for fn in self.functions:
             self.labels.append(Tool(fn).name())
 
-        self.labels.append("finish")
+        assert _fn_END not in self.labels, f"'{_fn_END}' is a reserved keyword and cannot be used as function name"
+
+        self.labels.append(_fn_END)
 
     async def build(self, inputs):
         current_steps = [inputs]
