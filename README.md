@@ -401,6 +401,12 @@ Beware that every additional metric/module/optimizer should be approved by the c
 
 If you have specific feedbacks or features request we invite you to open an [issue](https://github.com/SynaLinks/synalinks/issues).
 
+### Contributors
+
+<a href="https://github.com/SynaLinks/synalinks/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=SynaLinks/synalinks"/>
+</a>
+
 ### Telemetry
 
 We collect usage and software performance information to enhance and catch errors as fast as possible in order to make the best experience for you. No private, personal or confidential information is recorded. To get the complete list of what we collect, and how to disable it, please read the following [document](TELEMETRY.md).
