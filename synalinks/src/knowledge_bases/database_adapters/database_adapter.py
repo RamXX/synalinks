@@ -2,6 +2,8 @@
 
 import copy
 import re
+from typing import Any
+from typing import Dict
 
 from synalinks.src.utils.naming import to_snake_case
 
@@ -72,7 +74,7 @@ class DatabaseAdapter:
             f"{self.__class__} should implement the `update()` method"
         )
 
-    async def query(self, query):
+    async def query(self, query: str, params: Dict[str, Any] = None, **kwargs):
         raise NotImplementedError(
             f"{self.__class__} should implement the `query()` method"
         )

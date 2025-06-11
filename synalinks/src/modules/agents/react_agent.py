@@ -8,7 +8,6 @@ from synalinks.src.modules.merging.logical_or import Or
 from synalinks.src.programs.program import Program
 from synalinks.src.utils.tool_utils import Tool
 
-
 _fn_END = "finish"
 
 
@@ -217,7 +216,9 @@ class ReACTAgent(Program):
         for fn in self.functions:
             self.labels.append(Tool(fn).name())
 
-        assert _fn_END not in self.labels, f"'{_fn_END}' is a reserved keyword and cannot be used as function name"
+        assert _fn_END not in self.labels, (
+            f"'{_fn_END}' is a reserved keyword and cannot be used as function name"
+        )
 
         self.labels.append(_fn_END)
 

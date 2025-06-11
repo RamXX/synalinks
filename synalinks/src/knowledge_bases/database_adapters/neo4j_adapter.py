@@ -31,6 +31,7 @@ class Neo4JAdapter(DatabaseAdapter):
             index_name=index_name,
             embedding_model=embedding_model,
         )
+        self.db = os.getenv("NEO4J_DATABASE", "neo4j")
         self.username = os.getenv("NEO4J_USERNAME", "neo4j")
         self.password = os.getenv("NEO4J_PASSWORD", "neo4j")
 
@@ -52,10 +53,14 @@ class Neo4JAdapter(DatabaseAdapter):
 
         if wipe_on_start:
             asyncio.get_event_loop().run_until_complete(
-                self.query("MATCH (n)-[r]->() DELETE n, r"),
-            )
-            asyncio.get_event_loop().run_until_complete(
-                self.query("MATCH (m) DELETE m"),
+                self.query(
+                    """
+                    MATCH (n)
+                    CALL (n) {
+                        DETACH DELETE n
+                    } IN TRANSACTIONS OF 10000 ROWS
+                    """
+                )
             )
 
         query = "\n".join(
@@ -101,16 +106,17 @@ class Neo4JAdapter(DatabaseAdapter):
                 self.query("CALL db.awaitIndexes(300)"),
             )
 
-    async def query(self, query: str, params: Dict[str, Any] = None):
+    async def query(self, query: str, params: Dict[str, Any] = None, **kwargs):
         driver = neo4j.GraphDatabase.driver(
             self.index_name, auth=(self.username, self.password)
         )
         try:
-            if params:
-                records, _, _ = driver.execute_query(query, **params, database_="neo4j")
-            else:
-                records, _, _ = driver.execute_query(query, database_="neo4j")
-            return records
+            with driver.session(database=self.db) as session:
+                if params:
+                    result = session.run(query, **params, **kwargs)
+                else:
+                    result = session.run(query, **kwargs)
+                return list(result)
         finally:
             driver.close()
 

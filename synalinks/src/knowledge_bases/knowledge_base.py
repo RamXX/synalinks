@@ -1,5 +1,8 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
+from typing import Any
+from typing import Dict
+
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import is_symbolic_data_model
 from synalinks.src.backend.config import maybe_initialize_telemetry
@@ -33,8 +36,9 @@ class KnowledgeBase(SynalinksSaveable):
         model="ollama/mxbai-embed-large"
     )
 
-    os.environ["NEO4J_USERNAME"] = "your-neo4j-username"
-    os.environ["NEO4J_PASSWORD"] = "your-neo4j-password"
+    os.environ["NEO4J_DATABASE"] = "your-neo4j-db" # (Default to "neo4j")
+    os.environ["NEO4J_USERNAME"] = "your-neo4j-username" # (Default to "neo4j")
+    os.environ["NEO4J_PASSWORD"] = "your-neo4j-password" # (Default to "neo4j")
 
     knowledge_base = synalinks.KnowledgeBase(
         index_name="neo4j://localhost:7687",
@@ -107,7 +111,7 @@ class KnowledgeBase(SynalinksSaveable):
         maybe_initialize_telemetry()
         return await self.adapter.update(data_model)
 
-    async def query(self, query: str):
+    async def query(self, query: str, params: Dict[str, Any] = None, **kwargs):
         """Execute a query against the knowledge base.
 
         Args:
@@ -118,7 +122,7 @@ class KnowledgeBase(SynalinksSaveable):
             (GenericResult): the query results
         """
         maybe_initialize_telemetry()
-        return await self.adapter.query(query)
+        return await self.adapter.query(query, params=params, **kwargs)
 
     async def similarity_search(
         self,
