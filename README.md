@@ -27,7 +27,7 @@
 [![Python package](https://github.com/SynaLinks/Synalinks/actions/workflows/tests.yml/badge.svg)](https://github.com/SynaLinks/SynaLinks/actions/workflows/tests.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](https://opensource.org/license/apache-2-0)
 
-To bussy to read the documentation? Give [LLM.md](LLM.md) to your favorite LM provider.
+To busy to read the documentation? Give [LLM.md](LLM.md) to your favorite LM provider.
 
 </div>
 

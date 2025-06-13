@@ -2,7 +2,7 @@
 
 ## General questions
 
-- [What is the difference between DSPy, AdalFlow and Synalinks?](#what-is-the-difference-between-dspy-adalflow-and-synalinks)
+- [What makes Synalinks revolutionary compared to DSPy?](#what-makes-synalinks-revolutionary-compared-to-dspy)
 - [Why do you focus on in-context techniques?](#why-do-you-focus-on-in-context-techniques)
 - [I already use structured output, why would I use Synalinks?](#i-already-use-structured-output-why-would-i-use-synalinks)
 - [Can Synalinks be used for non-LMs applications](#can-synalinks-be-used-for-non-lms-applications)
@@ -22,14 +22,9 @@
 
 ---
 
-### What is the difference between DSPy, AdalFlow and Synalinks?
+### What makes Synalinks revolutionary compared to DSPy?
 
-Unlike DSPy and AdalFlow, Synalinks is inspired by Keras and not PyTorch.
-The reason for that is that ease of use is an important factor for us. The Functional API inspired by Keras make it easy and natural to describe any workflows. Addtionally, we implement logical flows, a unique feature of Synalinks inspired by logical circuits.
-
-In the next releases we will focus in other Reinforcement Learning (RL) algorithms like Monte-Carlo-Tree-Search (MCTS) or Q-Learning. Also we don't plan to develop vector-only RAG systems, but focus on robust KnowledgeGraphRAG.
-
-Globally, you can think of Synalinks as more focused on RL and Graph based techniques while providing all the benefits of other similar frameworks, with easier to use implementation.
+While DSPy wrestles with PyTorch complexity, Synalinks delivers the elegant simplicity of Keras with enterprise-grade power. We're the only framework featuring logical flows inspired by logical circuits and comprehensive Knowledge Graph support. Synalinks transforms AI workflow design into an intuitive, natural process that accelerates development cycles and reduces implementation complexity.
 
 ---
 
