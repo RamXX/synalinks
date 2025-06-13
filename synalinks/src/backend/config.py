@@ -30,7 +30,7 @@ _BACKEND = "pydantic"
 _AVAILABLE_BACKEND = ["pydantic"]
 
 # Enable/Disable telemetry
-_synalinks_telemetry_enabled = False
+_synalinks_telemetry_enabled = True
 
 # Check if sentry have been initialized
 _telemetry_initialized = False
@@ -67,11 +67,7 @@ def is_telemetry_enabled():
     ]
 )
 def disable_telemetry():
-    """Disable the telemetry
-
-    Returns:
-        (bool): True if the telemetry is enabled False otherwise.
-    """
+    """Disable the telemetry"""
     global _synalinks_telemetry_enabled
     _synalinks_telemetry_enabled = False
 
@@ -93,12 +89,12 @@ def maybe_initialize_telemetry():
 
 
 def capture_exception(error):
-    if is_telemetry_enabled():
+    if _telemetry_initialized:
         sentry_sdk.capture_exception(error)
 
 
 def capture_message(msg):
-    if is_telemetry_enabled():
+    if _telemetry_initialized:
         sentry_sdk.capture_message(msg)
 
 

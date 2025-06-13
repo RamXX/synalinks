@@ -1,4 +1,5 @@
 from synalinks.src.api_export import synalinks_export
+from synalinks.src.optimizers.few_shot_opro import FewShotOPRO
 from synalinks.src.optimizers.opro import OPRO
 from synalinks.src.optimizers.optimizer import Optimizer
 from synalinks.src.optimizers.random_few_shot import RandomFewShot
@@ -8,6 +9,7 @@ ALL_OBJECTS = {
     Optimizer,
     RandomFewShot,
     OPRO,
+    FewShotOPRO,
 }
 
 ALL_OBJECTS_DICT = {cls.__name__.lower(): cls for cls in ALL_OBJECTS}

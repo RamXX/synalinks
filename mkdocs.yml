@@ -130,6 +130,7 @@ nav:
       - Synalinks API/Optimizers API/Base Optimizer class.md
       - Synalinks API/Optimizers API/RandomFewShot.md
       - Synalinks API/Optimizers API/OPRO.md
+      - Synalinks API/Optimizers API/FewShotOPRO.md
     - Metrics:
       - Synalinks API/Metrics/index.md
       - Synalinks API/Metrics/Base Metric class.md

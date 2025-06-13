@@ -1,5 +1,6 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
+import random
 from typing import List
 
 from synalinks.src.api_export import synalinks_export
@@ -8,27 +9,23 @@ from synalinks.src.backend import Instructions
 from synalinks.src.backend import Prediction
 from synalinks.src.modules.core.generator import Generator
 from synalinks.src.modules.core.input_module import Input
+from synalinks.src.optimizers.opro import OPROInputs
 from synalinks.src.optimizers.optimizer import Optimizer
 from synalinks.src.programs import Program
 from synalinks.src.saving import serialization_lib
 
 
-class OPROOptimizedVariable(DataModel):
+class FewShotOPROOptimizedVariables(DataModel):
+    examples: List[Prediction] = []
     predictions: List[Prediction] = []
     instructions: Instructions
     instructions_candidates: List[Instructions] = []
 
 
-class OPROInputs(DataModel):
-    predictions: List[Prediction] = []
-    instructions_candidates: List[Instructions] = []
-
-
-@synalinks_export("synalinks.optimizers.OPRO")
-class OPRO(Optimizer):
-    """Optimization by PROmpting (OPRO) optimizer
-
-    Use a language model to optimize the prompt's instructions.
+@synalinks_export("synalinks.optimizers.FewShotOPRO")
+class FewShotOPRO(Optimizer):
+    """Sample randomly among the best examples to populate the LM's prompt to make it
+        learn using Few Shot Learning while generating instructions with OPRO.
 
     Example:
 
@@ -41,9 +38,10 @@ class OPRO(Optimizer):
 
         program.compile(
             reward=synalinks.rewards.ExactMatch(),
-            optimizer=synalinks.optimizers.OPRO(
-                language_model=language_model, # The language model to use
-                k_best=10, # The number of best examples/instructions to provide to the LM
+            optimizer=synalinks.optimizers.FewShotOPRO(
+                language_model=language_model,
+                k=3, # The number of examples to provide to the prompt
+                k_best=10, # The number of best examples to select from
             ),
         )
 
@@ -51,12 +49,14 @@ class OPRO(Optimizer):
     ```
 
     References:
+        - [Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165)
         - [Large Language Models as Optimizers](https://arxiv.org/abs/2309.03409)
 
     Args:
         language_model (LanguageModel): The language model to use.
-        k_best (int): The max number of best predictions and instructions
-            to provide to the optimizer (default 10).
+        k (int): The number of examples to select (default 3) among the best predictions.
+        k_best (int): The max number of best predictions/instructions to select from
+            (default 10).
         program (Program): The program to use. Optional.
             If None create one (non-trained) at start.
         name (str): The name of the optimizer.
@@ -66,6 +66,7 @@ class OPRO(Optimizer):
     def __init__(
         self,
         language_model=None,
+        k=3,
         k_best=10,
         program=None,
         name=None,
@@ -74,9 +75,10 @@ class OPRO(Optimizer):
         super().__init__(
             name=name,
             description=description,
-            data_model=OPROOptimizedVariable,
+            data_model=FewShotOPROOptimizedVariables,
         )
         self.language_model = language_model
+        self.k = k
         self.k_best = k_best
         self.program = program
 
@@ -107,7 +109,7 @@ class OPRO(Optimizer):
 
     async def optimize(self, trainable_variable, reward=None):
         """Perform a backprop/optimization on a single variable."""
-        # Backpropagate predictions reward
+        # Reward backpropagation
         predictions = trainable_variable.get("predictions")
         backpropagated_predictions = []
         backprop_pred_nb = 0
@@ -118,11 +120,6 @@ class OPRO(Optimizer):
             backpropagated_predictions.append(p)
         if backprop_pred_nb > 0:
             trainable_variable.update({"predictions": backpropagated_predictions})
-            # Backpropagate instructions reward
-            instructions_predictions = trainable_variable.get("instructions_candidates")
-            instructions = trainable_variable.get("instructions")
-            instructions.update({"reward": reward})
-            instructions_predictions.append(instructions)
             # Get the k best predictions (sorted by reward)
             sorted_predictions = sorted(
                 backpropagated_predictions,
@@ -130,6 +127,10 @@ class OPRO(Optimizer):
                 reverse=True,
             )
             top_k_predictions = sorted_predictions[: self.k_best]
+            if len(top_k_predictions) > self.k:
+                selected_predictions = random.sample(top_k_predictions, self.k)
+            else:
+                selected_predictions = top_k_predictions
             # Get the k best instructions candidates (sorted by reward)
             sorted_instructions_candidates = sorted(
                 trainable_variable.get("instructions_candidates"),
@@ -143,14 +144,21 @@ class OPRO(Optimizer):
                 instructions_candidates=top_k_instructions_candidates,
             )
             new_instructions = await self.program(inputs)
-            trainable_variable.update({"instructions": new_instructions.get_json()})
+            trainable_variable.update(
+                {
+                    "instructions": new_instructions.get_json(),
+                    "examples": selected_predictions,
+                }
+            )
 
     async def finalize(self, trainable_variable):
         """Finalize the optimization of a single variable (cleanup/scaling etc.)."""
+        trainable_variable.update({"predictions": []})
         trainable_variable.update({"instructions_candidates": []})
 
     def get_config(self):
         config = {
+            "k": self.k,
             "k_best": self.k_best,
             "name": self.name,
             "description": self.description,
@@ -172,4 +180,7 @@ class OPRO(Optimizer):
         language_model = serialization_lib.deserialize_synalinks_object(
             config.pop("language_model"),
         )
-        return cls(language_model=language_model, **config)
+        program = serialization_lib.deserialize_synalinks_object(
+            config.pop("program"),
+        )
+        return cls(language_model=language_model, program=program, **config)

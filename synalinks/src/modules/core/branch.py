@@ -149,6 +149,8 @@ class Branch(Module):
             training=training,
         )
         choice = decision.get("choice")
+        if not choice:
+            choice = decision.get("choices")
         outputs = []
         if self.inject_decision:
             inputs = await ops.concat(
@@ -157,7 +159,14 @@ class Branch(Module):
                 name=self.name + "_inputs_with_decision",
             )
         for label, module in self.branches.items():
-            if label == choice:
+            selected = False
+            if isinstance(choice, str):
+                if label == choice:
+                    selected = True
+            elif isinstance(choice, (list, set)):
+                if label in choice:
+                    selected = True
+            if selected:
                 if module:
                     if self.return_decision:
                         outputs.append(

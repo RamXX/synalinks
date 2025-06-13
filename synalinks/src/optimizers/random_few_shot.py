@@ -16,7 +16,7 @@ class FewShotOptimizedVariable(DataModel):
 
 @synalinks_export("synalinks.optimizers.RandomFewShot")
 class RandomFewShot(Optimizer):
-    """Select randomly the best examples to populate the LM's prompt to make it
+    """Sample randomly among the best examples to populate the LM's prompt to make it
         learn using Few Shot Learning.
 
     Example:
