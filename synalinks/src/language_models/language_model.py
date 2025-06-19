@@ -12,6 +12,7 @@ from synalinks.src.backend.config import capture_exception
 from synalinks.src.backend.config import maybe_initialize_telemetry
 from synalinks.src.saving import serialization_lib
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
+from synalinks.src.utils.tool_utils import Tool
 
 
 @synalinks_export(
@@ -112,7 +113,7 @@ class LanguageModel(SynalinksSaveable):
     )
     ```
 
-    To cascade models to make the pipeline robust in case there is anything wrong with
+    To cascade models in case there is anything wrong with
     the model provider (hence making your pipelines more robust).
     Use the `fallback` argument like in this example:
 
@@ -175,14 +176,13 @@ class LanguageModel(SynalinksSaveable):
                 If None, output a ChatMessage-like answer.
             streaming (bool): Enable streaming (optional). Default to False.
                 Can be enabled only if schema is None.
+            functions (list): A list of Python functions for the LM to use.
             **kwargs (keyword arguments): The additional keywords arguments
-                forwarded to the LLM call.
-
+                forwarded to the LM call.
         Returns:
             (dict): The generated structured response.
         """
         maybe_initialize_telemetry()
-
         formatted_messages = messages.get_json().get("messages", [])
         json_instance = {}
         input_kwargs = copy.deepcopy(kwargs)

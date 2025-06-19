@@ -628,6 +628,12 @@ class Program(Trainer, Module):
             variables["optimizer_variables"] = self._create_nested_dict(
                 self.optimizer.variables
             )
+            # variables["optimizer_non_trainable_variables"] = self._create_nested_dict(
+            #     self.optimizer.non_trainable_variables
+            # )
+            # variables["optimizer_trainable_variables"] = self._create_nested_dict(
+            #     self.optimizer.trainable_variables
+            # )
         variables["metrics_variables"] = self._create_nested_dict(self.metrics_variables)
         return variables
 
@@ -683,6 +689,16 @@ class Program(Trainer, Module):
                     self._assign_variable_values(
                         self.optimizer.variables, path_value_dict
                     )
+            # elif k == "optimizer_non_trainable_variables":
+            #     if self.optimizer:
+            #         self._assign_variable_values(
+            #             self.optimizer.non_trainable_variables, path_value_dict
+            #         )
+            # elif k == "optimizer_trainable_variables":
+            #     if self.optimizer:
+            #         self._assign_variable_values(
+            #             self.optimizer.trainable_variables, path_value_dict
+            #         )
             elif k == "metrics_variables":
                 self._assign_variable_values(self.metrics_variables, path_value_dict)
             else:

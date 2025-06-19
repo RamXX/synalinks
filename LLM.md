@@ -15,7 +15,7 @@ The main concept of Synalinks is that it allows developers to build workflows/ag
 ### JSON-Based Data Flow
 - **Data Models**: Uses Pydantic-based `DataModel` classes with field descriptions for structured JSON processing
 - **Schema Specification**: JSON schemas act as specifications for data flow, similar to tensor shapes in traditional deep learning
-- **Type Safety**: Ensures data correctness through structured output validation
+- **Type Safety**: Ensures data correctness through constrained structured output
 
 ### Neuro-Symbolic Architecture
 - **Symbolic Reasoning**: Combines neural network capabilities with symbolic logic and reasoning
@@ -50,15 +50,23 @@ class Query(synalinks.DataModel):
 ### Language Models
 ```python
 language_model = synalinks.LanguageModel(
-    model="ollama_chat/deepseek-r1",
+    model="ollama/deepseek-r1",
+)
+```
+
+### Embedding Models
+```python
+embedding_model = synalinks.EmbeddingModel(
+    model="ollama/deepseek-r1",
 )
 ```
 
 ### Modules
-- **Input**: Defines input data structure
+- **Input**: Defines input data structure. [Input Module]()
 - **Generator**: Processes data using language models
 - **Program**: Orchestrates the entire workflow
 - **Sequential**: Linear processing pipeline
+- **Branch**: Branch over the given modules by selecting only some of them
 
 ### Training and Optimization
 - **In-Context Reinforcement Learning**: Optimizes prompts without changing model weights
@@ -73,15 +81,15 @@ language_model = synalinks.LanguageModel(
 import synalinks
 import asyncio
 
-async def main():
-    class Query(synalinks.DataModel):
-        query: str = synalinks.Field(description="The user query")
+class Query(synalinks.DataModel):
+    query: str = synalinks.Field(description="The user query")
     
-    class AnswerWithThinking(synalinks.DataModel):
-        thinking: str = synalinks.Field(description="Step by step thinking")
-        answer: float = synalinks.Field(description="Numerical answer")
-    
-    language_model = synalinks.LanguageModel(model="ollama_chat/deepseek-r1")
+class AnswerWithThinking(synalinks.DataModel):
+    thinking: str = synalinks.Field(description="Step by step thinking")
+    answer: float = synalinks.Field(description="Numerical answer")
+
+async def main():    
+    language_model = synalinks.LanguageModel(model="ollama/deepseek-r1")
     
     x0 = synalinks.Input(data_model=Query)
     x1 = await synalinks.Generator(
@@ -95,24 +103,23 @@ async def main():
         name="chain_of_thought",
         description="Step by step reasoning system",
     )
-```
 
-### Training Example
-```python
-(x_train, y_train), (x_test, y_test) = synalinks.datasets.gsm8k.load_data()
+    (x_train, y_train), (x_test, y_test) = synalinks.datasets.gsm8k.load_data()
 
-program.compile(
-    reward=synalinks.rewards.ExactMatch(in_mask=["answer"]),
-    optimizer=synalinks.optimizers.RandomFewShot()
-)
+    program.compile(
+        reward=synalinks.rewards.ExactMatch(in_mask=["answer"]),
+        optimizer=synalinks.optimizers.RandomFewShot()
+    )
 
-history = await program.fit(
-    x_train,
-    y_train,
-    validation_data=(x_test, y_test),
-    batch_size=32,
-    epochs=10,
-)
+    history = await program.fit(
+        x_train,
+        y_train,
+        validation_data=(x_test, y_test),
+        batch_size=32,
+        epochs=10,
+    )
+
+    synalinks.utils.plot_history(history)
 ```
 
 ## Target Users

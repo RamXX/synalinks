@@ -13,7 +13,7 @@ from synalinks.src.language_models import LanguageModel
 class LanguageModelTest(testing.TestCase):
     @patch("litellm.completion")
     async def test_call_api_without_structured_output(self, mock_completion):
-        lm = LanguageModel(model="ollama/deepseek-r1")
+        language_model = LanguageModel(model="ollama/deepseek-r1")
 
         messages = ChatMessages(
             messages=[ChatMessage(role=ChatRole.USER, content="Hello")]
@@ -26,13 +26,13 @@ class LanguageModelTest(testing.TestCase):
         expected = ChatMessage(
             role=ChatRole.ASSISTANT, content="Hello, how can I help you?"
         )
-        result = await lm(messages)
+        result = await language_model(messages)
         self.assertEqual(result, ChatMessage(**result).get_json())
         self.assertEqual(result, expected.get_json())
 
     @patch("litellm.completion")
     async def test_call_api_with_structured_output(self, mock_completion):
-        lm = LanguageModel(model="ollama/deepseek-r1")
+        language_model = LanguageModel(model="ollama/deepseek-r1")
 
         messages = ChatMessages(
             messages=[
@@ -70,13 +70,13 @@ class LanguageModelTest(testing.TestCase):
             ),
             answer="Toulouse",
         )
-        result = await lm(messages, schema=AnswerWithRationale.get_schema())
+        result = await language_model(messages, schema=AnswerWithRationale.get_schema())
         self.assertEqual(result, AnswerWithRationale(**result).get_json())
         self.assertEqual(result, expected.get_json())
 
     @patch("litellm.completion")
     async def test_call_api_streaming_mode(self, mock_completion):
-        lm = LanguageModel(model="ollama/deepseek-r1")
+        language_model = LanguageModel(model="ollama/deepseek-r1")
 
         messages = ChatMessages(
             messages=[ChatMessage(role=ChatRole.USER, content="Hello")]
@@ -98,7 +98,7 @@ class LanguageModelTest(testing.TestCase):
 
         expected = "Hello, how can I help you?"
 
-        response = await lm(messages, streaming=True)
+        response = await language_model(messages, streaming=True)
 
         result = ""
         for msg in response:

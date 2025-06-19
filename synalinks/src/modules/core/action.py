@@ -161,7 +161,7 @@ class Action(Module):
         )
 
     async def compute_output_spec(self, inputs, training=False):
-        self.action(inputs)
+        _ = await self.action(inputs)
         return SymbolicDataModel(schema=GenericAction.get_schema(), name=self.name)
 
     def get_config(self):

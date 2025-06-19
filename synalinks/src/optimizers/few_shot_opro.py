@@ -57,8 +57,7 @@ class FewShotOPRO(Optimizer):
         k (int): The number of examples to select (default 3) among the best predictions.
         k_best (int): The max number of best predictions/instructions to select from
             (default 10).
-        program (Program): The program to use. Optional.
-            If None create one (non-trained) at start.
+        program (Program): The program to use. Optional. If None create one at start.
         name (str): The name of the optimizer.
         description (str): The description of the optimizer.
     """
@@ -153,8 +152,12 @@ class FewShotOPRO(Optimizer):
 
     async def finalize(self, trainable_variable):
         """Finalize the optimization of a single variable (cleanup/scaling etc.)."""
-        trainable_variable.update({"predictions": []})
-        trainable_variable.update({"instructions_candidates": []})
+        trainable_variable.update(
+            {
+                "predictions": [],
+                "instructions_candidates": []
+            }
+        )
 
     def get_config(self):
         config = {
