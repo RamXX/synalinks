@@ -9,10 +9,10 @@ from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import DataModel
 from synalinks.src.backend import Field
 from synalinks.src.backend import dynamic_enum 
-# from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_enum_list
 from synalinks.src.modules.core.generator import Generator
 from synalinks.src.modules.module import Module
 from synalinks.src.saving import serialization_lib
+from synalinks.src.utils.nlp_utils import to_singular_property
 
 
 #--------------------------------------------------------------------------------------------------
@@ -44,14 +44,8 @@ def dynamic_enum_list(schema, prop_to_update, labels, parent_schema=None, descri
         parent_schema = copy.deepcopy(parent_schema)
     
     # Create enum title (capitalize and remove underscores)
-    enum_title = prop_to_update.title().replace("_", "").rstrip("s")  # Remove trailing 's' for singular form
-    if enum_title.endswith("Choice"):
-        enum_title = enum_title
-    else:
-        enum_title = enum_title.rstrip("s") if enum_title.endswith("s") else enum_title
-        if not enum_title.endswith("Choice"):
-            enum_title = "Choice"  # Default to "Choice" for consistency
-    
+    enum_title = to_singular_property(prop_to_update.title()).replace("_", "")
+
     # Create the enum definition
     if description:
         enum_definition = {
