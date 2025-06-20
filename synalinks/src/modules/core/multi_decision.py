@@ -43,7 +43,6 @@ def dynamic_enum_list(schema, prop_to_update, labels, parent_schema=None, descri
     if parent_schema:
         parent_schema = copy.deepcopy(parent_schema)
     
-    # Create enum title (capitalize and remove underscores)
     enum_title = to_singular_property(prop_to_update.title()).replace("_", "")
 
     # Create the enum definition
@@ -60,29 +59,24 @@ def dynamic_enum_list(schema, prop_to_update, labels, parent_schema=None, descri
             "title": enum_title,
             "type": "string",
         }
-    
-    # Add enum to $defs
-    target_schema = parent_schema if parent_schema else schema
-    target_schema["$defs"].update({enum_title: enum_definition})
-    
-    # Update the array property to reference the enum
-    if "properties" in schema and prop_to_update in schema["properties"]:
-        # Update existing property
-        schema["properties"][prop_to_update].update({
+
+    if parent_schema:
+        parent_schema["$defs"].update({title: enum_definition})
+    else:
+        schema["$defs"].update({title: enum_definition})
+
+    schema.setdefault("properties", {}).update({
+        prop_to_update: {
             "items": {
                 "$ref": f"#/$defs/{enum_title}"
             },
             "type": "array",
-            "uniqueItems": True  # Ensure unique items as shown in desired output
-        })
-        
-        # Preserve existing description and title if they exist
-        if "description" not in schema["properties"][prop_to_update]:
-            schema["properties"][prop_to_update]["description"] = "The labels choosed."
-        if "title" not in schema["properties"][prop_to_update]:
-            schema["properties"][prop_to_update]["title"] = prop_to_update.title()
-    
+            "uniqueItems": True  # TODO: may unlock multiple function calls of the same type?
+        }
+    })
+
     return parent_schema if parent_schema else schema
+
 #-------------------------------------------------------------------------------------------------
 
 class Question(DataModel):
