@@ -108,6 +108,7 @@ def dynamic_enum_array(schema, prop_to_update, labels, parent_schema=None, descr
                 "$ref": f"#/$defs/{enum_title}"
             },
             "type": "array",
+            "minItems": 1,
             "uniqueItems": True  # TODO: may unlock multiple function calls of the same type?
         }
     })
