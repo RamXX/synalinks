@@ -84,10 +84,10 @@ class ReACTAgent(Program):
                     "log": f"Error: {e}",
                 }
 
-        language_model = LanguageModel(model="ollama/mistral")
+        language_model = synalinks.LanguageModel(model="ollama/mistral")
 
-        x0 = Input(data_model=Query)
-        x1 = await ReACTAgent(
+        x0 = synalinks.Input(data_model=Query)
+        x1 = await synalinks.ReACTAgent(
             data_model=FinalAnswer,
             language_model=language_model,
             functions=[calculate],
