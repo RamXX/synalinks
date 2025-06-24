@@ -2,7 +2,7 @@
 import copy
 
 from synalinks.src.utils.naming import to_snake_case
-from synalinks.src.utils.nlp_utils import to_plural_property
+from synalinks.src.utils.nlp_utils import to_plural_property, to_singular_property
 
 
 def dynamic_enum(schema, prop_to_update, labels, parent_schema=None, description=None):
@@ -98,9 +98,9 @@ def dynamic_enum_array(schema, prop_to_update, labels, parent_schema=None, descr
         }
 
     if parent_schema:
-        parent_schema["$defs"].update({title: enum_definition})
+        parent_schema["$defs"].update({"title": enum_definition})
     else:
-        schema["$defs"].update({title: enum_definition})
+        schema["$defs"].update({"title": enum_definition})
 
     schema.setdefault("properties", {}).update({
         prop_to_update: {
