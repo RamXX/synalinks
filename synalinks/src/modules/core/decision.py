@@ -261,7 +261,8 @@ class MultiDecision(Module):
         if not isinstance(labels, list):
             raise ValueError("The `labels` parameter must be a list of string.")
 
-        self.schema = dynamic_enum_array(MultipleDecisionAnswer.get_schema(), "choices", labels)
+        schema = dynamic_enum_array(MultipleDecisionAnswer.get_schema(), "choices", labels)
+        self.schema = schema
         self.question = question
         self.labels = labels
         self.language_model = language_model
