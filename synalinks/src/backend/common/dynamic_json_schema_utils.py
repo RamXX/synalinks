@@ -98,9 +98,9 @@ def dynamic_enum_array(schema, prop_to_update, labels, parent_schema=None, descr
         }
 
     if parent_schema:
-        parent_schema["$defs"].update({"title": enum_definition})
+        parent_schema["$defs"].update({enum_title: enum_definition})
     else:
-        schema["$defs"].update({"title": enum_definition})
+        schema["$defs"].update({enum_title: enum_definition})
 
     schema.setdefault("properties", {}).update({
         prop_to_update: {
