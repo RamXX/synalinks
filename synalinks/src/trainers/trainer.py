@@ -342,7 +342,7 @@ class Trainer:
         validation_steps=None,
         validation_batch_size=None,
         validation_freq=1,
-        train_optimizer=True,
+        train_optimizer=False,
     ):
         """Trains the program for a fixed number of epochs (dataset iterations).
 
