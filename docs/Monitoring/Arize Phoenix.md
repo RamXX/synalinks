@@ -1,6 +1,6 @@
 # Enabling LM Tracing with Arize Phoenix
 
-Tracing is important for several reasons, especially in the context of machine learning and software development. It helps identify issues and bugs in your Synalinks programs by providing a detailed log of events and operations. This makes it easier to pinpoint where things went wrong and why.
+Monitoring is important for several reasons, especially in the context of machine learning and software development. It helps identify issues and bugs in your Synalinks programs by providing a detailed log of events and operations. This makes it easier to pinpoint where things went wrong and why.
 
 In this guide we are going to setup the tracing locally, for more information on how to setup in the cloud, refer to [Arize Phoenix documentation](https://docs.arize.com/phoenix)
 

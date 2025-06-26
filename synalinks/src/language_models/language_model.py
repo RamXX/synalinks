@@ -139,6 +139,7 @@ class LanguageModel(SynalinksSaveable):
     Args:
         model (str): The model to use.
         api_base (str): Optional. The endpoint to use.
+        timeout (int): Optional. The timeout value in seconds (Default to 100).
         retry (int): Optional. The number of retry (default to 5).
         fallback (LanguageModel): Optional. The language model to fallback
             if anything is wrong.
@@ -148,6 +149,7 @@ class LanguageModel(SynalinksSaveable):
         self,
         model=None,
         api_base=None,
+        timeout=100,
         retry=5,
         fallback=None,
     ):
@@ -164,6 +166,7 @@ class LanguageModel(SynalinksSaveable):
             self.api_base = "http://localhost:11434"
         else:
             self.api_base = api_base
+        self.timeout = timeout
         self.retry = retry
 
     async def __call__(self, messages, schema=None, streaming=False, **kwargs):
@@ -176,7 +179,6 @@ class LanguageModel(SynalinksSaveable):
                 If None, output a ChatMessage-like answer.
             streaming (bool): Enable streaming (optional). Default to False.
                 Can be enabled only if schema is None.
-            functions (list): A list of Python functions for the LM to use.
             **kwargs (keyword arguments): The additional keywords arguments
                 forwarded to the LM call.
         Returns:
@@ -277,6 +279,7 @@ class LanguageModel(SynalinksSaveable):
                 response = litellm.completion(
                     model=self.model,
                     messages=formatted_messages,
+                    timeout=self.timeout,
                     caching=False,
                     **kwargs,
                 )
@@ -315,6 +318,7 @@ class LanguageModel(SynalinksSaveable):
         config = {
             "model": self.model,
             "api_base": self.api_base,
+            "timeout": self.timeout,
             "retry": self.retry,
         }
         if self.fallback:

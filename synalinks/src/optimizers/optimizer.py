@@ -14,6 +14,9 @@ from synalinks.src.backend import standardize_schema
 from synalinks.src.initializers import Empty
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 from synalinks.src.utils.naming import auto_name
+from synalinks.src.modules import Module
+from synalinks.src.metrics import Metric
+from synalinks.src.utils import tracking
 from synalinks.src.utils.tracking import Tracker
 
 
@@ -68,15 +71,9 @@ class Optimizer(SynalinksSaveable):
         self._schema = schema
 
         self.built = False
-        self._variables = []
-        self._tracker = Tracker(
-            {
-                "variables": (
-                    lambda x: isinstance(x, backend.Variable),
-                    self._variables,
-                ),
-            }
-        )
+        
+        self._initialize_tracker()
+        
         with backend.name_scope(self.name, caller=self):
             iterations = backend.Variable(
                 initializer=Empty(data_model=Iteration),
@@ -84,22 +81,67 @@ class Optimizer(SynalinksSaveable):
                 trainable=False,
                 name="iteration",
             )
-        self._track_variable(iterations)
+        # self._track_variable(iterations)
         self._iteration = iterations
+        
+    @tracking.no_automatic_dependency_tracking
+    def _initialize_tracker(self):
+        if hasattr(self, "_tracker"):
+            return
+        
+        trainable_variables = []
+        non_trainable_variables = []
+        modules = []
+        self._tracker = tracking.Tracker(
+            {
+                "trainable_variables": (
+                    lambda x: isinstance(x, backend.Variable) and x.trainable,
+                    trainable_variables,
+                ),
+                "non_trainable_variables": (
+                    lambda x: isinstance(x, backend.Variable) and not x.trainable,
+                    non_trainable_variables,
+                ),
+                "modules": (
+                    lambda x: isinstance(x, Module) and not isinstance(x, Metric),
+                    modules,
+                ),
+            },
+            exclusions={"non_trainable_variables": ["trainable_variables"]},
+        )
+        self._trainable_variables = trainable_variables
+        self._non_trainable_variables = non_trainable_variables
+        self._modules = modules
+        
+    def __setattr__(self, name, value):
+        # Track Variables, Modules, Metrics.
+        if name != "_tracker":
+            if not hasattr(self, "_tracker"):
+                self._initialize_tracker()
+            value = self._tracker.track(value)
+        return super().__setattr__(name, value)
 
     def get_schema(self):
         return self._schema
 
     @property
     def variables(self):
-        return self._variables[:]
+        return self._non_trainable_variables[:] + self._trainable_variables[:]
+    
+    @property
+    def non_trainable_variables(self):
+        return self._non_trainable_variables[:]
+    
+    @property
+    def trainable_variables(self):
+        variables = []
+        for module in self._modules:
+            variables.extend(module.trainable_variables)
+        return variables
 
     @property
     def iterations(self):
         return self._iteration
-
-    def _track_variable(self, variable):
-        self._tracker.add_to_store("variables", variable)
 
     def save_own_variables(self, store):
         """Get the state of this optimizer object."""
@@ -132,7 +174,7 @@ class Optimizer(SynalinksSaveable):
                 "Go add it!"
             )
 
-    async def apply_optimization(self, trainable_variables, reward=None):
+    async def apply_optimization(self, trainable_variables, reward=None, training=False):
         """Apply the backprop/optimization for each trainable variables
         that match the optimizer schema.
         """
@@ -142,7 +184,7 @@ class Optimizer(SynalinksSaveable):
         self._iteration.update({"iteration": iteration + 1})
         for variable in trainable_variables:
             if contains_schema(variable.get_schema(), self.get_schema()):
-                await self.optimize(variable, reward=reward)
+                await self.optimize(variable, reward=reward, training=training)
 
     async def finalize_variable_values(self, trainable_variables):
         """Finalize the optimization of the variables (cleanup/scaling etc.)."""
@@ -150,7 +192,7 @@ class Optimizer(SynalinksSaveable):
             if contains_schema(variable.get_schema(), self.get_schema()):
                 await self.finalize(variable)
 
-    async def optimize(self, trainable_variable, reward=None):
+    async def optimize(self, trainable_variable, reward=None, training=False):
         """Perform a backprop/optimization on a single variable.
 
         This function needs to be implemented by subclassed Optimizer.

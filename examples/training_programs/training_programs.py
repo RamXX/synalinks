@@ -5,6 +5,7 @@ import synalinks
 
 NB_EPOCHS = 2
 BATCH_SIZE = 32
+STEPS_PER_EPOCHS = 3
 NB_SAMPLES = None
 NB_RUNS = 3
 
@@ -12,6 +13,8 @@ FOLDER = "examples/training_programs"
 
 checkpoint_filepath = "checkpoint.program.json"
 
+synalinks.clear_session()
+synalinks.disable_telemetry()
 
 async def main():
     language_model = synalinks.LanguageModel(
@@ -95,6 +98,7 @@ async def main():
         validation_data=(x_test, y_test),
         epochs=NB_EPOCHS,
         batch_size=BATCH_SIZE,
+        steps_per_epoch=STEPS_PER_EPOCHS,
         callbacks=[program_checkpoint_callback],
     )
     print("Done.")

@@ -20,8 +20,8 @@ class OPROOptimizedVariable(DataModel):
 
 
 class OPROInputs(DataModel):
-    predictions: List[Prediction] = []
     instructions_candidates: List[Instructions] = []
+    predictions: List[Prediction] = []
 
 
 @synalinks_export("synalinks.optimizers.OPRO")
@@ -85,11 +85,12 @@ class OPRO(Optimizer):
             opro_inputs = Input(data_model=OPROInputs)
             opro_outputs = await Generator(
                 language_model=self.language_model,
-                data_model=Instructions,
+                data_model=Instructions.out_mask(mask=["label", "reward"]),
                 instructions=[
                     "Your task is to generate instructions that maximize rewards.",
-                    "Below are some previous instructions with their reward.",
-                    "Generate instructions that is different from all the instructions.",
+                    "The reward ranges from 0.0 to 1.0",
+                    "Below are some previous instructions candidates with their rewards.",
+                    "Generate instructions that are different from all the candidates instructions.",
                     (
                         "The instructions should be concise, effective and generally"
                         " applicable to all predictions below."
@@ -105,7 +106,7 @@ class OPRO(Optimizer):
             )
         self.built = True
 
-    async def optimize(self, trainable_variable, reward=None):
+    async def optimize(self, trainable_variable, reward=None, training=False):
         """Perform a backprop/optimization on a single variable."""
         # Backpropagate predictions reward
         predictions = trainable_variable.get("predictions")
@@ -119,10 +120,15 @@ class OPRO(Optimizer):
         if backprop_pred_nb > 0:
             trainable_variable.update({"predictions": backpropagated_predictions})
             # Backpropagate instructions reward
-            instructions_predictions = trainable_variable.get("instructions_candidates")
+            instructions_candidates = trainable_variable.get("instructions_candidates")
             instructions = trainable_variable.get("instructions")
             instructions.update({"reward": reward})
-            instructions_predictions.append(instructions)
+            instructions_candidates.append(instructions)
+            trainable_variable.update(
+                {
+                    "instructions_candidates": instructions_candidates
+                }
+            )
             # Get the k best predictions (sorted by reward)
             sorted_predictions = sorted(
                 backpropagated_predictions,
@@ -132,7 +138,7 @@ class OPRO(Optimizer):
             top_k_predictions = sorted_predictions[: self.k_best]
             # Get the k best instructions candidates (sorted by reward)
             sorted_instructions_candidates = sorted(
-                trainable_variable.get("instructions_candidates"),
+                instructions_candidates,
                 key=lambda x: x["reward"] if x["reward"] is not None else float("-inf"),
                 reverse=True,
             )
@@ -142,8 +148,13 @@ class OPRO(Optimizer):
                 predictions=top_k_predictions,
                 instructions_candidates=top_k_instructions_candidates,
             )
-            new_instructions = await self.program(inputs)
-            trainable_variable.update({"instructions": new_instructions.get_json()})
+            new_instructions = await self.program(inputs, training=training)
+            new_instructions_json = {
+                "label": "Instructions",
+                **new_instructions.get_json(),
+                "reward": None
+            }
+            trainable_variable.update({"instructions": new_instructions_json})
 
     async def finalize(self, trainable_variable):
         """Finalize the optimization of a single variable (cleanup/scaling etc.)."""

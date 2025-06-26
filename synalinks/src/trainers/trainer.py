@@ -342,6 +342,7 @@ class Trainer:
         validation_steps=None,
         validation_batch_size=None,
         validation_freq=1,
+        train_optimizer=True,
     ):
         """Trains the program for a fixed number of epochs (dataset iterations).
 
@@ -440,6 +441,8 @@ class Trainer:
                 Specifies how many training epochs to run
                 before a new validation run is performed,
                 e.g. `validation_freq=2` runs validation every 2 epochs.
+            train_optimizer (bool): Wether or not to train the optimizer
+                if possible (Default to False).
 
         Returns:
             (History): A `History` object. Its `History.history` attribute is
@@ -510,6 +513,7 @@ class Trainer:
                         x=x_batch,
                         y=y_batch,
                         return_dict=True,
+                        train_optimizer=train_optimizer,
                     )
                     callbacks.on_train_batch_end(step, logs)
                     if self.stop_training:
@@ -548,6 +552,11 @@ class Trainer:
 
         if isinstance(self.optimizer, optimizers_module.Optimizer) and epochs > 0:
             await self.optimizer.finalize_variable_values(self.trainable_variables)
+            
+            if self.optimizer.trainable_variables and train_optimizer:
+                await self.optimizer.finalize_variable_values(
+                    self.optimizer.trainable_variables,
+                )
 
         # If _eval_epoch_iterator exists, delete it after all epochs are done.
         if getattr(self, "_eval_epoch_iterator", None) is not None:
@@ -760,6 +769,7 @@ class Trainer:
         self,
         x,
         y=None,
+        train_optimizer=False,
         return_dict=False,
     ):
         """Runs a single backpropagation/optimization update on a single batch of data.
@@ -767,6 +777,8 @@ class Trainer:
         Args:
             x (np.ndarray): Input data. Must be array-like.
             y (np.ndarray): Target data. Must be array-like.
+            train_optimizer (bool): Wether or not to train the optimizer
+                if possible (Default to False).
             return_dict (bool): If `True`, reward and metric results are returned as a
                 dict, with each key being the name of the metric. If `False`,
                 they are returned as a list.
@@ -793,9 +805,17 @@ class Trainer:
             await self.optimizer.apply_optimization(
                 self.trainable_variables,
                 reward=reward,
+                training=True if train_optimizer else False,
             )
         else:
             warnings.warn("The program does not have any trainable variables.")
+            
+        if self.optimizer.trainable_variables and train_optimizer:
+            few_shot_optimizer = optimizers_module.RandomFewShot()
+            await few_shot_optimizer.apply_optimization(
+                self.optimizer.trainable_variables,
+                reward=reward,
+            )
 
         metrics = await self.compute_metrics(x, y, y_pred)
 

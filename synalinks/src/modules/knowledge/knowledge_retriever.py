@@ -5,7 +5,7 @@ from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import TripletSearch
 from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_enum
 from synalinks.src.modules import Module
-from synalinks.src.modules.core.generator import Generator
+from synalinks.src.modules.ttc.chain_of_thought import ChainOfThought
 
 
 @synalinks_export(
@@ -157,6 +157,12 @@ class KnowledgeRetriever(Module):
         self.threshold = threshold
         self.prompt_template = prompt_template
         self.examples = examples
+        if not instructions:
+            instructions = [
+                "Always think about what you need to retrieve before inferring the triplet search parameters",
+                "The similarity query parameters should be a short natural language string describing the subjects/objects to match"
+                "Remember to replace the similarity query with `*` if you need to match all",
+            ]
         self.instructions = instructions
         self.use_inputs_schema = use_inputs_schema
         self.use_outputs_schema = use_outputs_schema
@@ -203,7 +209,7 @@ class KnowledgeRetriever(Module):
             description="The object label (use `*` to match them all)",
         )
 
-        self.query_generator = Generator(
+        self.query_generator = ChainOfThought(
             schema=self.schema,
             language_model=self.language_model,
             prompt_template=self.prompt_template,

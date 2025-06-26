@@ -367,7 +367,9 @@ async def main():
 
     program.compile(
         reward=synalinks.rewards.ExactMatch(in_mask=["answer"]),
-        optimizer=synalinks.optimizers.RandomFewShot()
+        optimizer=synalinks.optimizers.FewShotOPRO(
+            language_model=language_model,
+        )
     )
 
     batch_size=32

@@ -8,6 +8,8 @@ from knowledge_dataset import Document, load_data
 
 FOLDER = "examples/knowledge/extraction"
 
+synalinks.clear_session()
+synalinks.disable_telemetry()
 
 class IsCapitalOfRelations(synalinks.Relations):
     relations: List[IsCapitalOf] = synalinks.Field(

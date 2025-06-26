@@ -19,7 +19,7 @@ class Answer(synalinks.DataModel):
 
 async def main():
     language_model = synalinks.LanguageModel(
-        model="ollama/gemma",
+        model="ollama/mistral",
     )
 
     embedding_model = synalinks.EmbeddingModel(

@@ -110,15 +110,21 @@ class Neo4JAdapter(DatabaseAdapter):
         driver = neo4j.GraphDatabase.driver(
             self.index_name, auth=(self.username, self.password)
         )
+        result_list = []
         try:
             with driver.session(database=self.db) as session:
                 if params:
                     result = session.run(query, **params, **kwargs)
                 else:
                     result = session.run(query, **kwargs)
-                return list(result)
+                for record in reversed(list(result)):
+                    data = record.data()
+                    data = out_mask_json(data, mask=["embedding", "embeddings"])
+                    result_list.append(data)
+                session.close()
         finally:
             driver.close()
+        return result_list
 
     async def update(
         self,
@@ -239,35 +245,18 @@ class Neo4JAdapter(DatabaseAdapter):
                 " $numberOfNearestNeighbours,",
                 " $vector) YIELD node AS node, score",
                 "WHERE score >= $threshold",
-                "RETURN node, score",
+                "RETURN {name: node.name, label: node.label} AS node, score",
                 "LIMIT $numberOfNearestNeighbours",
             ]
         )
-
         params = {
             "indexName": index_name,
             "numberOfNearestNeighbours": k,
             "threshold": threshold,
             "vector": vector,
         }
-
         result = await self.query(query, params=params)
-        outputs = []
-        for record in reversed(result):
-            data = record.data()
-            node_label = data["node"]["label"]
-            node_score = data.get("score", 1.0)
-            filtered_node = out_mask_json(data["node"], mask=["embedding", "label"])
-            node_properties = (
-                "{"
-                + ", ".join([f"{k}:{repr(v)}" for k, v in filtered_node.items()])
-                + "}"
-            )
-            node = f"(n:{node_label} {node_properties}) score: {node_score:.3f}"
-            outputs.append(node)
-        if not outputs:
-            outputs.append("Nothing found with the given query.")
-        return outputs
+        return result
 
     async def triplet_search(
         self,
@@ -285,8 +274,7 @@ class Neo4JAdapter(DatabaseAdapter):
         subject_label = (
             self.sanitize_label(subject_label) if subject_label != "*" else subject_label
         )
-        subject_similarity_search = triplet_search.get("subject_similarity_search")
-        where_not = triplet_search.get("where_not", False)
+        subject_similarity_query = triplet_search.get("subject_similarity_query")
         relation_label = triplet_search.get("relation_label")
         relation_label = (
             self.sanitize_label(relation_label)
@@ -297,8 +285,7 @@ class Neo4JAdapter(DatabaseAdapter):
         object_label = (
             self.sanitize_label(object_label) if object_label != "*" else object_label
         )
-        object_similarity_search = triplet_search.get("object_similarity_search")
-        returns = triplet_search.get("returns", "triplet")
+        object_similarity_query = triplet_search.get("object_similarity_query")
 
         if combined_threshold is None:
             combined_threshold = threshold
@@ -315,19 +302,19 @@ class Neo4JAdapter(DatabaseAdapter):
 
         # Determine which searches we need
         has_subject_similarity = (
-            subject_similarity_search and subject_similarity_search != "*"
+            subject_similarity_query and subject_similarity_query != "*"
         )
         has_object_similarity = (
-            object_similarity_search and object_similarity_search != "*"
+            object_similarity_query and object_similarity_query != "*"
         )
 
         if has_subject_similarity and has_object_similarity:
             # Both subject and object have similarity search
             subject_vector = (
-                await self.embedding_model(texts=[subject_similarity_search])
+                await self.embedding_model(texts=[subject_similarity_query])
             )["embeddings"][0]
             object_vector = (
-                await self.embedding_model(texts=[object_similarity_search])
+                await self.embedding_model(texts=[object_similarity_query])
             )["embeddings"][0]
             params["subjVector"] = subject_vector
             params["objVector"] = object_vector
@@ -381,23 +368,15 @@ class Neo4JAdapter(DatabaseAdapter):
                 ]
             )
 
-            if where_not:
-                where_conditions.append(
-                    (
-                        f"NOT (subj)-[:{relation_label if relation_label != '*' else ''}"
-                        "]->(obj)"
-                    )
-                )
+            if relation_label != "*":
+                query_lines.append(f"MATCH (subj)-[relation:{relation_label}]->(obj)")
             else:
-                if relation_label != "*":
-                    query_lines.append(f"MATCH (subj)-[relation:{relation_label}]->(obj)")
-                else:
-                    query_lines.append("MATCH (subj)-[relation]->(obj)")
-                query_lines.append("WITH subj, subj_score, relation, obj, obj_score")
+                query_lines.append("MATCH (subj)-[relation]->(obj)")
+            query_lines.append("WITH subj, subj_score, relation, obj, obj_score")
 
         elif has_subject_similarity:
             subject_vector = (
-                await self.embedding_model(texts=[subject_similarity_search])
+                await self.embedding_model(texts=[subject_similarity_query])
             )["embeddings"][0]
             params["subjVector"] = subject_vector
 
@@ -424,38 +403,25 @@ class Neo4JAdapter(DatabaseAdapter):
                 ]
             )
 
-            if where_not:
-                if object_label != "*":
-                    query_lines.append(f"MATCH (obj:{object_label})")
-                else:
-                    query_lines.append("MATCH (obj:Entity)")
-                where_conditions.append(
-                    (
-                        f"NOT (subj)-[:{relation_label if relation_label != '*' else ''}"
-                        "]->(obj)"
-                    )
-                )
-                query_lines.append("WITH subj, subj_score, obj, 1.0 AS obj_score")
-            else:
-                if relation_label != "*" and object_label != "*":
-                    query_lines.append(
-                        f"MATCH (subj)-[relation:{relation_label}]->(obj:{object_label})"
-                    )
-                elif relation_label != "*":
-                    query_lines.append(
-                        f"MATCH (subj)-[relation:{relation_label}]->(obj:Entity)"
-                    )
-                elif object_label != "*":
-                    query_lines.append(f"MATCH (subj)-[relation]->(obj:{object_label})")
-                else:
-                    query_lines.append("MATCH (subj)-[relation]->(obj:Entity)")
+            if relation_label != "*" and object_label != "*":
                 query_lines.append(
-                    "WITH subj, subj_score, relation, obj, 1.0 AS obj_score"
+                    f"MATCH (subj)-[relation:{relation_label}]->(obj:{object_label})"
                 )
+            elif relation_label != "*":
+                query_lines.append(
+                    f"MATCH (subj)-[relation:{relation_label}]->(obj:Entity)"
+                )
+            elif object_label != "*":
+                query_lines.append(f"MATCH (subj)-[relation]->(obj:{object_label})")
+            else:
+                query_lines.append("MATCH (subj)-[relation]->(obj:Entity)")
+            query_lines.append(
+                "WITH subj, subj_score, relation, obj, 1.0 AS obj_score"
+            )
 
         elif has_object_similarity:
             object_vector = (
-                await self.embedding_model(texts=[object_similarity_search])
+                await self.embedding_model(texts=[object_similarity_query])
             )["embeddings"][0]
             params["objVector"] = object_vector
 
@@ -479,163 +445,67 @@ class Neo4JAdapter(DatabaseAdapter):
                 ["YIELD node AS obj, score AS obj_score", "WHERE obj_score >= $threshold"]
             )
 
-            if where_not:
-                if subject_label != "*":
-                    query_lines.append(f"MATCH (subj:{subject_label})")
-                else:
-                    query_lines.append("MATCH (subj:Entity)")
-                where_conditions.append(
-                    (
-                        f"NOT (subj)-[:{relation_label if relation_label != '*' else ''}"
-                        "]->(obj)"
-                    )
-                )
-                query_lines.append("WITH subj, 1.0 AS subj_score, obj, obj_score")
-            else:
-                if relation_label != "*" and subject_label != "*":
-                    query_lines.append(
-                        f"MATCH (subj:{subject_label})-[relation:{relation_label}]->(obj)"
-                    )
-                elif relation_label != "*":
-                    query_lines.append(
-                        f"MATCH (subj:Entity)-[relation:{relation_label}]->(obj)"
-                    )
-                elif subject_label != "*":
-                    query_lines.append(f"MATCH (subj:{subject_label})-[relation]->(obj)")
-                else:
-                    query_lines.append("MATCH (subj:Entity)-[relation]->(obj)")
+            if relation_label != "*" and subject_label != "*":
                 query_lines.append(
-                    "WITH subj, 1.0 AS subj_score, relation, obj, obj_score"
+                    f"MATCH (subj:{subject_label})-[relation:{relation_label}]->(obj)"
                 )
+            elif relation_label != "*":
+                query_lines.append(
+                    f"MATCH (subj:Entity)-[relation:{relation_label}]->(obj)"
+                )
+            elif subject_label != "*":
+                query_lines.append(f"MATCH (subj:{subject_label})-[relation]->(obj)")
+            else:
+                query_lines.append("MATCH (subj:Entity)-[relation]->(obj)")
+            query_lines.append(
+                "WITH subj, 1.0 AS subj_score, relation, obj, obj_score"
+            )
 
         else:
-            if where_not:
-                if subject_label != "*":
-                    query_lines.append(f"MATCH (subj:{subject_label})")
-                else:
-                    query_lines.append("MATCH (subj:Entity)")
+            # Build the full pattern match
+            subj_pattern = (
+                f"subj:{subject_label}" if subject_label != "*" else "subj:Entity"
+            )
+            rel_pattern = (
+                f"relation:{relation_label}" if relation_label != "*" else "relation"
+            )
+            obj_pattern = (
+                f"obj:{object_label}" if object_label != "*" else "obj:Entity"
+            )
 
-                if object_label != "*":
-                    query_lines.append(f"MATCH (obj:{object_label})")
-                else:
-                    query_lines.append("MATCH (obj:Entity)")
-
-                where_conditions.append(
-                    (
-                        f"NOT (subj)-[:{relation_label if relation_label != '*' else ''}"
-                        "]->(obj)"
-                    )
-                )
-                query_lines.append("WITH subj, 1.0 AS subj_score, obj, 1.0 AS obj_score")
-            else:
-                # Build the full pattern match
-                subj_pattern = (
-                    f"subj:{subject_label}" if subject_label != "*" else "subj:Entity"
-                )
-                rel_pattern = (
-                    f"relation:{relation_label}" if relation_label != "*" else "relation"
-                )
-                obj_pattern = (
-                    f"obj:{object_label}" if object_label != "*" else "obj:Entity"
-                )
-
-                query_lines.extend(
-                    [
-                        f"MATCH ({subj_pattern})-[{rel_pattern}]->({obj_pattern})",
-                        "WITH subj, 1.0 AS subj_score, relation, obj, 1.0 AS obj_score",
-                    ]
-                )
+            query_lines.extend(
+                [
+                    f"MATCH ({subj_pattern})-[{rel_pattern}]->({obj_pattern})",
+                    "WITH subj, 1.0 AS subj_score, relation, obj, 1.0 AS obj_score",
+                ]
+            )
 
         # Add geometric mean calculation for triplet returns
-        if returns == "triplet" and not where_not:
-            query_lines.append(
-                (
-                    "WITH subj, subj_score, relation, obj, obj_score, "
-                    "sqrt(subj_score * obj_score) "
-                    "AS combined_score"
-                )
+        query_lines.append(
+            (
+                "WITH subj, subj_score, relation, obj, obj_score, "
+                "sqrt(subj_score * obj_score) "
+                "AS combined_score"
             )
-            where_conditions.append("combined_score >= $combinedThreshold")
+        )
+        where_conditions.append("combined_score >= $combinedThreshold")
 
         if where_conditions:
             query_lines.append(f"WHERE {' AND '.join(where_conditions)}")
 
-        # Return clause
-        if returns == "subject":
-            query_lines.extend(["RETURN subj, subj_score", "ORDER BY subj_score DESC"])
-        elif returns == "object":
-            query_lines.extend(["RETURN obj, obj_score", "ORDER BY obj_score DESC"])
-        else:
-            if where_not:
-                query_lines.extend(
-                    ["RETURN subj, subj_score", "ORDER BY subj_score DESC"]
-                )
-            else:
-                query_lines.extend(
-                    [
-                        "RETURN subj, relation, obj, combined_score",
-                        "ORDER BY combined_score DESC",
-                    ]
-                )
+        # Clean the node data to exclude embeddings before returning
+        query_lines.extend(
+            [
+                "RETURN {name: subj.name, label: subj.label} AS subj,",
+                "       type(relation) AS relation,",
+                "       {name: obj.name, label: obj.label} AS obj,",
+                "       combined_score",
+                "ORDER BY combined_score DESC",
+            ]
+        )
 
         query_lines.append("LIMIT $k")
         query = "\n".join(query_lines)
 
         result = await self.query(query, params=params)
-
-        outputs = []
-        for record in reversed(result):
-            data = record.data()
-            if returns == "subject":
-                subj_label = data["subj"]["label"]
-                subj_score = data.get("subj_score", 1.0)
-                filtered_subj = out_mask_json(data["subj"], mask=["embedding", "label"])
-                subj_properties = (
-                    "{"
-                    + ", ".join([f"{k}:{repr(v)}" for k, v in filtered_subj.items()])
-                    + "}"
-                )
-                subj = f"(s:{subj_label} {subj_properties}) score: {subj_score:.3f}"
-                outputs.append(subj)
-            elif returns == "object":
-                obj_label = data["obj"]["label"]
-                obj_score = data.get("obj_score", 1.0)
-                filtered_obj = out_mask_json(data["obj"], mask=["embedding", "label"])
-                obj_properties = (
-                    "{"
-                    + ", ".join([f"{k}:{repr(v)}" for k, v in filtered_obj.items()])
-                    + "}"
-                )
-                obj = f"(o:{obj_label} {obj_properties}) score: {obj_score:.3f}"
-                outputs.append(obj)
-            else:
-                subj_label = data["subj"]["label"]
-                obj_label = data["obj"]["label"]
-                combined_score = data.get("combined_score")
-
-                filtered_subj = out_mask_json(data["subj"], mask=["embedding", "label"])
-                filtered_obj = out_mask_json(data["obj"], mask=["embedding", "label"])
-                subj_properties = (
-                    "{"
-                    + ", ".join([f"{k}:{repr(v)}" for k, v in filtered_subj.items()])
-                    + "}"
-                )
-                obj_properties = (
-                    "{"
-                    + ", ".join([f"{k}:{repr(v)}" for k, v in filtered_obj.items()])
-                    + "}"
-                )
-                subj = f"(s:{subj_label} {subj_properties})"
-                obj = f"(o:{obj_label} {obj_properties})"
-
-                if where_not:
-                    triplet = f"{subj} is not connected to {obj} score: {subj_score:.3f}"
-                else:
-                    relation_label = data["relation"][1]
-                    triplet = (
-                        f"{subj}-[r:{relation_label}]->{obj} score: {combined_score:.3f}"
-                    )
-                outputs.append(triplet)
-        if not outputs:
-            outputs.append("Nothing found with the given query.")
-        return outputs
+        return result
