@@ -263,7 +263,6 @@ class Neo4JAdapter(DatabaseAdapter):
         triplet_search,
         k=10,
         threshold=0.7,
-        combined_threshold=None,
     ):
         if not is_triplet_search(triplet_search):
             raise ValueError(
@@ -287,13 +286,9 @@ class Neo4JAdapter(DatabaseAdapter):
         )
         object_similarity_query = triplet_search.get("object_similarity_query")
 
-        if combined_threshold is None:
-            combined_threshold = threshold
-
         params = {
             "numberOfNearestNeighbours": k,
             "threshold": threshold,
-            "combinedThreshold": combined_threshold,
             "k": k,
         }
 
@@ -480,15 +475,15 @@ class Neo4JAdapter(DatabaseAdapter):
                 ]
             )
 
-        # Add geometric mean calculation for triplet returns
+        # Add geometric mean score calculation for triplets
         query_lines.append(
             (
                 "WITH subj, subj_score, relation, obj, obj_score, "
                 "sqrt(subj_score * obj_score) "
-                "AS combined_score"
+                "AS score"
             )
         )
-        where_conditions.append("combined_score >= $combinedThreshold")
+        where_conditions.append("score >= $threshold")
 
         if where_conditions:
             query_lines.append(f"WHERE {' AND '.join(where_conditions)}")
@@ -499,8 +494,8 @@ class Neo4JAdapter(DatabaseAdapter):
                 "RETURN {name: subj.name, label: subj.label} AS subj,",
                 "       type(relation) AS relation,",
                 "       {name: obj.name, label: obj.label} AS obj,",
-                "       combined_score",
-                "ORDER BY combined_score DESC",
+                "       score",
+                "ORDER BY score DESC",
             ]
         )
 

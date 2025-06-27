@@ -1,9 +1,11 @@
 # Knowledge Extraction
 
-Knowledge extraction from unstructured data is a cornerstone of neuro-symbolic AI applications, enabling systems to transform raw text into structured, logically queryable information. Synalinks provides a sophisticated framework that supports constrained property graph extraction and querying, offering unprecedented flexibility in how you architect your knowledge extraction pipelines.
+Knowledge extraction from unstructured data is a cornerstone of neuro-symbolic AI applications, enabling systems to transform raw text into structured, queryable information. Synalinks provides a sophisticated framework that supports constrained property graph extraction and querying, offering unprecedented flexibility in how you architect your knowledge extraction pipelines.
 
 Synalinks leverages constrained property graphs as its foundation, where the schema is rigorously enforced through constrained JSON decoding. This approach ensures data integrity while maintaining the flexibility to store extracted knowledge in dedicated graph databases for efficient querying and retrieval.
 The framework's modular design allows you to compose extraction pipelines from discrete, reusable components. Each component can be optimized independently, tested in isolation, and combined with others to create sophisticated data processing workflows.
+
+To illustrate our approach, we are going to use the same small language model with different architectures. So you can understand the pro and cons of each approach.
 
 ```python
 import synalinks
@@ -77,6 +79,10 @@ async def one_stage_program(
 
 The one-stage approach minimizes latency and reduces the complexity of pipeline orchestration. However, it demands models with substantial reasoning capabilities and may not be effective for scenarios involving smaller, specialized models.
 
+#### Resulting Graph
+
+![one_stage_graph](../../assets/one_stage_graph.png)
+
 ### Two-Stage Extraction
 
 The two-stage approach represents a strategic decomposition of the extraction process, separating entity identification from relationship inference. This separation allows for specialized optimization at each stage and provides greater control.
@@ -101,7 +107,7 @@ async def two_stage_program(
     )(inputs)
     
     # inputs_with_entities = inputs AND entities (See Control Flow tutorial)
-    inputs_with_entities = inputs & entities 
+    inputs_with_entities = inputs & entities
     relations = await synalinks.Generator(
         data_model=MapRelations,
         language_model=language_model,
@@ -132,7 +138,6 @@ async def two_stage_program(
         to_folder="examples/knowledge_extraction",
         show_trainable=True,
     )
-
     return program
 
 ```
@@ -140,6 +145,10 @@ async def two_stage_program(
 ![two_stage_extraction](../../assets/two_stage_extraction.png)
 
 This staged approach offers several advantages: entities can be extracted using lightweight models optimized for named entity recognition, while relationship inference can leverage more sophisticated reasoning models.
+
+#### Resulting Graph
+
+![two_stage_graph](../../assets/two_stage_graph.png)
 
 ### Multi-Stage Extraction
 
@@ -309,6 +318,10 @@ if __name__ == "__main__":
 
 ![multi_stage_extraction](../../assets/multi_stage_extraction.png)
 
+#### Resulting Graph
+
+![multi_stage_graph](../../assets/multi_stage_graph.png)
+
 ### Dealing with Orphan Nodes
 
 In some cases, specially if you want to use the `KnowledgeRetriever` you will have to extract nodes that are connected to each other. If intelligence is connecting the dot between your data, then orphan nodes are problematic.
@@ -438,6 +451,10 @@ if __name__ == "__main__":
 ```
 
 ![relations_only_multi_stage_extraction](../../assets/relations_only_multi_stage_extraction.png)
+
+#### Resulting Graph
+
+![relations_only_multi_stage_graph](../../assets/relations_only_multi_stage_graph.png)
 
 ## Conclusion
 

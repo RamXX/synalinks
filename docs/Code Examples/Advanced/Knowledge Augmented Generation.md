@@ -107,7 +107,7 @@ if __name__ == "__main__":
         "name": "Vatican City",
         "label": "Country"
       },
-      "combined_score": 0.8975120754014027
+      "score": 0.8975120754014027
     },
     {
       "subj": {
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         "name": "Vatican City",
         "label": "Country"
       },
-      "combined_score": 0.8975120754014027
+      "score": 0.8975120754014027
     },
     {
       "subj": {
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         "name": "United Kingdom",
         "label": "Country"
       },
-      "combined_score": 0.9030690106522803
+      "score": 0.9030690106522803
     },
     {
       "subj": {
@@ -143,7 +143,7 @@ if __name__ == "__main__":
         "name": "United Kingdom",
         "label": "Country"
       },
-      "combined_score": 0.9030690106522803
+      "score": 0.9030690106522803
     },
     {
       "subj": {
@@ -155,7 +155,7 @@ if __name__ == "__main__":
         "name": "Italy",
         "label": "Country"
       },
-      "combined_score": 0.9245654142023485
+      "score": 0.9245654142023485
     },
     {
       "subj": {
@@ -167,7 +167,7 @@ if __name__ == "__main__":
         "name": "Germany",
         "label": "Country"
       },
-      "combined_score": 0.9306481791338741
+      "score": 0.9306481791338741
     },
     {
       "subj": {
@@ -179,7 +179,7 @@ if __name__ == "__main__":
         "name": "Europe",
         "label": "Country"
       },
-      "combined_score": 0.941624026613126
+      "score": 0.941624026613126
     },
     {
       "subj": {
@@ -191,7 +191,7 @@ if __name__ == "__main__":
         "name": "Europe",
         "label": "Country"
       },
-      "combined_score": 0.941624026613126
+      "score": 0.941624026613126
     },
     {
       "subj": {
@@ -203,7 +203,7 @@ if __name__ == "__main__":
         "name": "Europe",
         "label": "Country"
       },
-      "combined_score": 0.941624026613126
+      "score": 0.941624026613126
     },
     {
       "subj": {
@@ -215,7 +215,7 @@ if __name__ == "__main__":
         "name": "France",
         "label": "Country"
       },
-      "combined_score": 0.9998149700645786
+      "score": 0.9998149700645786
     }
   ],
   "answer": "The capital of France is Paris."
@@ -230,7 +230,7 @@ The relationship models (IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn) define
 The `return_inputs=True` parameter in both retriever and generator components ensures that information flows through your pipeline without loss. This allows downstream components to access both the original query and any intermediate results, enabling more sophisticated processing strategies.
 The instruction set for the generator provides crucial guidance for response generation. The instruction to acknowledge when search results aren't relevant prevents hallucination and maintains system reliability. You can customize these instructions based on your specific use case requirements.
 
-Don't forget that these instructions can be optimized to enhance the reasoning capabilities of your RAGs.
+Don't forget that these instructions can be optimized to enhance the reasoning capabilities of your KAGs.
 
 ## Key Takeaways
 
