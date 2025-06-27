@@ -15,59 +15,28 @@ from synalinks.src.programs import Program
 class ParallelReACTAgentTest(testing.TestCase):
     @patch("litellm.completion")
     async def test_basic_flow_with_parallel_actions(self, mock_completion):
-        trajectory_log = []
+        trajectory = []
 
-        class Request(DataModel):
-            query: str
+        class I(DataModel):
+            string: str
 
-        class Response(DataModel):
-            number_of_apples: int
-            number_words_in_string: int
+        class O(DataModel):
+            apples: int
+            wordcount: int
 
-        async def calculate(expression: str):
-            """Calculate the result of a mathematical expression.
-
-            Args:
-                expression (str): The mathematical expression to calculate, such as '2 + 2'.
-                    The expression can contain numbers, operators (+, -, *, /), parentheses, and spaces.
-            """
-            trajectory_log.append({"function": "calculate", "event": "start", "timestamp": time.time()})
-
-            await asyncio.sleep(0.1)
-
-            if not all(char in "0123456789+-*/(). " for char in expression):
-                trajectory_log.append({"function": "calculate", "event": "end", "timestamp": time.time()})
-                return {
-                    "result": None,
-                    "status": "Error: invalid characters in expression",
-                }
-
-            try:
-                result = round(float(eval(expression, {"__builtins__": None}, {})), 2)
-                trajectory_log.append({"function": "calculate", "event": "end", "timestamp": time.time()})
-                return {
-                    "result": result,
-                    "status": "Successfully executed",
-                }
-            except Exception as e:
-                trajectory_log.append({"function": "calculate", "event": "end", "timestamp": time.time()})
-                return {
-                    "result": None,
-                    "status": f"Error: {e}",
-                }
-
-        async def count_words_in_string(string: str):
+        async def wordcount_in_string(string: str):
             """Count the number of whitespace-separated words in a string.
 
             Args:
                 string (str): The string to analyse with words separated by whitespace.
             """
-            trajectory_log.append({"function": "count_words_in_string", "event": "start", "timestamp": time.time()})
+            trajectory.append({"function": "wordcount_in_string", "event": "S", "timestamp": time.time()})
 
             await asyncio.sleep(0.1)
 
             if not isinstance(string, str) or not string.strip():
-                trajectory_log.append({"function": "count_words_in_string", "event": "end", "timestamp": time.time()})
+                trajectory.append({"function": "wordcount_in_string", "event": "E", "timestamp": time.time()})
+                
                 return {
                     "result": None,
                     "status": "Error: Expression must be a non-empty string"
@@ -75,14 +44,52 @@ class ParallelReACTAgentTest(testing.TestCase):
 
             try:
                 result = len(string.split())
-                trajectory_log.append({"function": "count_words_in_string", "event": "end", "timestamp": time.time()})
+
+                trajectory.append({"function": "wordcount_in_string", "event": "E", "timestamp": time.time()})
                 
                 return {
                     "result": result,
                     "status": "Successfully executed"
                 }
             except Exception as e:
-                trajectory_log.append({"function": "count_words_in_string", "event": "end", "timestamp": time.time()})
+                trajectory.append({"function": "wordcount_in_string", "event": "E", "timestamp": time.time()})
+                
+                return {
+                    "result": None,
+                    "status": f"Error: {e}",
+                }
+            
+        async def calculate(expression: str):
+            """Calculate the result of a mathematical expression.
+
+            Args:
+                expression (str): The mathematical expression to calculate, such as '2 + 2'.
+                    The expression can contain numbers, operators (+, -, *, /), parentheses, and spaces.
+            """
+            trajectory.append({"function": "calculate", "event": "S", "timestamp": time.time()})
+
+            await asyncio.sleep(0.1)
+
+            if not all(char in "0123456789+-*/(). " for char in expression):
+                trajectory.append({"function": "calculate", "event": "E", "timestamp": time.time()})
+
+                return {
+                    "result": None,
+                    "status": "Error: invalid characters in expression",
+                }
+
+            try:
+                result = round(float(eval(expression, {"__builtins__": None}, {})), 2)
+                
+                trajectory.append({"function": "calculate", "event": "E", "timestamp": time.time()})
+                
+                return {
+                    "result": result,
+                    "status": "Successfully executed",
+                }
+            except Exception as e:
+                trajectory.append({"function": "calculate", "event": "E", "timestamp": time.time()})
+
                 return {
                     "result": None,
                     "status": f"Error: {e}",
@@ -90,135 +97,91 @@ class ParallelReACTAgentTest(testing.TestCase):
 
         language_model = LanguageModel(model="ollama_chat/deepseek-r1")
 
-        decision_continue = (
-            """
-            {
-                "thinking": "I'll need to run some tools before I can answer.", 
-                "choice": "continue"
-            }
-            """.strip()
-        )
-
-        decision_tools = (
-            """
-            {
-                "thinking": "I should add 12 + 15 and count the words in 'hello parallel agent'.", 
-                "choices": ["calculate", "count_words_in_string"]
-            }
-            """.strip()
-        )
-
-        arguments_calculate = """{"expression": "12 + 15"}"""
-        arguments_count_words_in_string = """{"string": "hello parallel agent"}"""
-
-        decision_continue_2 = (
-            """
-            {
-                "thinking": "I got some results, but better run the tools again to double-check.", 
-                "choice": "continue"
-            }
-            """.strip()
-        )
-
-        decision_tools_2 = (
-            """
-            {
-                "thinking": "I will run both tools again to verify the results.", 
-                "choices": ["calculate", "count_words_in_string"]
-            }
-            """.strip()
-        )
-
-        decision_finish = (
-            """
-            {
-                "thinking": "The results are consistent. I have nothing else to do, I will safely select `finish`.", 
-                "choice": "finish"
-            }
-            """.strip()
-        )
-
-        response = """{"number_of_apples": 27, "number_words_in_string": 3}"""
+        messages = [
+            """{"thinking": "I'll need to run some tools before I can answer.", "choice": "continue"}""",
+            """{"thinking": "I should add 12 + 15 and count the words in 'hello parallel agent'.", "choices": ["wordcount_in_string", "calculate"]}""",
+            """{"string": "hello parallel agent"}""",
+            """{"expression": "12 + 15"}""",
+            """{"thinking": "I got some results, but better run the tools again to double-check.", "choice": "continue"}""",
+            """{"thinking": "I will run them both to double-check the results.", "choices": ["wordcount_in_string", "calculate"]}""",
+            """{"string": "hello parallel agent"}""",
+            """{"expression": "12 + 15"}""",
+            """{"thinking": "The results are consistent. I have nothing else to do, will safely select `finish`.", "choice": "finish"}""",
+            """{"apples": 27, "wordcount": 3}"""
+        ]
 
         mock_trajectory = [
             # 1st turn
-            {"choices": [{"message": {"content": decision_continue}}]},
-            {"choices": [{"message": {"content": decision_tools}}]},
-            {"choices": [{"message": {"content": arguments_calculate}}]},
-            {"choices": [{"message": {"content": arguments_count_words_in_string}}]},
+            {"choices": [{"message": {"content": messages[0]}}]},
+            {"choices": [{"message": {"content": messages[1]}}]},
+            {"choices": [{"message": {"content": messages[2]}}]},
+            {"choices": [{"message": {"content": messages[3]}}]},
             
             # 2nd turn
-            {"choices": [{"message": {"content": decision_continue_2}}]},
-            {"choices": [{"message": {"content": decision_tools_2}}]},
-            {"choices": [{"message": {"content": arguments_calculate}}]},
-            {"choices": [{"message": {"content": arguments_count_words_in_string}}]},
+            {"choices": [{"message": {"content": messages[4]}}]},
+            {"choices": [{"message": {"content": messages[5]}}]},
+            {"choices": [{"message": {"content": messages[6]}}]},
+            {"choices": [{"message": {"content": messages[7]}}]},
             
             # response
-            {"choices": [{"message": {"content": decision_finish}}]},
-            {"choices": [{"message": {"content": response}}]},
+            {"choices": [{"message": {"content": messages[8]}}]},
+            {"choices": [{"message": {"content": messages[9]}}]},
         ]
 
         mock_completion.side_effect = mock_trajectory
 
-        x0 = Input(data_model=Request)
+        x0 = Input(data_model=I)
         x1 = await ParallelReACTAgent(
-            data_model=Response,
+            data_model=O,
             language_model=language_model,
-            functions=[calculate, count_words_in_string],
-            max_iterations=3,
-            return_inputs_with_trajectory=True
+            functions=[wordcount_in_string, calculate],
+            max_iterations=5,
         )(x0)
 
         program = Program(inputs=x0, outputs=x1)
 
         response = await program(
-            Request(
-                query=(
-                    "You have a basket containing 12 apples. "
-                    "Your friend gives you another 15. "
-                    "How many apples do you have in total? "
-                    "And how many words are there in the phrase 'hello, parallel agent'? "
-                    "Ensure that the rationale and results are consistent across iterations."
-                )
-            )
+            I(string=(
+                "You have a basket containing 12 apples. "
+                "Your friend gives you another 15. "
+                "How many apples got in total? "
+                "How many whitespace-separated words in the phrase 'hello, parallel agent'? "
+                "ensure that rationale and results are consistent across iterations. "
+            ))
         )
 
-        self.assertEqual(response.get("number_of_apples"), 27)
-        self.assertEqual(response.get("number_words_in_string"), 3)
+        self.assertEqual(response.get("apples"), 27)
+        self.assertEqual(response.get("wordcount"), 3)
 
-        self._assert_parallel_tool_calls(trajectory_log)
+        self._assert_parallel_tool_calls(trajectory)
 
-    def _assert_parallel_tool_calls(self, trajectory_log):
-        trajectory = []
+    def _assert_parallel_tool_calls(self, trajectory):
+        tool_calls = []
         turn = {}
         
-        for entry in trajectory_log:
-            function = entry["function"]
-            event = entry["event"]
-            timestamp = entry["timestamp"]
+        for item in trajectory:
+            function = item["function"]
+            event = item["event"]
+            timestamp = item["timestamp"]
             
             if function not in turn:
                 turn[function] = {}
             
             turn[function][event] = timestamp
+
+            if len(turn) < 2:
+                continue
+
+            if not all("E" in events for events in turn.values()):
+                continue
             
-            if (len(turn) == 2 and all("end" in events for events in turn.values())):
-                trajectory.append(turn)
-                turn = {}
+            tool_calls.append(turn)
+            turn = {}
         
-        for i, turn in enumerate(trajectory):            
-            calculate_start = turn["calculate"]["start"]
-            calculate_end = turn["calculate"]["end"]
-            count_words_in_string_start = turn["count_words_in_string"]["start"]
-            count_words_in_string_end = turn["count_words_in_string"]["end"]
-                        
-            turn_start = max(calculate_start, count_words_in_string_start)
-            turn_end = min(calculate_end, count_words_in_string_end)
+        for i, turn in enumerate(tool_calls):            
+            S = (turn["calculate"]["S"], turn["wordcount_in_string"]["S"])
+            E = (turn["calculate"]["E"], turn["wordcount_in_string"]["E"])
             
-            self.assertLess(
-                turn_start, 
-                turn_end, 
-                f"tool calls are not executed in parallel in round {i + 1}."
-            )
+            self.assertLess(max(S), min(E), f"tool calls are not executed in parallel in round {i + 1}.")
         
-        self.assertEqual(len(trajectory), 2, "expected 2 rounds of parallel execution")
+        self.assertEqual(len(tool_calls), 2, "expected 2 rounds of parallel execution")

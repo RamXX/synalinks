@@ -109,7 +109,7 @@ def dynamic_enum_array(schema, prop_to_update, labels, parent_schema=None, descr
             },
             "type": "array",
             "minItems": 1,
-            "uniqueItems": True  # TODO: may unlock multiple function calls of the same type?
+            "uniqueItems": True  # TODO(DiTo97): may unlock parallel calls of the same function?
         }
     })
 

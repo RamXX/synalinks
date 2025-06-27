@@ -192,7 +192,7 @@ class Branch(Module):
 
             if self.return_decision:
                 responses = await asyncio.gather(*[
-                    ops.logical_and(decision, response, name=self.name + "_with_decision") for response in responses
+                    ops.logical_and(decision, response, name=self.name + f"_with_decision_{i}") for i, response in enumerate(responses)
                 ])
         else:
             responses = []
