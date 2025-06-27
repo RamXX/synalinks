@@ -192,12 +192,12 @@ class Branch(Module):
 
             if self.return_decision:
                 responses = await asyncio.gather(*[
-                    ops.logical_and(response, result, name=self.name + "_with_decision") for response in responses
+                    ops.logical_and(decision, response, name=self.name + "_with_decision") for response in responses
                 ])
         else:
             responses = []
         
-        for i, response in enumerate(parallel_results):
+        for i, response in enumerate(responses):
             j = selected_mapping[i]
             outputs[j] = response
 
