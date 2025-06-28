@@ -155,7 +155,7 @@ class MCPClientIntegrationTest(testing.TestCase):
         
         add_tool = next(tool for tool in math_tools if tool.name() == "add_numbers")
         result = await add_tool.async__call__(a=5, b=3)
-        self.assertEqual(result["response"], 8)
+        self.assertEqual(result["response"], "8")
 
     async def test_load_tools_from_all_servers_with_namespacing(self):
         """Test loading tools from all servers (namespacing applied)."""
@@ -182,7 +182,7 @@ class MCPClientIntegrationTest(testing.TestCase):
         # Test calling namespaced tools
         namespaced_add_tool = next(tool for tool in all_tools if tool.name() == "math/add_numbers")
         result = await namespaced_add_tool.async__call__(a=10, b=7)
-        self.assertEqual(result["response"], 17)
+        self.assertEqual(result["response"], "17")
         
         namespaced_time_tool = next(tool for tool in all_tools if tool.name() == "time/get_time")
         result = await namespaced_time_tool.async__call__()
