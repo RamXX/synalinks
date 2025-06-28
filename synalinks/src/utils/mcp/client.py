@@ -55,9 +55,9 @@ class MultiServerMCPClient:
         Example: basic usage (starting a new session on each tool call)
 
         ```python
-        from synalinks_mcp_adapters.client import MultiServerMCPClient
+        import synalinks
 
-        client = MultiServerMCPClient(
+        client = synalinks.MultiServerMCPClient(
             {
                 "math": {
                     "command": "python",
@@ -78,10 +78,10 @@ class MultiServerMCPClient:
         Example: explicitly starting a session
 
         ```python
-        from synalinks_mcp_adapters.client import MultiServerMCPClient
-        from synalinks_mcp_adapters.tools import load_mcp_tools
+        import synalinks
+        from synalinks.src.utils.mcp.tools import load_mcp_tools
 
-        client = MultiServerMCPClient({...})
+        client = synalinks.MultiServerMCPClient({...})
         async with client.session("math") as session:
             tools = await load_mcp_tools(session)
         ```
