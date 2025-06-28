@@ -140,8 +140,8 @@ class MultiServerMCPClient:
 
         all_tools: list[Tool] = []
         load_mcp_tool_tasks = []
-        for connection in self.connections.values():
-            load_mcp_tool_task = asyncio.create_task(load_mcp_tools(None, connection=connection))
+        for namespace, connection in self.connections.items():
+            load_mcp_tool_task = asyncio.create_task(load_mcp_tools(None, connection=connection, namespace=namespace))
             load_mcp_tool_tasks.append(load_mcp_tool_task)
         tools_list = await asyncio.gather(*load_mcp_tool_tasks)
         for tools in tools_list:

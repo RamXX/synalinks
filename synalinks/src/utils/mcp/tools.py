@@ -104,6 +104,7 @@ def _create_async_function_from_mcp_tool(
     mcp_tool: MCPTool,
     session: ClientSession | None,
     connection: Connection | None = None,
+    namespace: str | None = None,
 ) -> typing.Coroutine:
     """Create a dynamic async function from an MCP tool that can be wrapped by Synalinks tool."""
     properties = mcp_tool.inputSchema.get("properties", {}) if mcp_tool.inputSchema else {}
@@ -123,7 +124,7 @@ def _create_async_function_from_mcp_tool(
         
         parameters.append(param)
 
-    name = mcp_tool.name
+    name = f"{namespace}/{mcp_tool.name}" if namespace else mcp_tool.name
     
     description = mcp_tool.description or f"Execute {name} function"
     docstring = [description]
@@ -184,6 +185,7 @@ def convert_mcp_tool_to_synalinks_tool(
     tool: MCPTool,
     *,
     connection: Connection | None = None,
+    namespace: str | None = None,
 ) -> Tool:
     """Convert an MCP tool to a Synalinks tool.
 
@@ -194,6 +196,7 @@ def convert_mcp_tool_to_synalinks_tool(
         tool: MCP tool to convert
         connection: Optional connection config to use to create a new session
                     if a `session` is not provided
+        namespace: Optional namespace to use for the tool name, if provided
 
     Returns:
         A Synalinks tool that wraps the MCP tool functionality
@@ -201,7 +204,7 @@ def convert_mcp_tool_to_synalinks_tool(
     if session is None and connection is None:
         raise ValueError("Either a session or a connection config must be provided")
 
-    function = _create_async_function_from_mcp_tool(tool, session, connection)
+    function = _create_async_function_from_mcp_tool(tool, session, connection, namespace=namespace)
     return Tool(function)
 
 
@@ -209,6 +212,7 @@ async def load_mcp_tools(
     session: ClientSession | None,
     *,
     connection: Connection | None = None,
+    namespace: str | None = None,
 ) -> list[Tool]:
     """Load all available MCP tools and convert them to Synalinks tools.
 
@@ -227,6 +231,6 @@ async def load_mcp_tools(
         tools = await _list_all_tools(session)
 
     converted_tools = [
-        convert_mcp_tool_to_synalinks_tool(session, tool, connection=connection) for tool in tools
+        convert_mcp_tool_to_synalinks_tool(session, tool, connection=connection, namespace=namespace) for tool in tools
     ]
     return converted_tools
