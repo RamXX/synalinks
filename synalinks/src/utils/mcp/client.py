@@ -6,6 +6,7 @@ from typing import Any, AsyncIterator
 from mcp import ClientSession
 
 from synalinks import ChatMessages, GenericOutputs
+from synalinks.src.api_export import synalinks_export
 from synalinks.src.utils.mcp.prompts import load_mcp_prompt
 from synalinks.src.utils.mcp.resources import load_mcp_resources
 from synalinks.src.utils.mcp.sessions import (
@@ -33,6 +34,11 @@ ASYNC_CONTEXT_MANAGER_ERROR = (
 )
 
 
+@synalinks_export(
+    [
+        "synalinks.MultiServerMCPClient",
+    ]
+)
 class MultiServerMCPClient:
     """Client for connecting to multiple MCP servers and loading Synalinks-compatible tools, prompts and resources from them."""
 
