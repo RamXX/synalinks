@@ -2,6 +2,7 @@ from typing import Any
 
 from mcp import ClientSession
 from mcp.types import PromptMessage
+
 from synalinks import ChatMessage, ChatMessages, ChatRole
 
 

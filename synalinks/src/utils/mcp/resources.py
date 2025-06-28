@@ -2,6 +2,7 @@ import base64
 
 from mcp import ClientSession
 from mcp.types import BlobResourceContents, ResourceContents, TextResourceContents
+
 from synalinks import GenericOutputs
 
 
