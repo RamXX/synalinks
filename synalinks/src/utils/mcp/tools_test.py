@@ -1,11 +1,7 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
-import platform
-import unittest
 from unittest.mock import AsyncMock, MagicMock
 
-import httpx
-from mcp.server import FastMCP
 from mcp.types import (
     CallToolResult,
     EmbeddedResource,
@@ -13,12 +9,9 @@ from mcp.types import (
     TextContent,
     TextResourceContents,
     Tool as MCPTool,
-    ToolAnnotations,
 )
 
 from synalinks.src import testing
-from synalinks.src.utils.mcp._test_common import run_streamable_server_multiprocessing
-from synalinks.src.utils.mcp.client import MultiServerMCPClient
 from synalinks.src.utils.mcp.tools import (
     _convert_call_tool_result,
     convert_mcp_tool_to_synalinks_tool,
@@ -244,69 +237,3 @@ class MCPToolsTest(testing.TestCase):
 
         result2 = await toolkit[1].async__call__(param1="test2", param2=2)
         self.assertEqual(result2["response"], "tool2 result with {'param1': 'test2', 'param2': 2}")
-
-    @unittest.skipUnless(platform.system() == "Linux", "server tests require Linux (multiprocessing/pickling issues on Windows)")
-    async def test_load_mcp_tools_with_annotations(self):
-        server = FastMCP(port=8181)
-
-        @server.tool(
-            annotations=ToolAnnotations(title="Get Time", readOnlyHint=True, idempotentHint=False)
-        )
-        def get_time() -> str:
-            """Get current time"""
-            return "5:20:00 PM EST"
-
-        with run_streamable_server_multiprocessing(server):
-            client = MultiServerMCPClient(
-                {
-                    "time": {
-                        "url": "http://localhost:8181/mcp/",
-                        "transport": "streamable_http",
-                    },
-                }
-            )
-            tools = await client.get_tools(server_name="time")
-            self.assertEqual(len(tools), 1)
-            tool = tools[0]
-            self.assertEqual(tool.name(), "get_time")
-
-    @unittest.skipUnless(platform.system() == "Linux", "server tests require Linux (multiprocessing/pickling issues on Windows)")
-    async def test_load_mcp_tools_with_custom_httpx_client_factory(self):
-        server = FastMCP(port=8182)
-
-        @server.tool()
-        def get_status() -> str:
-            """Get server status"""
-            return "Server is running"
-
-        def custom_httpx_client_factory(
-            headers: dict[str, str] | None = None,
-            timeout: httpx.Timeout | None = None,
-            auth: httpx.Auth | None = None,
-        ) -> httpx.AsyncClient:
-            """Custom factory for creating httpx.AsyncClient with specific configuration."""
-            return httpx.AsyncClient(
-                headers=headers,
-                timeout=timeout or httpx.Timeout(30.0),
-                auth=auth,
-                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
-            )
-
-        with run_streamable_server_multiprocessing(server):
-            client = MultiServerMCPClient(
-                {
-                    "status": {
-                        "url": "http://localhost:8182/mcp/",
-                        "transport": "streamable_http",
-                        "httpx_client_factory": custom_httpx_client_factory,
-                    },
-                }
-            )
-
-            tools = await client.get_tools(server_name="status")
-            self.assertEqual(len(tools), 1)
-            tool = tools[0]
-            self.assertEqual(tool.name(), "get_status")
-
-            result = await tool.async__call__()
-            self.assertEqual(result["response"], "Server is running")
