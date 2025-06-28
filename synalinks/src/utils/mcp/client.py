@@ -136,7 +136,6 @@ class MultiServerMCPClient:
         Returns:
             A list of Synalinks tools
         """
-        # TODO: add server namespacing
         if server_name is not None:
             if server_name not in self.connections:
                 raise ValueError(
