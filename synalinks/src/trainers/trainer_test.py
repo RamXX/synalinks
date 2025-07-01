@@ -62,7 +62,7 @@ class TestTrainer(testing.TestCase):
         # All metrics should have their variables created
         self.assertEqual(len(program._reward_tracker.variables), 1)
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_predict_on_batch(self, mock_completion):
         mock_answer = AnswerWithRationale(
             rationale="""The capital of France is well-known and is the seat of """
@@ -84,7 +84,7 @@ class TestTrainer(testing.TestCase):
         self.assertEqual(y_pred[0].get_json(), mock_answer.get_json())
         self.assertEqual(y_pred[1].get_json(), mock_answer.get_json())
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_test_on_batch(self, mock_completion):
         mock_answer = AnswerWithRationale(
             rationale="""The capital of France is well-known and is the seat of """
@@ -112,7 +112,7 @@ class TestTrainer(testing.TestCase):
         self.assertEqual(result_metrics[0], 0.5)
         self.assertEqual(result_metrics[1], 0.5)
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_evaluate(self, mock_completion):
         mock_answer = AnswerWithRationale(
             rationale="""The capital of France is well-known and is the seat of """
@@ -141,7 +141,7 @@ class TestTrainer(testing.TestCase):
             y=y_test,
         )
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_predict(self, mock_completion):
         mock_answer = AnswerWithRationale(
             rationale="""The capital of France is well-known and is the seat of """

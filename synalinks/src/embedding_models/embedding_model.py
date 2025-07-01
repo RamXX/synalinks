@@ -124,14 +124,14 @@ class EmbeddingModel(SynalinksSaveable):
         for i in range(self.retry):
             try:
                 if self.api_base:
-                    response = litellm.embedding(
+                    response = await litellm.aembedding(
                         model=self.model,
                         input=texts,
                         api_base=self.api_base,
                         **kwargs,
                     )
                 else:
-                    response = litellm.embedding(
+                    response = await litellm.aembedding(
                         model=self.model,
                         input=texts,
                         **kwargs,

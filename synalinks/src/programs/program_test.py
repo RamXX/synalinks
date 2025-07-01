@@ -180,7 +180,7 @@ class ProgramTest(testing.TestCase):
         program.set_state_tree(state_tree)
         self.assertEqual(state_tree, program.get_state_tree())
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_get_state_after_training(self, mock_completion):
         class Query(DataModel):
             query: str
@@ -222,7 +222,7 @@ class ProgramTest(testing.TestCase):
 
         _ = program.get_state_tree()
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_recover_state_after_training(self, mock_completion):
         class Query(DataModel):
             query: str
@@ -267,7 +267,7 @@ class ProgramTest(testing.TestCase):
         new_state_tree = program.get_state_tree()
         self.assertEqual(state_tree, new_state_tree)
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_saving_after_training(self, mock_completion):
         class Query(DataModel):
             query: str

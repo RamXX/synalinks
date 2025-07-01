@@ -12,7 +12,7 @@ from synalinks.src.programs import Program
 
 
 class DecisionTest(testing.TestCase):
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_basic_decision(self, mock_completion):
         class Query(DataModel):
             query: str

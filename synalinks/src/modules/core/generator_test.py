@@ -109,7 +109,7 @@ class GeneratorModuleTest(testing.TestCase):
         )
         self.assertTrue(len(msgs) == 2)
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_basic_functional_setup(self, mock_completion):
         class Query(DataModel):
             query: str
@@ -150,7 +150,7 @@ class GeneratorModuleTest(testing.TestCase):
 
         self.assertEqual(result.get_json(), json.loads(expected_string))
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_basic_functional_setup_with_schema(self, mock_completion):
         class Query(DataModel):
             query: str
@@ -191,7 +191,7 @@ class GeneratorModuleTest(testing.TestCase):
 
         self.assertEqual(result.get_json(), json.loads(expected_string))
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_basic_subclassing_setup(self, mock_completion):
         class Query(DataModel):
             query: str

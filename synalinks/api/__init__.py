@@ -72,7 +72,11 @@ from synalinks.src.initializers.initializer import Initializer as Initializer
 from synalinks.src.knowledge_bases.knowledge_base import KnowledgeBase as KnowledgeBase
 from synalinks.src.language_models.language_model import LanguageModel as LanguageModel
 from synalinks.src.metrics.metric import Metric as Metric
+from synalinks.src.modules.agents.parallel_react_agent import (
+    ParallelReACTAgent as ParallelReACTAgent,
+)
 from synalinks.src.modules.agents.react_agent import ReACTAgent as ReACTAgent
+from synalinks.src.modules.agents.react_agent import ReACTAgent as SequentialReACTAgent
 from synalinks.src.modules.core.action import Action as Action
 from synalinks.src.modules.core.branch import Branch as Branch
 from synalinks.src.modules.core.decision import Decision as Decision
@@ -85,6 +89,7 @@ from synalinks.src.modules.core.generator import (
 )
 from synalinks.src.modules.core.identity import Identity as Identity
 from synalinks.src.modules.core.input_module import Input as Input
+from synalinks.src.modules.core.multi_decision import MultiDecision as MultiDecision
 from synalinks.src.modules.core.not_module import Not as Not
 from synalinks.src.modules.knowledge.embedding import Embedding as Embedding
 from synalinks.src.modules.knowledge.entity_retriever import (

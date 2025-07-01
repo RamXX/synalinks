@@ -14,7 +14,7 @@ from synalinks.src.programs import Sequential
 
 
 class SequentialTest(testing.TestCase):
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_basic_flow_with_input(self, mock_completion):
         class Query(DataModel):
             query: str

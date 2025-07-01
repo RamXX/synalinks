@@ -2,7 +2,8 @@
 import copy
 
 from synalinks.src.utils.naming import to_snake_case
-from synalinks.src.utils.nlp_utils import to_plural_property, to_singular_property
+from synalinks.src.utils.nlp_utils import to_plural_property
+from synalinks.src.utils.nlp_utils import to_singular_property
 
 
 def dynamic_enum(schema, prop_to_update, labels, parent_schema=None, description=None):
@@ -53,7 +54,9 @@ def dynamic_enum(schema, prop_to_update, labels, parent_schema=None, description
     return parent_schema if parent_schema else schema
 
 
-def dynamic_enum_array(schema, prop_to_update, labels, parent_schema=None, description=None):
+def dynamic_enum_array(
+    schema, prop_to_update, labels, parent_schema=None, description=None
+):
     """Update a schema with dynamic Enum list for array properties.
 
     This function takes a schema with an array property and constrains the items
@@ -70,16 +73,16 @@ def dynamic_enum_array(schema, prop_to_update, labels, parent_schema=None, descr
         dict: The updated schema with the enum applied to the array items.
     """
     schema = copy.deepcopy(schema)
-    
+
     # Ensure $defs is at the beginning of the schema
     if schema.get("$defs"):
         schema = {"$defs": schema.pop("$defs"), **schema}
     else:
         schema = {"$defs": {}, **schema}
-    
+
     if parent_schema:
         parent_schema = copy.deepcopy(parent_schema)
-    
+
     enum_title = to_singular_property(prop_to_update.title()).replace("_", "")
 
     # Create the enum definition
@@ -102,17 +105,17 @@ def dynamic_enum_array(schema, prop_to_update, labels, parent_schema=None, descr
     else:
         schema["$defs"].update({enum_title: enum_definition})
 
-    schema.setdefault("properties", {}).update({
-        prop_to_update: {
-            "items": {
-                "$ref": f"#/$defs/{enum_title}"
-            },
-            "type": "array",
-            "minItems": 1,
-            "uniqueItems": True  # TODO(DiTo97): may unlock parallel calls of the same function?
+    schema.setdefault("properties", {}).update(
+        {
+            prop_to_update: {
+                "items": {"$ref": f"#/$defs/{enum_title}"},
+                "minItems": 1,
+                "title": prop_to_update.title().replace("_", ""),
+                "type": "array",
+                "uniqueItems": True,
+            }
         }
-    })
-
+    )
     return parent_schema if parent_schema else schema
 
 

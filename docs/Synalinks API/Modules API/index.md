@@ -85,3 +85,4 @@ if __name__ == "__main__":
 ### Agents Modules
 
 - [ReACT Agent module](Agents Modules/ReACT Agent module.md)
+- [Parallel ReACT Agent module](Agents Modules/Parallel ReACT Agent module.md)

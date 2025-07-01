@@ -86,6 +86,7 @@ class Branch(Module):
             schema in the decision prompt (Default to False) (see `Decision`).
         use_outputs_schema (bool): Optional. Whether or not use the outputs
             schema in the decision prompt (Default to False) (see `Decision`).
+        decision_type (bool): Optional. The type of decision module to use.
         name (str): Optional. The name of the module.
         description (str): Optional. The description of the module.
         trainable (bool): Whether the module's variables should be trainable.
@@ -165,42 +166,42 @@ class Branch(Module):
                 name=self.name + "_inputs_with_decision",
             )
 
-        # step 1: collect selected modules
-        selected_mapping = []
-        selected_modules = []
-        
-        for i, (label, module) in enumerate(self.branches.items()):
-            selected = False
+        tasks = []
 
+        async def execute_branch(
+            inputs, module=None, decision=None, return_decision=False
+        ):
+            if not inputs:
+                return None
+            if return_decision:
+                return await ops.logical_and(
+                    decision,
+                    await module(inputs),
+                )
+            else:
+                return await module(inputs)
+
+        for label in self.labels:
+            module = self.branches[label]
+            selected = False
             if isinstance(choice, str):
                 if label == choice:
                     selected = True
             elif isinstance(choice, (list, set)):
                 if label in choice:
                     selected = True
-            
             if selected and module:
-                selected_mapping.append(i)
-                selected_modules.append(module)
-        
-        # step 2: execute selected modules in parallel
-        if selected_modules:
-            responses = await asyncio.gather(*[
-                module(inputs, training=training) 
-                for module in selected_modules
-            ])
-
-            if self.return_decision:
-                responses = await asyncio.gather(*[
-                    ops.logical_and(decision, response, name=self.name + f"_with_decision_{i}") for i, response in enumerate(responses)
-                ])
-        else:
-            responses = []
-        
-        for i, response in enumerate(responses):
-            j = selected_mapping[i]
-            outputs[j] = response
-
+                tasks.append(
+                    execute_branch(
+                        inputs,
+                        module,
+                        decision,
+                        return_decision=self.return_decision,
+                    )
+                )
+            else:
+                tasks.append(execute_branch(None))
+        outputs = await asyncio.gather(*tasks)
         return tuple(outputs)
 
     async def compute_output_spec(self, inputs, training=False):
@@ -215,7 +216,8 @@ class Branch(Module):
                 decision,
                 name=self.name + "_inputs_with_decision",
             )
-        for module in self.branches.values():
+        for label in self.labels:
+            module = self.branches[label]
             if self.return_decision:
                 outputs.append(
                     await ops.logical_and(

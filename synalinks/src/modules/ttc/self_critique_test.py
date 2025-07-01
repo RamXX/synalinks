@@ -14,7 +14,7 @@ from synalinks.src.programs.program import Program
 
 
 class SelfCritiqueModuleTest(testing.TestCase):
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_self_critique(self, mock_completion):
         class Query(DataModel):
             query: str = Field(
