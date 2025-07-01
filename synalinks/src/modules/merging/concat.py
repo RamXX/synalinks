@@ -8,7 +8,9 @@ from synalinks.src.modules.module import Module
 @synalinks_export(
     [
         "synalinks.Concat",
+        "synalinks.Concatenate",
         "synalinks.modules.Concat",
+        "synalinks.modules.Concatenate",
     ]
 )
 class Concat(Module):

@@ -65,7 +65,7 @@ class RandomFewShot(Optimizer):
     async def build(self, variables):
         self.built = True
 
-    async def optimize(self, trainable_variable, reward=None):
+    async def optimize(self, trainable_variable, reward=None, training=False):
         """Perform a backprop/optimization on a single variable."""
         # Reward backpropagation
         predictions = trainable_variable.get("predictions")

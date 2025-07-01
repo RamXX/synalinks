@@ -57,8 +57,7 @@ class FewShotOPRO(Optimizer):
         k (int): The number of examples to select (default 3) among the best predictions.
         k_best (int): The max number of best predictions/instructions to select from
             (default 10).
-        program (Program): The program to use. Optional.
-            If None create one (non-trained) at start.
+        program (Program): The program to use. Optional. If None create one at start.
         name (str): The name of the optimizer.
         description (str): The description of the optimizer.
     """
@@ -87,11 +86,12 @@ class FewShotOPRO(Optimizer):
             opro_inputs = Input(data_model=OPROInputs)
             opro_outputs = await Generator(
                 language_model=self.language_model,
-                data_model=Instructions,
+                data_model=Instructions.out_mask(mask=["label", "reward"]),
                 instructions=[
                     "Your task is to generate instructions that maximize rewards.",
-                    "Below are some previous instructions with their reward.",
-                    "Generate instructions that is different from all the instructions.",
+                    "The reward ranges from 0.0 to 1.0",
+                    "Below are some previous instructions candidates with their rewards.",
+                    "Generate instructions that are different from all the candidates instructions.",
                     (
                         "The instructions should be concise, effective and generally"
                         " applicable to all predictions below."
@@ -107,7 +107,7 @@ class FewShotOPRO(Optimizer):
             )
         self.built = True
 
-    async def optimize(self, trainable_variable, reward=None):
+    async def optimize(self, trainable_variable, reward=None, training=False):
         """Perform a backprop/optimization on a single variable."""
         # Reward backpropagation
         predictions = trainable_variable.get("predictions")
@@ -120,6 +120,16 @@ class FewShotOPRO(Optimizer):
             backpropagated_predictions.append(p)
         if backprop_pred_nb > 0:
             trainable_variable.update({"predictions": backpropagated_predictions})
+            # Backpropagate instructions reward
+            instructions_candidates = trainable_variable.get("instructions_candidates")
+            instructions = trainable_variable.get("instructions")
+            instructions.update({"reward": reward})
+            instructions_candidates.append(instructions)
+            trainable_variable.update(
+                {
+                    "instructions_candidates": instructions_candidates
+                }
+            )
             # Get the k best predictions (sorted by reward)
             sorted_predictions = sorted(
                 backpropagated_predictions,
@@ -133,28 +143,37 @@ class FewShotOPRO(Optimizer):
                 selected_predictions = top_k_predictions
             # Get the k best instructions candidates (sorted by reward)
             sorted_instructions_candidates = sorted(
-                trainable_variable.get("instructions_candidates"),
+                instructions_candidates,
                 key=lambda x: x["reward"] if x["reward"] is not None else float("-inf"),
                 reverse=True,
             )
             top_k_instructions_candidates = sorted_instructions_candidates[: self.k_best]
             # Prepare inputs for OPRO
             inputs = OPROInputs(
-                predictions=top_k_predictions,
                 instructions_candidates=top_k_instructions_candidates,
+                predictions=top_k_predictions,
             )
-            new_instructions = await self.program(inputs)
+            new_instructions = await self.program(inputs, training=training)
+            new_instructions_json = {
+                "label": "Instructions",
+                **new_instructions.get_json(),
+                "reward": None
+            }
             trainable_variable.update(
                 {
-                    "instructions": new_instructions.get_json(),
+                    "instructions": new_instructions_json,
                     "examples": selected_predictions,
                 }
             )
 
     async def finalize(self, trainable_variable):
         """Finalize the optimization of a single variable (cleanup/scaling etc.)."""
-        trainable_variable.update({"predictions": []})
-        trainable_variable.update({"instructions_candidates": []})
+        trainable_variable.update(
+            {
+                "predictions": [],
+                "instructions_candidates": []
+            }
+        )
 
     def get_config(self):
         config = {

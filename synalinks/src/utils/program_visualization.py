@@ -5,6 +5,7 @@
 import json
 import os
 import sys
+import copy
 
 from synalinks.src import tree
 from synalinks.src.api_export import synalinks_export
@@ -65,6 +66,7 @@ def make_module_label(module, **kwargs):
 
     show_module_names = kwargs.pop("show_module_names")
     show_schemas = kwargs.pop("show_schemas")
+    show_defs = kwargs.pop("show_defs")
     show_trainable = kwargs.pop("show_trainable")
     if kwargs:
         raise ValueError(f"Invalid kwargs: {kwargs}")
@@ -96,12 +98,17 @@ def make_module_label(module, **kwargs):
         input_schema = None
         output_schema = None
         try:
-            input_schema = tree.map_structure(lambda x: x.get_schema(), module.input)
-            output_schema = tree.map_structure(lambda x: x.get_schema(), module.output)
+            input_schema = tree.map_structure(lambda x: copy.deepcopy(x.get_schema()), module.input)
+            output_schema = tree.map_structure(lambda x: copy.deepcopy(x.get_schema()), module.output)
         except (ValueError, AttributeError):
             pass
 
-        def format_schema(schema, inputs=False):
+        def format_schema(schema, inputs=False, defs=False):
+            if not defs:
+                try:
+                    schema.pop("$defs")
+                except Exception:
+                    pass
             prefix = "Input" if inputs else "Output"
             if schema is None:
                 return "?"
@@ -122,10 +129,10 @@ def make_module_label(module, **kwargs):
 
         if class_name != "InputModule":
             cols.append(
-                (f'<td bgcolor="white">{format_schema(input_schema, inputs=True)}</td>')
+                (f'<td bgcolor="white">{format_schema(input_schema, inputs=True, defs=show_defs)}</td>')
             )
         cols.append(
-            (f'<td bgcolor="white">{format_schema(output_schema, inputs=False)}</td>')
+            (f'<td bgcolor="white">{format_schema(output_schema, inputs=False, defs=show_defs)}</td>')
         )
     if show_trainable and hasattr(module, "trainable") and module.variables:
         if module.trainable:
@@ -176,6 +183,7 @@ def remove_unused_edges(dot):
 def program_to_dot(
     program,
     show_schemas=False,
+    show_defs=False,
     show_module_names=True,
     rankdir="TB",
     expand_nested=False,
@@ -189,6 +197,7 @@ def program_to_dot(
     Args:
         program (Program): A Synalinks program instance.
         show_schemas (bool): whether to display schema information.
+        show_defs (bool): whether to display schema defs information.
         show_module_names (bool): whether to display module names.
         rankdir (str): `rankdir` argument passed to PyDot,
             a string specifying the format of the plot: `"TB"`
@@ -241,6 +250,7 @@ def program_to_dot(
     kwargs = {
         "show_module_names": show_module_names,
         "show_schemas": show_schemas,
+        "show_defs": show_defs,
         "show_trainable": show_trainable,
     }
 
@@ -334,6 +344,7 @@ def plot_program(
     to_folder=None,
     show_schemas=False,
     show_module_names=False,
+    show_defs=False,
     rankdir="TB",
     expand_nested=False,
     dpi=200,
@@ -357,6 +368,7 @@ def plot_program(
         to_file="program_1.png",
         to_folder="/tmp",
         show_schemas=True,
+        show_defs=True,
         show_trainable=True,
     )
     ```
@@ -369,6 +381,7 @@ def plot_program(
         program (Program): A Synalinks program instance
         to_file (str | None): Optional. File name of the plot image.
         show_schemas (bool): whether to display schema information.
+        show_defs (bool): whether to display defs schema information.
         show_module_names (bool): whether to display module names.
         rankdir (str): `rankdir` argument passed to PyDot,
             a string specifying the format of the plot: `"TB"`
@@ -425,6 +438,7 @@ def plot_program(
     dot = program_to_dot(
         program,
         show_schemas=show_schemas,
+        show_defs=show_defs,
         show_module_names=show_module_names,
         rankdir=rankdir,
         expand_nested=expand_nested,

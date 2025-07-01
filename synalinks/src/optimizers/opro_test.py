@@ -75,3 +75,10 @@ class OPROTest(testing.TestCase):
 
         program_vars = program.get_variable(index=0).get_json()
         self.assertTrue(len(program_vars["instructions"]) > 0)
+
+    async def test_opro_variables(self):
+        language_model = LanguageModel(model="ollama/mistral")
+        opro_optimizer = OPRO(language_model=language_model)
+        await opro_optimizer.build(None)
+        self.assertTrue(len(opro_optimizer.non_trainable_variables) == 1)
+        self.assertTrue(len(opro_optimizer.trainable_variables) == 1)

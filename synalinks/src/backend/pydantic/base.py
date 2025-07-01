@@ -598,14 +598,11 @@ class TripletSearch(DataModel):
     subject_label: str = Field(
         description=("The label of the subject entity (use `*` to match them all)"),
     )
-    subject_similarity_search: str = Field(
+    subject_similarity_query: str = Field(
         description=(
-            "The natural language similarity query to match specific subjects "
+            "A short similarity query to match specific subjects "
             "(use `*` to match them all)",
         ),
-    )
-    where_not: bool = Field(
-        description="If True, check for the absence of a relation",
     )
     relation_label: str = Field(
         description="The label of the relation to search for",
@@ -613,16 +610,10 @@ class TripletSearch(DataModel):
     object_label: str = Field(
         description=("The label of the object entity (use `*` to match them all)"),
     )
-    object_similarity_search: str = Field(
+    object_similarity_query: str = Field(
         description=(
-            "The natural language similarity query to match specific objects"
+            "A short similarity query to match specific objects"
             " (use `*` to match them all)"
-        ),
-    )
-    returns: Literal["subject", "triplet", "object"] = Field(
-        description=(
-            "Select what to return between the subject, object or triplet"
-            " if you don't know select the triplet."
         ),
     )
 
@@ -648,12 +639,10 @@ def is_triplet_search(x):
     if properties:
         if (
             properties.get("subject_label", None)
-            and properties.get("subject_similarity_search", None)
-            and properties.get("where_not", None)
+            and properties.get("subject_similarity_query", None)
             and properties.get("relation_label", None)
             and properties.get("object_label", None)
-            and properties.get("object_similarity_search", None)
-            and properties.get("returns", None)
+            and properties.get("object_similarity_query", None)
         ):
             return True
     return False

@@ -46,7 +46,14 @@ class Concat(Operation):
         return SymbolicDataModel(schema=schema, name=self.name)
 
 
-@synalinks_export(["synalinks.ops.concat", "synalinks.ops.json.concat"])
+@synalinks_export(
+    [
+        "synalinks.ops.concat",
+        "synalinks.ops.concatenate",
+        "synalinks.ops.json.concat",
+        "synalinks.ops.json.concatenate",
+    ]
+)
 async def concat(x1, x2, name=None, description=None):
     """Concatenate two data models together.
 

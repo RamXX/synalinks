@@ -26,7 +26,7 @@
 [![Python package](https://github.com/SynaLinks/Synalinks/actions/workflows/tests.yml/badge.svg)](https://github.com/SynaLinks/SynaLinks/actions/workflows/tests.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](https://opensource.org/license/apache-2-0)
 
-To busy to read the documentation? Give [LLM.md](LLM.md) to your favorite LM provider.
+Too busy to read the documentation? Give **[LLM.md](https://raw.githubusercontent.com/SynaLinks/synalinks/refs/heads/main/LLM.md)** to your favorite LM provider.
 
 </div>
 
@@ -366,7 +366,9 @@ async def main():
 
     program.compile(
         reward=synalinks.rewards.ExactMatch(in_mask=["answer"]),
-        optimizer=synalinks.optimizers.RandomFewShot()
+        optimizer=synalinks.optimizers.FewShotOPRO(
+            language_model=language_model,
+        )
     )
 
     batch_size=32

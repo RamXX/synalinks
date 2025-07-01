@@ -39,7 +39,7 @@ class Answer(synalinks.DataModel):
 async def main():
 
     language_model = synalinks.LanguageModel(
-        model="ollama/gemma",
+        model="ollama/mistral",
     )
 
     embedding_model = synalinks.EmbeddingModel(
@@ -98,120 +98,77 @@ if __name__ == "__main__":
 
 ![simple_rag](../../assets/simple_rag.png)
 
+#### RAG Example Result
+
+```json
+{
+  "query": "What is the French capital?",
+  "entity_label": "City",
+  "similarity_search": "The capital of France",
+  "result": [
+    {
+      "node": {
+        "name": "Vatican City",
+        "label": "City"
+      },
+      "score": 0.7579443454742432
+    },
+    {
+      "node": {
+        "name": "London",
+        "label": "City"
+      },
+      "score": 0.76287841796875
+    },
+    {
+      "node": {
+        "name": "Rome",
+        "label": "City"
+      },
+      "score": 0.7706664800643921
+    },
+    {
+      "node": {
+        "name": "Brussels",
+        "label": "City"
+      },
+      "score": 0.7798247337341309
+    },
+    {
+      "node": {
+        "name": "Strasbourg",
+        "label": "City"
+      },
+      "score": 0.7949252128601074
+    },
+    {
+      "node": {
+        "name": "Paris",
+        "label": "City"
+      },
+      "score": 0.8945909738540649
+    }
+  ],
+  "answer": "The capital of France is Paris."
+}
+```
+
 The `Query` and `Answer` data models serve as the input and output contracts for your RAG system. The `Query` model captures user questions, while the `Answer` model structures the system's responses. This explicit modeling ensures type safety and makes your pipeline's behavior predictable.
 
-The language model uses Ollama's Gemma model. The embedding model, `mxbai-embed-large`, transforms text into numerical vectors that enable semantic similarity calculations during retrieval.
+The language model uses Ollama's mistral model. The embedding model, `mxbai-embed-large`, transforms text into numerical vectors that enable semantic similarity calculations during retrieval.
 
-The knowledge base represents the heart of your RAG system. By connecting to a Neo4j graph database, it stores and indexes your knowledge using both entity models (City, Country, Place, Event) and relationship models (IsCapitalOf, IsLocatedIn). The cosine metric ensures that semantically similar content receives higher relevance scores during retrieval.
+The knowledge base represents the heart of your RAG system. By connecting to a Neo4j graph database, it stores and indexes your knowledge using both entity models (City, Country, Place, Event) and relationship models (IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn). The cosine metric ensures that semantically similar content receives higher relevance scores during retrieval.
 
 The `EntityRetriever` component searches through your knowledge base to find entities that match the user's query. It returns both the retrieved entities and maintains the original input for downstream processing. The `Generator` then combines the retrieved context with the original query to produce natural language answers.
 
-### Advanced Knowledge Augmented Generation
-
-Moving beyond simple entity retrieval, Knowledge Augmented Generation (KAG) architectures unlock more sophisticated reasoning capabilities by leveraging the relationships between entities in your knowledge graph.
-
-```python
-import synalinks
-import asyncio
-from typing import Literal
-from typing import Union
-
-from knowledge_graph_schema import City, Country, Place, Event
-from knowledge_graph_schema import IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn
-
-
-class Query(synalinks.DataModel):
-    query: str = synalinks.Field(
-        description="The user query",
-    )
-
-class Answer(synalinks.DataModel):
-    answer: str = synalinks.Field(
-        description="The answer to the user query",
-    )
-
-async def main():
-
-    language_model = synalinks.LanguageModel(
-        model="ollama/gemma",
-    )
-
-    embedding_model = synalinks.EmbeddingModel(
-        model="ollama/mxbai-embed-large",
-    )
-
-    knowledge_base = synalinks.KnowledgeBase(
-        index_name="neo4j://localhost:7687",
-        entity_models=[City, Country, Place, Event],
-        relation_models=[IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn],
-        embedding_model=embedding_model,
-        metric="cosine",
-        wipe_on_start=False,
-    )
-    
-    inputs = synalinks.Input(data_model=Query)
-    query_result = await synalinks.KnowledgeRetriever(
-        entity_models=[City, Country, Place, Event],
-        relation_models=[IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn],
-        knowledge_base=knowledge_base,
-        language_model=language_model,
-        return_inputs=True,
-        return_query=True,
-    )(inputs)
-    outputs = await synalinks.Generator(
-        data_model=Answer,
-        language_model=language_model,
-        instructions=[
-            "Your task is to answer in natural language to the query based on the results of the search",
-            "If the result of the search is not relevant, just say that you don't know",
-        ],
-        return_inputs=True,
-    )(query_result)
-
-    program = synalinks.Program(
-        inputs=inputs,
-        outputs=outputs,
-        name="simple_kag",
-        description="A simple KAG program",
-    )
-
-    synalinks.utils.plot_program(
-        program,
-        to_folder="examples/knowledge/retrieval",
-        show_trainable=True,
-        show_schemas=True,
-    )
-    
-    result = await program(Query(query="What is the French capital?"))
-    
-    print(result.prettify_json())
-    
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-The key difference between the basic RAG and KAG approaches lies in the retriever component. While `EntityRetriever` focuses on finding individual entities, `KnowledgeRetriever` explores the rich web of relationships between entities. This enables more sophisticated reasoning patterns.
-
-When you ask "What is the French capital?", the KAG system doesn't just find entities related to France or capitals. It traverses the IsCapitalOf relationships to understand the specific connection between Paris and France, providing more accurate and contextually rich answers.
-
-The relationship models (IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn) define the types of connections your system can reason about. This structured approach enables complex queries like "What events took place in cities that are capitals of European countries?" by following chains of relationships across your knowledge graph.
-
-The `return_inputs=True` parameter in both retriever and generator components ensures that information flows through your pipeline without loss. This allows downstream components to access both the original query and any intermediate results, enabling more sophisticated processing strategies.
-The instruction set for the generator provides crucial guidance for response generation. The instruction to acknowledge when search results aren't relevant prevents hallucination and maintains system reliability. You can customize these instructions based on your specific use case requirements.
-
-Don't forget that these instructions can be optimized with Synalinks to enhance the reasoning capabilities of your RAGs.
-
 ## Key Takeaways
 
-- **Dynamic Knowledge Integration**: RAG systems bridge the gap between static training data and real-time information needs by dynamically retrieving and incorporating external knowledge. This enables AI systems to provide current, accurate responses without requiring model retraining.
+- **Overcoming Static Training Limitations**: RAG solves the fundamental problem that language models cannot access information beyond their training cutoff or incorporate real-time data, enabling systems to provide current and comprehensive responses.
 
-- **Three-Stage Architecture**: The retrieval-augmentation-generation pipeline creates a clear separation of concerns where each stage can be optimized independently. This modular approach improves maintainability and allows for targeted performance improvements.
+- **Synalinks Modular Implementation**: The framework simplifies RAG development through composable components like EntityRetriever and Generator, allowing you to build sophisticated pipelines with clear data flow and maintainable architecture.
 
-- **Entity vs Relationship Retrieval**: EntityRetriever focuses on finding individual knowledge components, while KnowledgeRetriever explores the rich web of relationships between entities. This distinction enables different reasoning patterns depending on query complexity.
+- **Explicit Data Model Contracts**: Using structured Query and Answer models ensures type safety and predictable behavior throughout your pipeline, preventing data inconsistencies and enabling reliable processing across all components.
 
-- **Schema-Driven Pipeline Design**: Synalinks enforces structured data flow through explicit Query and Answer models, ensuring type safety and predictable behavior across your entire RAG pipeline. This contract-based approach prevents data inconsistencies and enables reliable processing.
+- **Knowledge Foundation**: The tutorial demonstrates how graph databases excel at storing structured knowledge with entities (City, Country, Place, Event) and relationships (IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn), providing a robust foundation for semantic retrieval.
 
-- **Graph-Based Knowledge Representation**: Using Neo4j with defined entity and relationship models creates a structured knowledge foundation that supports both simple lookups and complex traversal queries. This approach scales from basic Q&A to sophisticated reasoning tasks.
-
-- **Flexible Component Composition**: The modular architecture allows you to compose retrieval and generation components with precision while maintaining flexibility for different use cases. Components can be swapped, optimized, or extended without affecting the entire pipeline.
+- **Semantic Similarity Scoring**: The example shows how embedding models like mxbai-embed-large convert text to vectors, enabling cosine similarity calculations that rank retrieved entities by relevance.

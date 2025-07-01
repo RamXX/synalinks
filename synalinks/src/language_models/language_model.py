@@ -12,6 +12,7 @@ from synalinks.src.backend.config import capture_exception
 from synalinks.src.backend.config import maybe_initialize_telemetry
 from synalinks.src.saving import serialization_lib
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
+from synalinks.src.utils.tool_utils import Tool
 
 
 @synalinks_export(
@@ -112,7 +113,7 @@ class LanguageModel(SynalinksSaveable):
     )
     ```
 
-    To cascade models to make the pipeline robust in case there is anything wrong with
+    To cascade models in case there is anything wrong with
     the model provider (hence making your pipelines more robust).
     Use the `fallback` argument like in this example:
 
@@ -138,6 +139,7 @@ class LanguageModel(SynalinksSaveable):
     Args:
         model (str): The model to use.
         api_base (str): Optional. The endpoint to use.
+        timeout (int): Optional. The timeout value in seconds (Default to 100).
         retry (int): Optional. The number of retry (default to 5).
         fallback (LanguageModel): Optional. The language model to fallback
             if anything is wrong.
@@ -147,6 +149,7 @@ class LanguageModel(SynalinksSaveable):
         self,
         model=None,
         api_base=None,
+        timeout=100,
         retry=5,
         fallback=None,
     ):
@@ -163,6 +166,7 @@ class LanguageModel(SynalinksSaveable):
             self.api_base = "http://localhost:11434"
         else:
             self.api_base = api_base
+        self.timeout = timeout
         self.retry = retry
 
     async def __call__(self, messages, schema=None, streaming=False, **kwargs):
@@ -176,13 +180,11 @@ class LanguageModel(SynalinksSaveable):
             streaming (bool): Enable streaming (optional). Default to False.
                 Can be enabled only if schema is None.
             **kwargs (keyword arguments): The additional keywords arguments
-                forwarded to the LLM call.
-
+                forwarded to the LM call.
         Returns:
             (dict): The generated structured response.
         """
         maybe_initialize_telemetry()
-
         formatted_messages = messages.get_json().get("messages", [])
         json_instance = {}
         input_kwargs = copy.deepcopy(kwargs)
@@ -277,6 +279,7 @@ class LanguageModel(SynalinksSaveable):
                 response = await litellm.acompletion(
                     model=self.model,
                     messages=formatted_messages,
+                    timeout=self.timeout,
                     caching=False,
                     **kwargs,
                 )
@@ -315,6 +318,7 @@ class LanguageModel(SynalinksSaveable):
         config = {
             "model": self.model,
             "api_base": self.api_base,
+            "timeout": self.timeout,
             "retry": self.retry,
         }
         if self.fallback:

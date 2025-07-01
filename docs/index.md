@@ -38,7 +38,7 @@ async def main():
         )
 
     language_model = synalinks.LanguageModel(
-        model="ollama_chat/deepseek-r1",
+        model="ollama/mistral",
     )
 
     x0 = synalinks.Input(data_model=Query)
@@ -136,7 +136,7 @@ async def main():
             )
             return cls(language_model=language_model, **config)
 
-    language_model = synalinks.LanguageModel(model="ollama_chat/deepseek-r1")
+    language_model = synalinks.LanguageModel(model="ollama/mistral")
 
     program = ChainOfThought(language_model=language_model)
 
@@ -203,7 +203,7 @@ async def main():
             )
 
     language_model = synalinks.LanguageModel(
-        model="ollama_chat/deepseek-r1",
+        model="ollama/mistral",
     )
 
     program = ChainOfThought(
@@ -241,7 +241,7 @@ async def main():
         )
 
     language_model = synalinks.LanguageModel(
-        model="ollama_chat/deepseek-r1",
+        model="ollama/mistral",
     )
 
     program = synalinks.Sequential(

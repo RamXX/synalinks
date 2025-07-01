@@ -65,6 +65,7 @@ nav:
       - Code Examples/Advanced/First Knowledge Graph Schema.md
       - Code Examples/Advanced/Knowledge Extraction.md
       - Code Examples/Advanced/Retrieval Augmented Generation.md
+      - Code Examples/Advanced/Knowledge Augmented Generation.md
   - Synalinks API:
     - Synalinks API/Language Models API.md
     - Synalinks API/Embedding Models API.md
@@ -156,4 +157,7 @@ nav:
     - Synalinks API/Config.md
   - Deployment:
     - Deployment/Building a REST API.md
-    - Deployment/Enabling LM Tracing.md
+  - Graph Visualization:
+    - Graph Visualization/Using G.V() as Graph IDE.md
+  - Monitoring:
+    - Monitoring/Arize Phoenix.md

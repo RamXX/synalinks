@@ -175,6 +175,82 @@ class MetaDataModel(type(pydantic.BaseModel)):
         return asyncio.get_event_loop().run_until_complete(
             ops.Xor().symbolic_call(other, cls)
         )
+        
+    def factorize(cls):
+        """Factorizes the data model.
+
+        Returns:
+            (SymbolicDataModel): The factorized data model.
+        """
+        from synalinks.src import ops
+
+        return asyncio.get_event_loop().run_until_complete(
+            ops.Factorize().symbolic_call(cls)
+        )
+
+    def in_mask(cls, mask=None, recursive=True):
+        """Applies a mask to **keep only** specified keys of the data model.
+
+        Args:
+            mask (list): The mask to be applied (list of keys).
+            recursive (bool): Optional. Whether to apply the mask recursively.
+                Defaults to `True`.
+
+        Returns:
+            (SymbolicDataModel): The data model with the mask applied.
+        """
+        from synalinks.src import ops
+
+        return asyncio.get_event_loop().run_until_complete(
+            ops.InMask(mask=mask, recursive=True).symbolic_call(cls)
+        )
+
+    def out_mask(cls, mask=None, recursive=True):
+        """Applies an mask to **remove** specified keys of the data model.
+
+        Args:
+            mask (list): The mask to be applied (list of keys).
+            recursive (bool): Optional. Whether to apply the mask recursively.
+                Defaults to `True`.
+
+        Returns:
+            (SymbolicDataModel): The data model with the mask applied.
+        """
+        from synalinks.src import ops
+
+        return asyncio.get_event_loop().run_until_complete(
+            ops.OutMask(mask=mask, recursive=True).symbolic_call(cls)
+        )
+
+    def prefix(cls, prefix=None):
+        """Add a prefix to **all** the data model fields (non-recursive).
+
+        Args:
+            prefix (str): the prefix to add
+
+        Returns:
+            (SymbolicDataModel): The data model with the prefix added.
+        """
+        from synalinks.src import ops
+
+        return asyncio.get_event_loop().run_until_complete(
+            ops.Prefix(prefix=prefix).symbolic_call(cls)
+        )
+
+    def suffix(cls, suffix=None):
+        """Add a suffix to **all** the data model fields (non-recursive).
+
+        Args:
+            suffix (str): the suffix to add
+
+        Returns:
+            (SymbolicDataModel): The data model with the suffix added.
+        """
+        from synalinks.src import ops
+
+        return asyncio.get_event_loop().run_until_complete(
+            ops.Suffix(suffix=suffix).symbolic_call(cls)
+        )
 
 
 class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
