@@ -11,7 +11,7 @@ from synalinks.src.programs import Program
 
 
 class ReACTAgentTest(testing.TestCase):
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_basic_flow_with_one_action(self, mock_completion):
         class Query(DataModel):
             query: str

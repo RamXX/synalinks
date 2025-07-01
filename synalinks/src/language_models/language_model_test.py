@@ -11,7 +11,7 @@ from synalinks.src.language_models import LanguageModel
 
 
 class LanguageModelTest(testing.TestCase):
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_call_api_without_structured_output(self, mock_completion):
         language_model = LanguageModel(model="ollama/deepseek-r1")
 
@@ -30,7 +30,7 @@ class LanguageModelTest(testing.TestCase):
         self.assertEqual(result, ChatMessage(**result).get_json())
         self.assertEqual(result, expected.get_json())
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_call_api_with_structured_output(self, mock_completion):
         language_model = LanguageModel(model="ollama/deepseek-r1")
 
@@ -74,7 +74,7 @@ class LanguageModelTest(testing.TestCase):
         self.assertEqual(result, AnswerWithRationale(**result).get_json())
         self.assertEqual(result, expected.get_json())
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_call_api_streaming_mode(self, mock_completion):
         language_model = LanguageModel(model="ollama/deepseek-r1")
 

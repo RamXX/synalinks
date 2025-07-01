@@ -276,7 +276,7 @@ class LanguageModel(SynalinksSaveable):
         for i in range(self.retry):
             try:
                 response_str = ""
-                response = litellm.completion(
+                response = await litellm.acompletion(
                     model=self.model,
                     messages=formatted_messages,
                     timeout=self.timeout,

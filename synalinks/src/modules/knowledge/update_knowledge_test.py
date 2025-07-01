@@ -45,7 +45,7 @@ class DocumentRelations(Relations):
 
 
 class UpdateKnowledgeTest(testing.TestCase):
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_update_knowledge_single_entity(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -84,7 +84,7 @@ class UpdateKnowledgeTest(testing.TestCase):
         result = await program(input_doc)
         self.assertNotEqual(result, None)
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_update_knowledge_single_relation(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -135,7 +135,7 @@ class UpdateKnowledgeTest(testing.TestCase):
         result = await program(input_rel)
         self.assertNotEqual(result, None)
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_update_knowledge_entities(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -179,7 +179,7 @@ class UpdateKnowledgeTest(testing.TestCase):
         result = await program(inputs)
         self.assertNotEqual(result, None)
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_update_knowledge_relations(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}

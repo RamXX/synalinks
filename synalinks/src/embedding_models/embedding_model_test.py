@@ -8,7 +8,7 @@ from synalinks.src.embedding_models.embedding_model import EmbeddingModel
 
 
 class EmbeddingModelTest(testing.TestCase):
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_call_api(self, mock_embedding):
         embedding_model = EmbeddingModel(model="ollama/all-minilm")
 

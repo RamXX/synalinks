@@ -5,7 +5,7 @@ from synalinks.src import ops
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import DataModel
 from synalinks.src.backend import Field
-from synalinks.src.backend import dynamic_enum
+from synalinks.src.backend import dynamic_enum_array
 from synalinks.src.modules.core.generator import Generator
 from synalinks.src.modules.module import Module
 from synalinks.src.saving import serialization_lib
@@ -15,21 +15,23 @@ class Question(DataModel):
     question: str = Field(description="The question to ask yourself.")
 
 
-class DecisionAnswer(DataModel):
+class MultiDecisionAnswer(DataModel):
     thinking: str = Field(
         description="Your step by step thinking to choose the correct label."
     )
-    choice: str = Field(description="The chosen label.")
+    choices: str = Field(description="The array of chosen labels.")
 
 
-@synalinks_export(["synalinks.modules.Decision", "synalinks.Decision"])
-class Decision(Module):
+@synalinks_export(["synalinks.modules.MultiDecision", "synalinks.MultiDecision"])
+class MultiDecision(Module):
     """Perform a decision on the given input based on a question and a list of labels.
 
     This module dynamically create an `Enum` schema based on the given labels and
     use it to generate a possible answer using structured output.
 
-    This ensure that the LM answer is **always** one of the provided labels.
+    This module can choose multiple labels from the available list.
+
+    This ensure that the LM answer is **always** one or more of the provided labels.
 
     Example:
 
@@ -44,7 +46,7 @@ class Decision(Module):
         )
 
         x0 = synalinks.Input(data_model=synalinks.ChatMessages)
-        x1 = await synalinks.Decision(
+        x1 = await synalinks.MultiDecision(
             question="What is the danger level of the discussion?",
             labels=["low", "medium", "high"],
             language_model=language_model,
@@ -106,7 +108,8 @@ class Decision(Module):
             raise ValueError("The `labels` argument must be provided.")
         if not isinstance(labels, list):
             raise ValueError("The `labels` parameter must be a list of string.")
-        schema = dynamic_enum(DecisionAnswer.get_schema(), "choice", labels)
+
+        schema = dynamic_enum_array(MultiDecisionAnswer.get_schema(), "choices", labels)
         self.schema = schema
         self.question = question
         self.labels = labels

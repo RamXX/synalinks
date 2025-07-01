@@ -4,36 +4,61 @@ from synalinks.src.api_export import synalinks_export
 from synalinks.src.modules.core.action import Action
 from synalinks.src.modules.core.branch import Branch
 from synalinks.src.modules.core.generator import Generator
+from synalinks.src.modules.core.identity import Identity
+from synalinks.src.modules.core.multi_decision import MultiDecision
 from synalinks.src.modules.merging.logical_or import Or
 from synalinks.src.programs.program import Program
 from synalinks.src.utils.tool_utils import Tool
 
+_fn_CONTINUE = "continue"
 _fn_END = "finish"
 
 
-def get_decision_question():
-    """The default question used for decision-making"""
-    return "Choose the next function to use based on its name."
+def get_functions_question():
+    """
+    The default question used for decision-making
+    """
+    return "Choose one or more functions to use next in parallel based on their name."
 
 
-def get_instructions():
-    """The default instructions for decision-making"""
+def get_continue_question():
+    """
+    The default question for the continue-finish branch due to parallel tool calling
+    """
+    return (
+        "Decide whether you need more actions to solve the task, "
+        "or the task is finished and you have all the elements to answer."
+    )
+
+
+def get_continue_instructions():
+    """
+    The default instructions for the continue-finish branch due to parallel tool calling
+    """
+    return [
+        f"As soon as you know the answer, or the task is finished, choose `{_fn_END}`.",
+        f"If you need more actions to solve the task, choose `{_fn_CONTINUE}`.",
+    ]
+
+
+def get_parallel_instructions():
+    """The default instructions for decision-making with parallel tool calling"""
     return [
         "Always reflect on your previous actions to know what to do.",
-        f"As soon as you know the answer, or the task is finished, choose `{_fn_END}`.",
     ]
 
 
 @synalinks_export(
     [
-        "synalinks.modules.ReACTAgent",
-        "synalinks.ReACTAgent",
-        "synalinks.modules.SequentialReACTAgent",
-        "synalinks.SequentialReACTAgent",
+        "synalinks.modules.ParallelReACTAgent",
+        "synalinks.ParallelReACTAgent",
     ]
 )
-class ReACTAgent(Program):
-    """ReACT agent as a directed acyclic graph that choose at each step the tool to use.
+class ParallelReACTAgent(Program):
+    """ReACT agent as a directed acyclic graph that choose at each step one
+        or more tool to use.
+
+    The agent will decide at each cycle whether to continue reasoning or to finish.
 
     The difference with DSPy or AdalFlow implementation is that each node in the DAG
     is a separate module with its own trainable variables, yielding better optimization
@@ -89,7 +114,7 @@ class ReACTAgent(Program):
         language_model = synalinks.LanguageModel(model="ollama/mistral")
 
         x0 = synalinks.Input(data_model=Query)
-        x1 = await synalinks.ReACTAgent(
+        x1 = await synalinks.ParallelReACTAgent(
             data_model=FinalAnswer,
             language_model=language_model,
             functions=[calculate],
@@ -117,7 +142,8 @@ class ReACTAgent(Program):
             The data model to use for the final answer.
             If None provided, the Agent will return a ChatMessage-like data model.
         functions (list): A list of Python functions for the agent to choose from.
-        question (str): Optional. The question to branch at each step.
+        question (str): Optional. The question to branch on actions at each step.
+        continue_question (str): Optional. The question for the continue-finish branch.
         language_model (LanguageModel): The language model to use, if provided
             it will ignore `decision_language_model` and `action_language_model` argument.
         decision_language_model (LanguageModel): The language model used for
@@ -128,6 +154,8 @@ class ReACTAgent(Program):
         examples (list): A default list of examples for decision-making (See `Decision`).
         instructions (list): A default list of instructions for decision-making
             (See `Decision`).
+        continue_instructions (list): A default list of instructions for the
+            continue-finish branch due to parallel tool calling.
         use_inputs_schema (bool): Optional. Whether or not use the inputs schema in
             the decision prompt (Default to False) (see `Decision`).
         use_outputs_schema (bool): Optional. Whether or not use the outputs schema in
@@ -148,12 +176,14 @@ class ReACTAgent(Program):
         data_model=None,
         functions=None,
         question=None,
+        continue_question=None,
         language_model=None,
         decision_language_model=None,
         action_language_model=None,
         prompt_template=None,
         examples=None,
         instructions=None,
+        continue_instructions=None,
         use_inputs_schema=False,
         use_outputs_schema=False,
         return_inputs_with_trajectory=False,
@@ -192,8 +222,12 @@ class ReACTAgent(Program):
         self.examples = examples
 
         if not instructions:
-            instructions = get_instructions()
+            instructions = get_parallel_instructions()
         self.instructions = instructions
+
+        if not continue_instructions:
+            continue_instructions = get_continue_instructions()
+        self.continue_instructions = continue_instructions
 
         self.use_inputs_schema = use_inputs_schema
         self.use_outputs_schema = use_outputs_schema
@@ -210,19 +244,17 @@ class ReACTAgent(Program):
         self.max_iterations = max_iterations
 
         if not question:
-            question = get_decision_question()
+            question = get_functions_question()
         self.question = question
+
+        if not continue_question:
+            continue_question = get_continue_question()
+        self.continue_question = continue_question
 
         self.labels = []
         self.functions = functions
         for fn in self.functions:
             self.labels.append(Tool(fn).name())
-
-        assert _fn_END not in self.labels, (
-            f"'{_fn_END}' is a reserved keyword and cannot be used as function name"
-        )
-
-        self.labels.append(_fn_END)
 
     async def build(self, inputs):
         current_steps = [inputs]
@@ -231,6 +263,33 @@ class ReACTAgent(Program):
         for i in range(self.max_iterations):
             if i < self.max_iterations - 1:
                 for step in current_steps:
+                    continue_actions = [
+                        Identity(),
+                        Generator(
+                            schema=self.schema,
+                            language_model=self.action_language_model,
+                            prompt_template=self.prompt_template,
+                            use_inputs_schema=self.use_inputs_schema,
+                            use_outputs_schema=self.use_outputs_schema,
+                            return_inputs=self.return_inputs_with_trajectory,
+                        ),
+                    ]
+                    continue_branches = await Branch(
+                        question=self.continue_question,
+                        labels=[_fn_CONTINUE, _fn_END],
+                        branches=continue_actions,
+                        language_model=self.decision_language_model,
+                        prompt_template=self.prompt_template,
+                        examples=[],
+                        instructions=self.continue_instructions,
+                        use_inputs_schema=self.use_inputs_schema,
+                        use_outputs_schema=self.use_outputs_schema,
+                        return_decision=False,
+                    )(step)
+
+                    step = step & continue_branches[0]
+                    finish_branches.append(continue_branches[1])
+
                     actions = [
                         Action(
                             fn=fn,
@@ -241,30 +300,21 @@ class ReACTAgent(Program):
                         )
                         for fn in self.functions
                     ]
-                    actions.append(
-                        Generator(
-                            schema=self.schema,
-                            language_model=self.action_language_model,
-                            prompt_template=self.prompt_template,
-                            use_inputs_schema=self.use_inputs_schema,
-                            use_outputs_schema=self.use_outputs_schema,
-                            return_inputs=self.return_inputs_with_trajectory,
-                        )
-                    )
                     branches = await Branch(
                         question=self.question,
                         labels=self.labels,
                         branches=actions,
                         language_model=self.decision_language_model,
                         prompt_template=self.prompt_template,
+                        decision_type=MultiDecision,
                         examples=self.examples,
                         instructions=self.instructions,
                         use_inputs_schema=self.use_inputs_schema,
                         use_outputs_schema=self.use_outputs_schema,
                         return_decision=False,
                     )(step)
-                    next_steps.extend([step & branch for branch in branches[:-1]])
-                    finish_branches.append(branches[-1])
+                    composite_branches = await Or()(branches)
+                    next_steps.append(step & composite_branches)
                 current_steps = next_steps
                 next_steps = []
             else:

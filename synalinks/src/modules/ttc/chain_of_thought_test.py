@@ -13,7 +13,7 @@ from synalinks.src.programs.program import Program
 
 
 class ChainOfThoughtModuleTest(testing.TestCase):
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_chain_of_thought_with_k_1(self, mock_completion):
         class Query(DataModel):
             query: str = Field(
@@ -63,7 +63,7 @@ class ChainOfThoughtModuleTest(testing.TestCase):
 
         self.assertEqual(result.get_json(), json.loads(expected_string))
 
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_chain_of_thought_with_k_2(self, mock_completion):
         class Query(DataModel):
             query: str = Field(

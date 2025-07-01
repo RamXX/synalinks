@@ -11,7 +11,7 @@ from synalinks.src.programs import Program
 
 
 class ActionModuleTest(testing.TestCase):
-    @patch("litellm.completion")
+    @patch("litellm.acompletion")
     async def test_basic_action(self, mock_completion):
         class Query(DataModel):
             query: str

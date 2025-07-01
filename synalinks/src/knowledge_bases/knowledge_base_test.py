@@ -29,7 +29,7 @@ class IsPartOf(Relation):
 
 
 class KnowledgeBaseTest(testing.TestCase):
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_knowledge_base(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -49,7 +49,7 @@ class KnowledgeBaseTest(testing.TestCase):
 
         _ = await knowledge_base.query("RETURN 1")
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     def test_knowledge_base_serialization(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}

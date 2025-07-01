@@ -34,7 +34,7 @@ class IsPartOf(Relation):
 
 
 class Neo4JAdapterTest(testing.TestCase):
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_adapter(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -53,7 +53,7 @@ class Neo4JAdapterTest(testing.TestCase):
 
         _ = await adapter.query("RETURN 1")
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_adapter_update_entity(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -75,7 +75,7 @@ class Neo4JAdapterTest(testing.TestCase):
 
         await adapter.update(doc1.to_json_data_model())
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_adapter_update_relation(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -109,7 +109,7 @@ class Neo4JAdapterTest(testing.TestCase):
 
         await adapter.update(rel1.to_json_data_model())
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_adapter_similarity_search(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -164,7 +164,7 @@ class Neo4JAdapterTest(testing.TestCase):
         result = await adapter.similarity_search(search)
         self.assertTrue(len(result) > 0)
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_adapter_triplet_search(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}

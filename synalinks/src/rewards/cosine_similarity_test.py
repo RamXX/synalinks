@@ -9,7 +9,7 @@ from synalinks.src.rewards.cosine_similarity import CosineSimilarity
 
 
 class CosineSimilarityTest(testing.TestCase):
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_base_function(self, mock_embedding):
         embedding_model = EmbeddingModel(model="ollama/all-minilm")
         expected_value = [0.0, 0.1, 0.2, 0.3, 0.4]
@@ -25,7 +25,7 @@ class CosineSimilarityTest(testing.TestCase):
         reward = await cosine_similarity(y_true, y_pred)
         self.assertEqual(reward, 1.0)
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_multiple_fields(self, mock_embedding):
         embedding_model = EmbeddingModel(model="ollama/all-minilm")
         expected_value = [0.0, 0.1, 0.2, 0.3, 0.4]

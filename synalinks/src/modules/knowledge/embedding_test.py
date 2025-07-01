@@ -44,7 +44,7 @@ class DocumentGraph(KnowledgeGraph):
 
 
 class EmbeddingTest(testing.TestCase):
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_embedding_single_entity(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -75,7 +75,7 @@ class EmbeddingTest(testing.TestCase):
         self.assertTrue(len(result.get("embedding")) > 0)
         self.assertTrue(is_embedded_entity(result))
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_embedding_single_relation(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -117,7 +117,7 @@ class EmbeddingTest(testing.TestCase):
         obj = result.get_nested_entity("obj")
         self.assertTrue(is_embedded_entity(obj))
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_embedding_entities(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -159,7 +159,7 @@ class EmbeddingTest(testing.TestCase):
         for entity in result.get_nested_entity_list("entities"):
             self.assertTrue(is_embedded_entity(entity))
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_embedding_relations(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}
@@ -227,7 +227,7 @@ class EmbeddingTest(testing.TestCase):
             self.assertTrue(is_embedded_entity(subj))
             self.assertTrue(is_embedded_entity(obj))
 
-    @patch("litellm.embedding")
+    @patch("litellm.aembedding")
     async def test_embedding_knowledge_graph(self, mock_embedding):
         expected_value = np.random.rand(1024)
         mock_embedding.return_value = {"data": [{"embedding": expected_value}]}

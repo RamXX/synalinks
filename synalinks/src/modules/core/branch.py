@@ -1,5 +1,7 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
+import asyncio
+
 from synalinks.src import ops
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.modules.core.decision import Decision
@@ -84,6 +86,7 @@ class Branch(Module):
             schema in the decision prompt (Default to False) (see `Decision`).
         use_outputs_schema (bool): Optional. Whether or not use the outputs
             schema in the decision prompt (Default to False) (see `Decision`).
+        decision_type (bool): Optional. The type of decision module to use.
         name (str): Optional. The name of the module.
         description (str): Optional. The description of the module.
         trainable (bool): Whether the module's variables should be trainable.
@@ -142,23 +145,44 @@ class Branch(Module):
         )
 
     async def call(self, inputs, training=False):
+        outputs = [None] * len(self.branches)
+
         if not inputs:
-            return tuple([None] * len(self.branches))
+            return tuple(outputs)
+
         decision = await self.decision(
             inputs,
             training=training,
         )
-        choice = decision.get("choice")
+        choice = decision.get("choice", decision.get("choices"))
+
         if not choice:
-            choice = decision.get("choices")
-        outputs = []
+            return tuple(outputs)
+
         if self.inject_decision:
             inputs = await ops.concat(
                 inputs,
                 decision,
                 name=self.name + "_inputs_with_decision",
             )
-        for label, module in self.branches.items():
+
+        tasks = []
+
+        async def execute_branch(
+            inputs, module=None, decision=None, return_decision=False
+        ):
+            if not inputs:
+                return None
+            if return_decision:
+                return await ops.logical_and(
+                    decision,
+                    await module(inputs),
+                )
+            else:
+                return await module(inputs)
+
+        for label in self.labels:
+            module = self.branches[label]
             selected = False
             if isinstance(choice, str):
                 if label == choice:
@@ -166,30 +190,18 @@ class Branch(Module):
             elif isinstance(choice, (list, set)):
                 if label in choice:
                     selected = True
-            if selected:
-                if module:
-                    if self.return_decision:
-                        outputs.append(
-                            await ops.logical_and(
-                                decision,
-                                await module(
-                                    inputs,
-                                    training=training,
-                                ),
-                                name=self.name + "_with_decision",
-                            )
-                        )
-                    else:
-                        outputs.append(
-                            await module(
-                                inputs,
-                                training=training,
-                            )
-                        )
-                else:
-                    outputs.append(None)
+            if selected and module:
+                tasks.append(
+                    execute_branch(
+                        inputs,
+                        module,
+                        decision,
+                        return_decision=self.return_decision,
+                    )
+                )
             else:
-                outputs.append(None)
+                tasks.append(execute_branch(None))
+        outputs = await asyncio.gather(*tasks)
         return tuple(outputs)
 
     async def compute_output_spec(self, inputs, training=False):
@@ -204,7 +216,8 @@ class Branch(Module):
                 decision,
                 name=self.name + "_inputs_with_decision",
             )
-        for module in self.branches.values():
+        for label in self.labels:
+            module = self.branches[label]
             if self.return_decision:
                 outputs.append(
                     await ops.logical_and(

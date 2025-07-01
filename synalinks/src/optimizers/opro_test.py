@@ -17,8 +17,8 @@ from synalinks.src.testing.test_utils import mock_completion_data
 
 
 class OPROTest(testing.TestCase):
-    @patch("litellm.embedding")
-    @patch("litellm.completion")
+    @patch("litellm.aembedding")
+    @patch("litellm.acompletion")
     async def test_opro_training(self, mock_completion, mock_embedding):
         language_model = LanguageModel(model="ollama/mistral")
 
