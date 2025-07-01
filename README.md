@@ -4,14 +4,16 @@
 
 <div align="center">
 
+<b>From idea to production in just few lines </b>
+
+<em>The first neuro-symbolic LM framework to leverage decades-old best practices in Deep Learning frameworks from the most user-friendly framework ever built - Keras</em>
+
 <p align="center">
   <a href="https://synalinks.github.io/synalinks" target="_blank"><strong>Documentation</strong></a> ·
   <a href="https://synalinks.github.io/synalinks/FAQ/" target="_blank"><strong>FAQ</strong></a> ·
   <a href="https://discord.gg/82nt97uXcM" target="_blank"><strong>Discord</strong></a> ·
   <a href="https://synalinks.github.io/synalinks" target="_blank"><strong>Code Examples</strong></a>
 </p>
-
-<b>Synalinks:</b> <em>A production-first LM framework built with decade old Deep Learning best practices</em>
 
 </div>
 
@@ -52,7 +54,7 @@ Developping a successful LM application in a profesional context, beyond statele
 - **Configuring Language & Embedding Models**: Seamlessly integrate multiple LM providers like Ollama, OpenAI, Azure, Anthropic, Mistral or Groq.
 - **Documenting your ML workflows**: Plot your workflows, training history, and evaluations; document everything.
 - **Versioning the prompts/pipelines**: Each program is serializable into JSON so you can version it with git.
-- **Deploying REST APIs**: Compatible out-of-the-box with FastAPI and FastMPC so your Data Scientists and Web Developers can stop tearing each other apart.
+- **Deploying REST APIs or MCP servers**: Compatible out-of-the-box with FastAPI and FastMCP so your Data Scientists and Web Developers can stop tearing each other apart.
 
 Synalinks can help you simplify these tasks by leveraging decade old practices in Deep Learning frameworks. We provide a comprehensive suite of tools and features designed to streamline the development process, making it easier to create, evaluate, train, document and deploy robust neuro-symbolic LMs applications.
 
