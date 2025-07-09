@@ -15,7 +15,7 @@ from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 class KnowledgeBase(SynalinksSaveable):
     """A generic graph knowledge base.
 
-    **Using Neo4j graph database**
+    ### Using Neo4j graph database
 
     ```python
     import synalinks
@@ -41,7 +41,7 @@ class KnowledgeBase(SynalinksSaveable):
     os.environ["NEO4J_PASSWORD"] = "your-neo4j-password" # (Default to "neo4j")
 
     knowledge_base = synalinks.KnowledgeBase(
-        index_name="neo4j://localhost:7687",
+        uri="neo4j://localhost:7687",
         entity_models=[Document, Chunk],
         relation_models=[IsPartOf],
         embedding_model=embedding_model,
@@ -50,12 +50,33 @@ class KnowledgeBase(SynalinksSaveable):
     )
     ```
 
+    Learn more about Neo4J in their documentation **[here](https://neo4j.com/docs/)**
+
+    ### Using MemGraph graph database
+
+    ```python
+    os.environ["MEMGRAPH_DATABASE"] = "your-memgraph-db" # (Default to "memgraph")
+    os.environ["MEMGRAPH_USERNAME"] = "your-memgraph-username" # (Default to "memgraph")
+    os.environ["MEMGRAPH_PASSWORD"] = "your-memgraph-password" # (Default to "memgraph")
+
+    knowledge_base = synalinks.KnowledgeBase(
+        uri="memgraph://localhost:7687",
+        entity_models=[Document, Chunk],
+        relation_models=[IsPartOf],
+        embedding_model=embedding_model,
+        metric="cosine",
+        wipe_on_start=False,
+    )
+    ```
+
+    Learn more about MemGraph in their documentation **[here](https://memgraph.com/docs)**
+
     **Note**: Obviously, use an `.env` file and `.gitignore` to avoid putting
     your username and password in the code or a config file that can lead to
     leackage when pushing it into repositories.
 
     Args:
-        index_name (str): The index name/url of the database.
+        uri (str): The index name/url of the database.
         entity_models (list): The entity models being a list of `Entity`.
         relation_models (list): The relation models being a list of `Relation`.
         embedding_model (EmbeddingModel): The embedding model.
@@ -66,22 +87,22 @@ class KnowledgeBase(SynalinksSaveable):
 
     def __init__(
         self,
-        index_name=None,
+        uri=None,
         entity_models=None,
         relation_models=None,
         embedding_model=None,
         metric="cosine",
         wipe_on_start=False,
     ):
-        self.adapter = database_adapters.get(index_name)(
-            index_name=index_name,
+        self.adapter = database_adapters.get(uri)(
+            uri=uri,
             entity_models=entity_models,
             relation_models=relation_models,
             embedding_model=embedding_model,
             metric=metric,
             wipe_on_start=wipe_on_start,
         )
-        self.index_name = index_name
+        self.uri = uri
         self.entity_models = entity_models
         self.relation_models = relation_models
         self.embedding_model = embedding_model
@@ -178,27 +199,31 @@ class KnowledgeBase(SynalinksSaveable):
 
     def get_config(self):
         config = {
-            "index_name": self.index_name,
+            "uri": self.uri,
             "metric": self.metric,
             "wipe_on_start": self.wipe_on_start,
         }
         entity_models_config = {
             "entity_models": [
-                serialization_lib.serialize_synalinks_object(
-                    entity_model.to_symbolic_data_model()
+                (
+                    serialization_lib.serialize_synalinks_object(
+                        entity_model.to_symbolic_data_model()
+                    )
+                    if not is_symbolic_data_model(entity_model)
+                    else serialization_lib.serialize_synalinks_object(entity_model)
                 )
-                if not is_symbolic_data_model(entity_model)
-                else serialization_lib.serialize_synalinks_object(entity_model)
                 for entity_model in self.entity_models
             ]
         }
         relation_models_config = {
             "relation_models": [
-                serialization_lib.serialize_synalinks_object(
-                    relation_model.to_symbolic_data_model()
+                (
+                    serialization_lib.serialize_synalinks_object(
+                        relation_model.to_symbolic_data_model()
+                    )
+                    if not is_symbolic_data_model(relation_model)
+                    else serialization_lib.serialize_synalinks_object(relation_model)
                 )
-                if not is_symbolic_data_model(relation_model)
-                else serialization_lib.serialize_synalinks_object(relation_model)
                 for relation_model in self.relation_models
             ]
         }

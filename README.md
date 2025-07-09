@@ -4,7 +4,7 @@
 
 <div align="center">
 
-<b>From idea to production in just few lines </b>
+<b>From idea to production in just few lines</b>
 
 <em>The first neuro-symbolic LM framework to leverage decades-old best practices in Deep Learning frameworks from the most user-friendly framework ever built - Keras</em>
 
@@ -22,6 +22,7 @@
 ⭐ Help us reach more AI/ML engineers and grow the Synalinks community. Star this repo ⭐
 
 ![Beta](https://img.shields.io/badge/Release-Beta-blue.svg)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 ![Coverage Badge](https://raw.githubusercontent.com/SynaLinks/synalinks/refs/heads/main/coverage-badge.svg)
 [![Downloads](https://static.pepy.tech/badge/synalinks)](https://pepy.tech/project/synalinks)
 [![Discord](https://img.shields.io/discord/1118241178723291219)](https://discord.gg/82nt97uXcM)
@@ -52,6 +53,7 @@ Developping a successful LM application in a profesional context, beyond statele
 - **Async Optimization**: Synalinks automatically optimizes your pipelines by detecting parallel processes, so you don't have to worry about it.
 - **Assessing the performance of your application**: Synalinks provides built-in metrics and rewards to evaluate your workflows.
 - **Configuring Language & Embedding Models**: Seamlessly integrate multiple LM providers like Ollama, OpenAI, Azure, Anthropic, Mistral or Groq.
+- **Configuring Graph Databases**: Seamlessly integrate with Neo4J or MemGraph (more to come!).
 - **Documenting your ML workflows**: Plot your workflows, training history, and evaluations; document everything.
 - **Versioning the prompts/pipelines**: Each program is serializable into JSON so you can version it with git.
 - **Deploying REST APIs or MCP servers**: Compatible out-of-the-box with FastAPI and FastMCP so your Data Scientists and Web Developers can stop tearing each other apart.
@@ -118,7 +120,7 @@ if __name__ == "__main__":
 
 ### Subclassing the `Program` class
 
-In that case, you should define your modules in `__init__()` and implement the program's structure in `call()`.
+In that case, you should define your modules in `__init__()` and implement the program's structure in `call()`. This way of programming is more similar to PyTorch style, if you are an experimented user, this way will give you the maximum flexibility.
 
 **Note:** you can optionaly have a `training` argument (boolean), which you can use to specify a different behavior in training and inference.
 
@@ -392,6 +394,32 @@ if __name__ == "__main__":
 ![gsm8k_evaluation_comparison](./docs/assets/gsm8k_evaluation_comparison.png)
 
 </div>
+
+## Saving & Loading
+
+To save the entire architecture and variables (the program's state) into a JSON file, do:
+
+```python
+program.save("my_program.json")
+```
+
+In order to load it, do:
+
+```python
+loaded_program = synalinks.Program.load("my_program.json")
+```
+
+To save only the state your program (the variables) into JSON:
+
+```python
+program.save_variables("my_program.variables.json")
+```
+
+To load its variables (needs a program with the same architecture), do:
+
+```python
+program.load_variables("my_program.variables.json")
+```
 
 ### Learn more
 

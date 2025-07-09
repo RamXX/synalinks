@@ -7,6 +7,7 @@ from synalinks.api import ChatMessage
 from synalinks.api import ChatMessages
 from synalinks.api import ChatRole
 from synalinks.api import Concat
+from synalinks.api import Concatenate
 from synalinks.api import DataModel
 from synalinks.api import Decision
 from synalinks.api import EmbeddedEntity

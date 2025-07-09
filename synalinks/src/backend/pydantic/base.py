@@ -598,9 +598,9 @@ class TripletSearch(DataModel):
     subject_label: str = Field(
         description=("The label of the subject entity (use `*` to match them all)"),
     )
-    subject_similarity_query: str = Field(
+    subject_similarity_search: str = Field(
         description=(
-            "A short similarity query to match specific subjects "
+            "A short similarity query to match specific subjects"
             "(use `*` to match them all)",
         ),
     )
@@ -610,7 +610,7 @@ class TripletSearch(DataModel):
     object_label: str = Field(
         description=("The label of the object entity (use `*` to match them all)"),
     )
-    object_similarity_query: str = Field(
+    object_similarity_search: str = Field(
         description=(
             "A short similarity query to match specific objects"
             " (use `*` to match them all)"
@@ -639,10 +639,10 @@ def is_triplet_search(x):
     if properties:
         if (
             properties.get("subject_label", None)
-            and properties.get("subject_similarity_query", None)
+            and properties.get("subject_similarity_search", None)
             and properties.get("relation_label", None)
             and properties.get("object_label", None)
-            and properties.get("object_similarity_query", None)
+            and properties.get("object_similarity_search", None)
         ):
             return True
     return False

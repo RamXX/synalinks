@@ -217,9 +217,9 @@ class Module(BackendModule, Operation, SynalinksSaveable):
                     args[0] = args[0].to_symbolic_data_model()
                 else:
                     args = tree.map_structure(
-                        lambda x: x.to_symbolic_data_model()
-                        if backend.is_data_model(x)
-                        else x,
+                        lambda x: (
+                            x.to_symbolic_data_model() if backend.is_data_model(x) else x
+                        ),
                         args,
                     )
                 await self.__call__(*args, **kwargs)

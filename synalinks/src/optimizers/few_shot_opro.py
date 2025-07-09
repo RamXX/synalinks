@@ -91,7 +91,10 @@ class FewShotOPRO(Optimizer):
                     "Your task is to generate instructions that maximize rewards.",
                     "The reward ranges from 0.0 to 1.0",
                     "Below are some previous instructions candidates with their rewards.",
-                    "Generate instructions that are different from all the candidates instructions.",
+                    (
+                        "Generate instructions that are different from all "
+                        "the candidates instructions."
+                    ),
                     (
                         "The instructions should be concise, effective and generally"
                         " applicable to all predictions below."
@@ -126,9 +129,7 @@ class FewShotOPRO(Optimizer):
             instructions.update({"reward": reward})
             instructions_candidates.append(instructions)
             trainable_variable.update(
-                {
-                    "instructions_candidates": instructions_candidates
-                }
+                {"instructions_candidates": instructions_candidates}
             )
             # Get the k best predictions (sorted by reward)
             sorted_predictions = sorted(
@@ -157,7 +158,7 @@ class FewShotOPRO(Optimizer):
             new_instructions_json = {
                 "label": "Instructions",
                 **new_instructions.get_json(),
-                "reward": None
+                "reward": None,
             }
             trainable_variable.update(
                 {
@@ -168,12 +169,7 @@ class FewShotOPRO(Optimizer):
 
     async def finalize(self, trainable_variable):
         """Finalize the optimization of a single variable (cleanup/scaling etc.)."""
-        trainable_variable.update(
-            {
-                "predictions": [],
-                "instructions_candidates": []
-            }
-        )
+        trainable_variable.update({"predictions": [], "instructions_candidates": []})
 
     def get_config(self):
         config = {

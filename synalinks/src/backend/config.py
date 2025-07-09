@@ -44,6 +44,10 @@ if "SYNALINKS_TELEMETRY" in os.environ:
 else:
     _synalinks_telemetry_enabled = True
 
+# Fix litellm warning for ollama embedding
+# see: https://github.com/BerriAI/litellm/issues/11657
+os.environ["DISABLE_AIOHTTP_TRANSPORT"] = "true"
+
 
 @synalinks_export(
     [

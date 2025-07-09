@@ -28,6 +28,7 @@ dependencies = [
     "graphviz",
     "inquirer",
     "jinja2",
+    "kuzu",
     "litellm",
     "matplotlib",
     "namex",

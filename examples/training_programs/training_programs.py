@@ -16,6 +16,7 @@ checkpoint_filepath = "checkpoint.program.json"
 synalinks.clear_session()
 synalinks.disable_telemetry()
 
+
 async def main():
     language_model = synalinks.LanguageModel(
         model="ollama/deepseek-r1",

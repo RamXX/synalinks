@@ -26,6 +26,12 @@ def version():
 
 
 @magic_cli.command()
+def memory():
+    """Synalinks memory"""
+    click.echo(banner())
+
+
+@magic_cli.command()
 def init():
     """Initializes a new project"""
     click.echo(banner())

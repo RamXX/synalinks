@@ -175,7 +175,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         return asyncio.get_event_loop().run_until_complete(
             ops.Xor().symbolic_call(other, cls)
         )
-        
+
     def factorize(cls):
         """Factorizes the data model.
 
@@ -501,8 +501,8 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
     def __xor__(self, other):
         """Perform a `logical_xor` with another data model.
 
-        If one of them is `None`, output the other one. If both are provided,
-        then the output is `None`.
+        If one of them is None, output the other one. If both are provided,
+        then output None.
 
         Args:
             other (SymbolicDataModel): The other data model to concatenate with.
@@ -527,7 +527,7 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
         """Perform a `logical_xor` (reverse) with another data model.
 
         If one of them is None, output the other one. If both are provided,
-        then concatenates the other data model with this one.
+        then output None.
 
         Args:
             other (SymbolicDataModel | DataModel): The other data model to concatenate

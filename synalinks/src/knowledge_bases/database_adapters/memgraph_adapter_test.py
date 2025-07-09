@@ -11,7 +11,9 @@ from synalinks.src.backend import Entity
 from synalinks.src.backend import Relation
 from synalinks.src.backend import SimilaritySearch
 from synalinks.src.embedding_models import EmbeddingModel
-from synalinks.src.knowledge_bases.database_adapters.neo4j_adapter import Neo4JAdapter
+from synalinks.src.knowledge_bases.database_adapters.memgraph_adapter import (
+    MemGraphAdapter,
+)
 from synalinks.src.modules import Embedding
 from synalinks.src.modules import Input
 from synalinks.src.programs import Program
@@ -33,7 +35,7 @@ class IsPartOf(Relation):
     subj: Document
 
 
-class Neo4JAdapterTest(testing.TestCase):
+class MemGraphAdapterTest(testing.TestCase):
     @patch("litellm.aembedding")
     async def test_adapter(self, mock_embedding):
         expected_value = np.random.rand(1024)
@@ -43,8 +45,8 @@ class Neo4JAdapterTest(testing.TestCase):
             model="ollama/mxbai-embed-large",
         )
 
-        adapter = Neo4JAdapter(
-            uri="neo4j://localhost:7687",
+        adapter = MemGraphAdapter(
+            uri="memgraph://localhost:7688",
             embedding_model=embedding_model,
             entity_models=[Document, Chunk],
             relation_models=[IsPartOf],
@@ -60,8 +62,8 @@ class Neo4JAdapterTest(testing.TestCase):
 
         embedding_model = EmbeddingModel(model="ollama/mxbai-embed-large")
 
-        adapter = Neo4JAdapter(
-            uri="neo4j://localhost:7687",
+        adapter = MemGraphAdapter(
+            uri="memgraph://localhost:7688",
             embedding_model=embedding_model,
             entity_models=[Document, Chunk],
             relation_models=[IsPartOf],
@@ -97,8 +99,8 @@ class Neo4JAdapterTest(testing.TestCase):
             model="ollama/mxbai-embed-large",
         )
 
-        adapter = Neo4JAdapter(
-            uri="neo4j://localhost:7687",
+        adapter = MemGraphAdapter(
+            uri="memgraph://localhost:7688",
             embedding_model=embedding_model,
             entity_models=[Document, Chunk],
             relation_models=[IsPartOf],
@@ -142,8 +144,8 @@ class Neo4JAdapterTest(testing.TestCase):
 
         embedding_model = EmbeddingModel(model="ollama/mxbai-embed-large")
 
-        adapter = Neo4JAdapter(
-            uri="neo4j://localhost:7687",
+        adapter = MemGraphAdapter(
+            uri="memgraph://localhost:7688",
             embedding_model=embedding_model,
             entity_models=[Document, Chunk],
             relation_models=[IsPartOf],
@@ -190,8 +192,6 @@ class Neo4JAdapterTest(testing.TestCase):
         result = await adapter.similarity_search(search, threshold=0.0)
         self.assertTrue(len(result) > 0)
 
-    # Additional test methods to add to the Neo4JAdapterTest class
-
     @patch("litellm.aembedding")
     async def test_adapter_triplet_search_basic(self, mock_embedding):
         """Test basic triplet search functionality"""
@@ -200,8 +200,8 @@ class Neo4JAdapterTest(testing.TestCase):
 
         embedding_model = EmbeddingModel(model="ollama/mxbai-embed-large")
 
-        adapter = Neo4JAdapter(
-            uri="neo4j://localhost:7687",
+        adapter = MemGraphAdapter(
+            uri="memgraph://localhost:7688",
             embedding_model=embedding_model,
             entity_models=[Document, Chunk],
             relation_models=[IsPartOf],
@@ -260,8 +260,8 @@ class Neo4JAdapterTest(testing.TestCase):
 
         embedding_model = EmbeddingModel(model="ollama/mxbai-embed-large")
 
-        adapter = Neo4JAdapter(
-            uri="neo4j://localhost:7687",
+        adapter = MemGraphAdapter(
+            uri="memgraph://localhost:7688",
             embedding_model=embedding_model,
             entity_models=[Document, Chunk],
             relation_models=[IsPartOf],
@@ -312,8 +312,8 @@ class Neo4JAdapterTest(testing.TestCase):
 
         embedding_model = EmbeddingModel(model="ollama/mxbai-embed-large")
 
-        adapter = Neo4JAdapter(
-            uri="neo4j://localhost:7687",
+        adapter = MemGraphAdapter(
+            uri="memgraph://localhost:7688",
             embedding_model=embedding_model,
             entity_models=[Document, Chunk],
             relation_models=[IsPartOf],
@@ -364,8 +364,8 @@ class Neo4JAdapterTest(testing.TestCase):
 
         embedding_model = EmbeddingModel(model="ollama/mxbai-embed-large")
 
-        adapter = Neo4JAdapter(
-            uri="neo4j://localhost:7687",
+        adapter = MemGraphAdapter(
+            uri="memgraph://localhost:7688",
             embedding_model=embedding_model,
             entity_models=[Document, Chunk],
             relation_models=[IsPartOf],

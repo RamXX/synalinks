@@ -12,12 +12,11 @@ from synalinks.src.backend import DataModel
 from synalinks.src.backend import contains_schema
 from synalinks.src.backend import standardize_schema
 from synalinks.src.initializers import Empty
-from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
-from synalinks.src.utils.naming import auto_name
-from synalinks.src.modules import Module
 from synalinks.src.metrics import Metric
+from synalinks.src.modules import Module
+from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 from synalinks.src.utils import tracking
-from synalinks.src.utils.tracking import Tracker
+from synalinks.src.utils.naming import auto_name
 
 
 class Iteration(DataModel):
@@ -71,9 +70,9 @@ class Optimizer(SynalinksSaveable):
         self._schema = schema
 
         self.built = False
-        
+
         self._initialize_tracker()
-        
+
         with backend.name_scope(self.name, caller=self):
             iterations = backend.Variable(
                 initializer=Empty(data_model=Iteration),
@@ -83,12 +82,12 @@ class Optimizer(SynalinksSaveable):
             )
         # self._track_variable(iterations)
         self._iteration = iterations
-        
+
     @tracking.no_automatic_dependency_tracking
     def _initialize_tracker(self):
         if hasattr(self, "_tracker"):
             return
-        
+
         trainable_variables = []
         non_trainable_variables = []
         modules = []
@@ -112,7 +111,7 @@ class Optimizer(SynalinksSaveable):
         self._trainable_variables = trainable_variables
         self._non_trainable_variables = non_trainable_variables
         self._modules = modules
-        
+
     def __setattr__(self, name, value):
         # Track Variables, Modules, Metrics.
         if name != "_tracker":
@@ -127,11 +126,11 @@ class Optimizer(SynalinksSaveable):
     @property
     def variables(self):
         return self._non_trainable_variables[:] + self._trainable_variables[:]
-    
+
     @property
     def non_trainable_variables(self):
         return self._non_trainable_variables[:]
-    
+
     @property
     def trainable_variables(self):
         variables = []

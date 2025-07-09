@@ -59,7 +59,7 @@ class EntityRetriever(Module):
         obj: Document
 
     knowledge_base = synalinks.KnowledgeBase(
-        index_name="neo4j://localhost:7687",
+        uri="neo4j://localhost:7687",
         entity_models=[Document, Chunk],
         relation_models=[IsPartOf],
         embedding_model=embedding_model,
@@ -103,7 +103,7 @@ class EntityRetriever(Module):
             (Defaults to 10).
         threshold (float): Minimum similarity score for results.
             Entities with similarity below this threshold are excluded.
-            Should be between 0.0 and 1.0 (Defaults to 0.7).
+            Should be between 0.0 and 1.0 (Defaults to 0.5).
         prompt_template (str): The default jinja2 prompt template
             to use (see `Generator`).
         examples (list): The default examples to use in the prompt
@@ -128,7 +128,7 @@ class EntityRetriever(Module):
         language_model=None,
         entity_models=None,
         k=10,
-        threshold=0.7,
+        threshold=0.5,
         prompt_template=None,
         examples=None,
         instructions=None,
@@ -151,6 +151,14 @@ class EntityRetriever(Module):
         self.threshold = threshold
         self.prompt_template = prompt_template
         self.examples = examples
+        if not instructions:
+            instructions = [
+                (
+                    "The similarity search parameter should be "
+                    "a short natural language string describing the "
+                    "entities to match",
+                )
+            ]
         self.instructions = instructions
         self.use_inputs_schema = use_inputs_schema
         self.use_outputs_schema = use_outputs_schema
@@ -165,13 +173,12 @@ class EntityRetriever(Module):
             ]
         else:
             node_labels = []
-        node_labels.append("*")
 
         self.schema = dynamic_enum(
             schema=self.schema,
             prop_to_update="entity_label",
             labels=node_labels,
-            description=("The entity label to search for (use `*` to match them all)"),
+            description="The entity label to search for",
         )
 
         self.query_generator = Generator(

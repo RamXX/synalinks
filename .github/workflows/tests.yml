@@ -30,6 +30,8 @@ jobs:
             sudo apt-get install neo4j -y;
       - name: Start Neo4J
         run: docker run --publish=7474:7474 --publish=7687:7687 --volume=$HOME/neo4j/data:/data --env=NEO4J_AUTH=none neo4j &
+      - name: Start MemGraph
+        run: docker run -p 7688:7687 -p 7444:7444 --name memgraph memgraph/memgraph-mage &
       - name: Install Project Manager
         run: ./shell/uv.sh
       - name: Install Synalinks
@@ -38,5 +40,7 @@ jobs:
         run: uv pip install pytest pytest-cov
       - name: Ping Neo4J
         run: cypher-shell -a bolt://localhost:7687 -u neo4j "RETURN 1 as ping;"
+      - name: Ping MemGraph
+        run: cypher-shell -a bolt://localhost:7688 -u memgraph "RETURN 1 as ping;"
       - name: Run the tests
         run: ./shell/test.sh

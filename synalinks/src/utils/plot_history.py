@@ -230,7 +230,12 @@ def plot_history_with_mean_and_std(
         plt.plot(x, mean, label=f"{metric} (mean)", color=color, **kwargs)
 
         plt.fill_between(
-            x, mean - std, mean + std, color=color, alpha=alpha, label=f"{metric} (±std)"
+            x,
+            mean - std,
+            mean + std,
+            color=color,
+            alpha=alpha,
+            label=f"{metric} (±std)",
         )
 
     if xlabel:

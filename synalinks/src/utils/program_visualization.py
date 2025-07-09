@@ -2,10 +2,10 @@
 # Original authors: François Chollet et al. (Keras Team)
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
+import copy
 import json
 import os
 import sys
-import copy
 
 from synalinks.src import tree
 from synalinks.src.api_export import synalinks_export
@@ -98,8 +98,12 @@ def make_module_label(module, **kwargs):
         input_schema = None
         output_schema = None
         try:
-            input_schema = tree.map_structure(lambda x: copy.deepcopy(x.get_schema()), module.input)
-            output_schema = tree.map_structure(lambda x: copy.deepcopy(x.get_schema()), module.output)
+            input_schema = tree.map_structure(
+                lambda x: copy.deepcopy(x.get_schema()), module.input
+            )
+            output_schema = tree.map_structure(
+                lambda x: copy.deepcopy(x.get_schema()), module.output
+            )
         except (ValueError, AttributeError):
             pass
 
@@ -128,12 +132,10 @@ def make_module_label(module, **kwargs):
             return nested_table + "</table>"
 
         if class_name != "InputModule":
-            cols.append(
-                (f'<td bgcolor="white">{format_schema(input_schema, inputs=True, defs=show_defs)}</td>')
-            )
-        cols.append(
-            (f'<td bgcolor="white">{format_schema(output_schema, inputs=False, defs=show_defs)}</td>')
-        )
+            formatted_schema = format_schema(input_schema, inputs=True, defs=show_defs)
+            cols.append((f'<td bgcolor="white">{formatted_schema}</td>'))
+        formatted_schema = format_schema(output_schema, inputs=False, defs=show_defs)
+        cols.append((f'<td bgcolor="white">{formatted_schema}</td>'))
     if show_trainable and hasattr(module, "trainable") and module.variables:
         if module.trainable:
             cols.append(
