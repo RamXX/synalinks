@@ -1,12 +1,92 @@
 import asyncio
+import copy
 
-
+from typing import List
 from synalinks.src import ops
+from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_enum
 from synalinks.src.modules.module import Module
 from synalinks.src.utils.tool_utils import Tool
 from synalinks.src.modules.core.action import Action
 from synalinks.src.modules.core.generator import Generator
-from synalinks.src.modules.core.multi_decision import MultiDecision
+from synalinks.src.backend import DataModel, Field
+
+class ToolChoice(DataModel):
+    tool: str = Field(
+        description="Name of the specific tool to execute from the available functions."
+    )
+    subgoal: str = Field(
+        description="Clear, specific explanation of what you want to achieve with this tool call and why it's needed at this step."
+    )
+
+class MultiDecisionAnswer(DataModel):
+    thinking: str = Field(
+        description="Step-by-step analysis of the current situation, what has been accomplished, and what needs to be done next."
+    )
+    tool_choices: List[ToolChoice] = Field(
+        description="Array of tools to execute in parallel, each with its specific purpose. Return empty array if no tools are needed."
+    )
+
+# TODO: Crate test case for this function. Reference: dynamic_enum()
+def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, description=None):
+    """Update a schema with dynamic Enum at a nested path.
+
+    Args:
+        schema (dict): The schema to update.
+        property_path (str): Nested path like "tool_choices/items/properties/tool"
+        labels (list): The list of labels (strings).
+        parent_schema (dict, optional): An optional parent schema to use as the base.
+        description (str, optional): An optional description for the enum.
+
+    Returns:
+        dict: The updated schema with the enum applied to the nested property.
+    """
+    schema = copy.deepcopy(schema)
+    
+    if schema.get("$defs"):
+        schema = {"$defs": schema.pop("$defs"), **schema}
+    else:
+        schema = {"$defs": {}, **schema}
+    
+    if parent_schema:
+        parent_schema = copy.deepcopy(parent_schema)
+    
+    final_prop = property_path.split("/")[-1]
+    title = final_prop.title().replace("_", " ")
+    
+    if description:
+        enum_definition = {
+            "enum": labels,
+            "description": description,
+            "title": title,
+            "type": "string",
+        }
+    else:
+        enum_definition = {
+            "enum": labels,
+            "title": title,
+            "type": "string",
+        }
+    
+    if parent_schema:
+        parent_schema["$defs"].update({title: enum_definition})
+    else:
+        schema["$defs"].update({title: enum_definition})
+    
+    path_parts = property_path.split("/")
+    current = schema
+    
+    for part in path_parts[:-1]:
+        if part == "items":
+            current = current.setdefault("items", {})
+        elif part == "properties":
+            current = current.setdefault("properties", {})
+        else:
+            current = current.setdefault(part, {})
+
+    current[final_prop] = {"$ref": f"#/$defs/{title}"}
+        
+    return parent_schema if parent_schema else schema
+
 
 def get_tool_selection_question():
     '''
@@ -14,7 +94,7 @@ def get_tool_selection_question():
     Returns:
         str: The question asking the LM to choose tools to execute
     '''
-    return "Choose one or more functions to use next in parallel based on their name."
+    return "Analyze the current situation and decide which tools to use next. Provide your step-by-step thinking and select the appropriate tools with their specific subgoals."
 
 def get_tool_selection_instruction():
     '''
@@ -23,24 +103,12 @@ def get_tool_selection_instruction():
         list: List of instruction strings for the tool selection process
     '''
     return [
-        "Always reflect on your previous actions to know what to do.",
-        "You can call the same tool multiple times if needed.",
-        "Each call should have a clear reasoning explaining why that specific tool is needed.",
-        "If no tools are needed, return an empty calls list.",
-    ]
-
-def get_reasoning_instructions(tool_name):
-    '''
-    Instructions for generating reasoning for a specific tool
-    Args:
-        tool_name (str): The name of the tool to generate reasoning for
-    Returns:
-        list: List of instruction strings for reasoning generation
-    '''
-    return [
-        f"Provide reasoning for why you need to use {tool_name}",
-        "Be specific about what you expect this tool to accomplish",
-        "Consider the current context and previous actions",
+        "Always reflect on your previous actions and their results to avoid redundancy.",
+        "You can call the same tool multiple times if needed with different subgoals.",
+        "For each tool you select, provide a clear and specific subgoal explaining what you want to achieve.",
+        "Be strategic about parallel execution - choose tools that can run simultaneously without dependencies.",
+        "If no more tools are needed to complete the task, return an empty tool_choices array.",
+        "Consider the context and information already available before selecting tools.",
     ]
 
 class ParallelReACTAgent(Module):
@@ -140,6 +208,7 @@ class ParallelReACTAgent(Module):
                 "`return_inputs_only` and `return_inputs_with_trajectory` "
                 "arguments to True. Choose only one."
             )
+        #TODO: Needs to be implemented into the actual agent output
         self.return_inputs_with_trajectory = return_inputs_with_trajectory
         self.return_inputs_only = return_inputs_only
 
@@ -155,7 +224,7 @@ class ParallelReACTAgent(Module):
         self.functions = functions or []
         if self.functions == []:
             raise ValueError(
-                'No functions selected'
+                'ParallelReACTAgent requires at least one function to operate'
             )
         for fn in self.functions:
             self.labels.append(Tool(fn).name())
@@ -171,23 +240,22 @@ class ParallelReACTAgent(Module):
                     use_outputs_schema=self.use_outputs_schema,
                 )
             )
-
-        self.tool_selector = MultiDecision(
-            question=self.question,
-            labels=self.labels,
+  
+        decision_schema = dynamic_enum_nested(
+            MultiDecisionAnswer.get_schema(),
+            "tool_choices/items/properties/tool",
+            self.labels,
+            description="Available tools to choose from"
+        )
+        self.decision = Generator(
+            schema=decision_schema,
             language_model=self.decision_language_model,
             instructions=self.instructions,
-            name=self.name + "_tool_selector",
+            prompt_template=self.prompt_template,
+            use_inputs_schema=self.use_inputs_schema,
+            use_outputs_schema=self.use_outputs_schema,
+            name=self.name + "_generator",
         )
-
-        self.reasoning_generators = {}
-        for tool_name in self.labels:
-            self.reasoning_generators[tool_name] = Generator(
-                schema={"type": "string"},
-                language_model=self.decision_language_model,
-                instructions=get_reasoning_instructions(tool_name),
-                name=f"{self.name}_reasoning_for_{tool_name}",
-            )
 
         self.final_generator = Generator(
             schema=self.schema,
@@ -200,32 +268,31 @@ class ParallelReACTAgent(Module):
         current_step = inputs
 
         for _ in range(self.max_iterations):
-            tool_selection = await self.tool_selector(current_step, training=training)
-            selected_tools = tool_selection.get("choices", [])
+            inputs = await ops.concat(
+                inputs,
+                {"question": self.question},
+                name=self.name + "_inputs_with_question",
+            )
+            decision_result = await self.decision(current_step, training=training)
+            tool_choices = decision_result.get("tool_choices", [])
 
-            tool_calls = []
-            for tool_name in selected_tools:
-                reasoning = await self.reasoning_generators[tool_name](current_step, training=training)
-                tool_calls.append((tool_name, reasoning))
-
-            if not tool_calls:
+            if not tool_choices:
                 break
 
+            #TODO: Yoan feedback? Is the action implementation ok like that?
             tasks = []
-            for tool_name, reasoning in tool_calls:
+            for tool_choice in tool_choices:
+                tool_name = tool_choice.get("tool")
                 tool_index = self.labels.index(tool_name)
                 action = self.actions[tool_index]
                 tasks.append(action(current_step, training=training))
 
             tool_results = await asyncio.gather(*tasks)
 
-            if tool_results:
-                combined_results = await ops.concat(*tool_results)
-                current_step = await ops.concat(current_step, combined_results)
+            combined_results = await ops.concat(*tool_results)
+            current_step = await ops.concat(current_step, combined_results)
 
-        if self.schema:
-            final_answer = await self.final_generator(current_step, training=training)
+        final_answer = await self.final_generator(current_step, training=training)
 
-            return final_answer
-        else:
-            return current_step
+        return final_answer
+
