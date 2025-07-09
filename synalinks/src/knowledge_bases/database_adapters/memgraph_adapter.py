@@ -44,23 +44,8 @@ class MemGraphAdapter(Neo4JAdapter):
 
     def create_vector_index(self):
         metric_mapping = {"cosine": "cos", "euclidean": "l2sq"}
-
         metric = metric_mapping[self.metric]
 
-        query = "\n".join(
-            [
-                "CREATE VECTOR INDEX entity ",
-                "ON :Entity(embedding)",
-                "WITH CONFIG {",
-                f'  "dimension": {self.embedding_dim}, ',
-                f'  "metric": "{metric}", ',
-                '  "capacity": 1000',
-                "};",
-            ]
-        )
-        asyncio.get_event_loop().run_until_complete(
-            self.query(query),
-        )
         for entity_model in self.entity_models:
             node_label = self.sanitize_label(entity_model.get_schema().get("title"))
             index_name = to_snake_case(node_label)
@@ -162,7 +147,7 @@ class MemGraphAdapter(Neo4JAdapter):
                     "WHERE score >= $threshold",
                     "WITH count(node) AS existing_count",
                     "WHERE existing_count = 0",
-                    f"CREATE (n:Entity:{node_label})",
+                    f"CREATE (n:{node_label})",
                     (
                         set_statement
                         if set_statement

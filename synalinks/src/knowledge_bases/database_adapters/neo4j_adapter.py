@@ -180,7 +180,7 @@ class Neo4JAdapter(DatabaseAdapter):
                     "WHERE score >= $threshold",
                     "WITH count(node) as existing_count",
                     "WHERE existing_count = 0",
-                    f"CREATE (n:Entity:{node_label})",
+                    f"CREATE (n:{node_label})",
                     (
                         set_statement
                         if set_statement
