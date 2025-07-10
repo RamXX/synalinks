@@ -26,10 +26,9 @@ class MultiDecisionAnswer(DataModel):
         description="Array of tools to execute in parallel, each with its specific purpose. Return empty array if no tools are needed."
     )
 
-# TODO: Crate test case for this function. Reference: dynamic_enum()
 def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, description=None):
     """Update a schema with dynamic Enum at a nested path.
-
+ 
     Args:
         schema (dict): The schema to update.
         property_path (str): Nested path like "tool_choices/items/properties/tool"
@@ -42,6 +41,7 @@ def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, descr
     """
     schema = copy.deepcopy(schema)
     
+    # Ensure $defs is at the top level
     if schema.get("$defs"):
         schema = {"$defs": schema.pop("$defs"), **schema}
     else:
@@ -49,42 +49,52 @@ def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, descr
     
     if parent_schema:
         parent_schema = copy.deepcopy(parent_schema)
+        if not parent_schema.get("$defs"):
+            parent_schema["$defs"] = {}
     
+    # Create enum definition
     final_prop = property_path.split("/")[-1]
     title = final_prop.title().replace("_", " ")
     
+    enum_definition = {
+        "enum": labels,
+        "title": title,
+        "type": "string",
+    }
+    
     if description:
-        enum_definition = {
-            "enum": labels,
-            "description": description,
-            "title": title,
-            "type": "string",
-        }
-    else:
-        enum_definition = {
-            "enum": labels,
-            "title": title,
-            "type": "string",
-        }
+        enum_definition["description"] = description
     
-    if parent_schema:
-        parent_schema["$defs"].update({title: enum_definition})
-    else:
-        schema["$defs"].update({title: enum_definition})
+    # Add enum definition to $defs
+    target_schema = parent_schema if parent_schema else schema
+    target_schema["$defs"][title] = enum_definition
     
+    # Navigate to the nested property and update it
     path_parts = property_path.split("/")
     current = schema
     
-    for part in path_parts[:-1]:
+    # Navigate through the path, creating missing structure if needed
+    for i, part in enumerate(path_parts[:-1]):
         if part == "items":
-            current = current.setdefault("items", {})
+            # For array items, we need to ensure the items object exists
+            if "items" not in current:
+                current["items"] = {}
+            current = current["items"]
         elif part == "properties":
-            current = current.setdefault("properties", {})
+            # For object properties, ensure properties object exists
+            if "properties" not in current:
+                current["properties"] = {}
+            current = current["properties"]
         else:
-            current = current.setdefault(part, {})
-
+            # For regular property navigation
+            if part not in current:
+                current[part] = {}
+            current = current[part]
+    
+    # Set the final property to reference the enum
+    final_prop = path_parts[-1]
     current[final_prop] = {"$ref": f"#/$defs/{title}"}
-        
+    
     return parent_schema if parent_schema else schema
 
 
