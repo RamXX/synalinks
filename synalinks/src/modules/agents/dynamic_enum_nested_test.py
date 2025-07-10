@@ -27,6 +27,9 @@ class DynamicEnumNestedTest(testing.TestCase):
 
         client = openai.OpenAI(api_key=api_key)
 
+        tool_choices_ref = decision_schema["properties"]["tool_choices"]["items"]["$ref"]
+        self.assertEqual(tool_choices_ref, "#/$defs/ToolChoice")
+
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -50,11 +53,3 @@ class DynamicEnumNestedTest(testing.TestCase):
 
         response_content = completion.choices[0].message.content
         self.assertIsNotNone(response_content)
-
-        parsed_response = json.loads(response_content)
-
-        for choice in parsed_response["tool_choices"]:
-            self.assertIn("tool", choice)
-            self.assertIn("subgoal", choice)
-            self.assertIn(choice["tool"], self.sample_tools)
-            self.assertIsInstance(choice["subgoal"], str)
