@@ -15,7 +15,8 @@ class ToolChoice(DataModel):
     tool: str = Field(
         description="Name of the specific tool to execute from the available functions."
     )
-    subgoal: str = Field(
+    #rename to tool_thinking
+    tool_thinking: str = Field(
         description="Clear, specific explanation of what you want to achieve with this tool call and why it's needed at this step."
     )
 
@@ -28,69 +29,9 @@ class MultiDecisionAnswer(DataModel):
     )
 
 # TODO: Crate test case for this function. Reference: dynamic_enum()
-# def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, description=None):
-#     """Update a schema with dynamic Enum at a nested path.
-
-#     Args:
-#         schema (dict): The schema to update.
-#         property_path (str): Nested path like "tool_choices/items/properties/tool"
-#         labels (list): The list of labels (strings).
-#         parent_schema (dict, optional): An optional parent schema to use as the base.
-#         description (str, optional): An optional description for the enum.
-
-#     Returns:
-#         dict: The updated schema with the enum applied to the nested property.
-#     """
-#     schema = copy.deepcopy(schema)
-    
-#     if schema.get("$defs"):
-#         schema = {"$defs": schema.pop("$defs"), **schema}
-#     else:
-#         schema = {"$defs": {}, **schema}
-    
-#     if parent_schema:
-#         parent_schema = copy.deepcopy(parent_schema)
-    
-#     final_prop = property_path.split("/")[-1]
-#     title = final_prop.title().replace("_", " ")
-    
-#     if description:
-#         enum_definition = {
-#             "enum": labels,
-#             "description": description,
-#             "title": title,
-#             "type": "string",
-#         }
-#     else:
-#         enum_definition = {
-#             "enum": labels,
-#             "title": title,
-#             "type": "string",
-#         }
-    
-#     if parent_schema:
-#         parent_schema["$defs"].update({title: enum_definition})
-#     else:
-#         schema["$defs"].update({title: enum_definition})
-    
-#     path_parts = property_path.split("/")
-#     current = schema
-    
-#     for part in path_parts[:-1]:
-#         if part == "items":
-#             current = current.setdefault("items", {})
-#         elif part == "properties":
-#             current = current.setdefault("properties", {})
-#         else:
-#             current = current.setdefault(part, {})
-
-#     current[final_prop] = {"$ref": f"#/$defs/{title}"}
-        
-#     return parent_schema if parent_schema else schema
-
 def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, description=None):
     """Update a schema with dynamic Enum at a nested path.
- 
+
     Args:
         schema (dict): The schema to update.
         property_path (str): Nested path like "tool_choices/items/properties/tool"
@@ -103,7 +44,6 @@ def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, descr
     """
     schema = copy.deepcopy(schema)
     
-    # Ensure $defs is at the top level
     if schema.get("$defs"):
         schema = {"$defs": schema.pop("$defs"), **schema}
     else:
@@ -111,53 +51,114 @@ def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, descr
     
     if parent_schema:
         parent_schema = copy.deepcopy(parent_schema)
-        if not parent_schema.get("$defs"):
-            parent_schema["$defs"] = {}
     
-    # Create enum definition
     final_prop = property_path.split("/")[-1]
     title = final_prop.title().replace("_", " ")
     
-    enum_definition = {
-        "enum": labels,
-        "title": title,
-        "type": "string",
-    }
-    
     if description:
-        enum_definition["description"] = description
+        enum_definition = {
+            "enum": labels,
+            "description": description,
+            "title": title,
+            "type": "string",
+        }
+    else:
+        enum_definition = {
+            "enum": labels,
+            "title": title,
+            "type": "string",
+        }
     
-    # Add enum definition to $defs
-    target_schema = parent_schema if parent_schema else schema
-    target_schema["$defs"][title] = enum_definition
+    if parent_schema:
+        parent_schema["$defs"].update({title: enum_definition})
+    else:
+        schema["$defs"].update({title: enum_definition})
     
-    # Navigate to the nested property and update it
     path_parts = property_path.split("/")
     current = schema
     
-    # Navigate through the path, creating missing structure if needed
-    for i, part in enumerate(path_parts[:-1]):
+    for part in path_parts[:-1]:
         if part == "items":
-            # For array items, we need to ensure the items object exists
-            if "items" not in current:
-                current["items"] = {}
-            current = current["items"]
+            current = current.setdefault("items", {})
         elif part == "properties":
-            # For object properties, ensure properties object exists
-            if "properties" not in current:
-                current["properties"] = {}
-            current = current["properties"]
+            current = current.setdefault("properties", {})
         else:
-            # For regular property navigation
-            if part not in current:
-                current[part] = {}
-            current = current[part]
-    
-    # Set the final property to reference the enum
-    final_prop = path_parts[-1]
+            current = current.setdefault(part, {})
+
     current[final_prop] = {"$ref": f"#/$defs/{title}"}
-    
+        
     return parent_schema if parent_schema else schema
+
+# def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, description=None):
+#     """Update a schema with dynamic Enum at a nested path.
+ 
+#     Args:
+#         schema (dict): The schema to update.
+#         property_path (str): Nested path like "tool_choices/items/properties/tool"
+#         labels (list): The list of labels (strings).
+#         parent_schema (dict, optional): An optional parent schema to use as the base.
+#         description (str, optional): An optional description for the enum.
+
+#     Returns:
+#         dict: The updated schema with the enum applied to the nested property.
+#     """
+#     schema = copy.deepcopy(schema)
+    
+#     # Ensure $defs is at the top level
+#     if schema.get("$defs"):
+#         schema = {"$defs": schema.pop("$defs"), **schema}
+#     else:
+#         schema = {"$defs": {}, **schema}
+    
+#     if parent_schema:
+#         parent_schema = copy.deepcopy(parent_schema)
+#         if not parent_schema.get("$defs"):
+#             parent_schema["$defs"] = {}
+    
+#     # Create enum definition
+#     final_prop = property_path.split("/")[-1]
+#     title = final_prop.title().replace("_", " ")
+    
+#     enum_definition = {
+#         "enum": labels,
+#         "title": title,
+#         "type": "string",
+#     }
+    
+#     if description:
+#         enum_definition["description"] = description
+    
+#     # Add enum definition to $defs
+#     target_schema = parent_schema if parent_schema else schema
+#     target_schema["$defs"][title] = enum_definition
+    
+#     # Navigate to the nested property and update it
+#     path_parts = property_path.split("/")
+#     current = schema
+    
+#     # Navigate through the path, creating missing structure if needed
+#     for i, part in enumerate(path_parts[:-1]):
+#         if part == "items":
+#             # For array items, we need to ensure the items object exists
+#             if "items" not in current:
+#                 current["items"] = {}
+#             current = current["items"]
+#         elif part == "properties":
+#             # For object properties, ensure properties object exists
+#             if "properties" not in current:
+#                 current["properties"] = {}
+#             current = current["properties"]
+#         else:
+#             # For regular property navigation
+#             if part not in current:
+#                 current[part] = {}
+#             current = current[part]
+    
+#     # Set the final property to reference the enum
+#     final_prop = path_parts[-1]
+#     current[final_prop] = {"$ref": f"#/$defs/{title}"}
+    
+#     return parent_schema if parent_schema else schema
 
 
 def get_tool_selection_question():
@@ -166,7 +167,7 @@ def get_tool_selection_question():
     Returns:
         str: The question asking the LM to choose tools to execute
     '''
-    return "Analyze the current situation and decide which tools to use next. Provide your step-by-step thinking and select the appropriate tools with their specific subgoals."
+    return "Analyze the current situation and decide which tools to use next. Provide your step-by-step thinking and select the appropriate tools with their specific tool_thinking."
 
 def get_tool_selection_instruction():
     '''
@@ -176,8 +177,8 @@ def get_tool_selection_instruction():
     '''
     return [
         "Always reflect on your previous actions and their results to avoid redundancy.",
-        "You can call the same tool multiple times if needed with different subgoals.",
-        "For each tool you select, provide a clear and specific subgoal explaining what you want to achieve.",
+        "You can call the same tool multiple times if needed with different tool_thinking.",
+        "For each tool you select, provide a clear and specific tool_thinking explaining what you want to achieve.",
         "Be strategic about parallel execution - choose tools that can run simultaneously without dependencies.",
         "If no more tools are needed to complete the task, return an empty tool_choices array.",
         "Consider the context and information already available before selecting tools.",
@@ -348,10 +349,15 @@ class ParallelReACTAgent(Module):
     async def call(self, inputs, training=False):
         current_step = inputs
 
+        class Question(DataModel):
+            question: str
+
         for _ in range(self.max_iterations):
+            question_data_model = Question(question=self.question)
+
             inputs = await ops.concat(
                 inputs,
-                {"question": self.question},
+                question_data_model,
                 name=self.name + "_inputs_with_question",
             )
             decision_result = await self.decision(current_step, training=training)
@@ -376,31 +382,31 @@ class ParallelReACTAgent(Module):
         final_answer = await self.final_generator(current_step, training=training)
 
         return final_answer
-    def print_decision_schema():
-        """Print the decision schema as JSON output"""
+    # def print_decision_schema():
+    #     """Print the decision schema as JSON output"""
     
-        # Sample tool labels (replace with your actual tool labels)
-        sample_labels = [
-            "web_search",
-            "file_reader", 
-            "data_processor",
-            "email_sender",
-            "database_query"
-        ]
+    #     # Sample tool labels (replace with your actual tool labels)
+    #     sample_labels = [
+    #         "web_search",
+    #         "file_reader", 
+    #         "data_processor",
+    #         "email_sender",
+    #         "database_query"
+    #     ]
         
-        # Generate the decision schema
-        decision_schema = dynamic_enum_nested(
-            MultiDecisionAnswer.get_schema(),
-            "$defs/ToolChoice/properties/tool",
-            sample_labels,
-            description="Available tools to choose from"
-        )
+    #     # Generate the decision schema
+    #     decision_schema = dynamic_enum_nested(
+    #         MultiDecisionAnswer.get_schema(),
+    #         "$defs/ToolChoice/properties/tool",
+    #         sample_labels,
+    #         description="Available tools to choose from"
+    #     )
         
-        # Print the schema as formatted JSON
-        print("Decision Schema JSON Output:")
-        print(json.dumps(decision_schema, indent=2))
-        return decision_schema
+    #     # Print the schema as formatted JSON
+    #     print("Decision Schema JSON Output:")
+    #     print(json.dumps(decision_schema, indent=2))
+    #     return decision_schema
     
 
-    if __name__ == "__main__":
-        schema = print_decision_schema()
+    # if __name__ == "__main__":
+    #     schema = print_decision_schema()
