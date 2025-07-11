@@ -11,6 +11,7 @@ from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend.common.json_data_model import JsonDataModel
 from synalinks.src.backend.common.symbolic_data_model import SymbolicDataModel
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
+from synalinks.src.backend.common.json_schema_utils import contains_schema
 
 IS_THREAD_SAFE = True
 
@@ -175,6 +176,11 @@ class MetaDataModel(type(pydantic.BaseModel)):
         return asyncio.get_event_loop().run_until_complete(
             ops.Xor().symbolic_call(other, cls)
         )
+
+    def __contains__(cls, other_cls):
+        if not inspect.isclass(other_cls):
+            return False
+        return contains_schema(other_cls.get_schema(), cls.get_schema())
 
     def factorize(cls):
         """Factorizes the data model.
