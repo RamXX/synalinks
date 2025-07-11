@@ -79,6 +79,10 @@ class Branch(Module):
         language_model (LanguageModel): The language model to use.
         prompt_template (str): The default jinja2 prompt template
             to use (see `Generator`).
+        static_system_prompt (str): A static system prompt that **do not** evolve 
+            during training. This prompt allow the user to provide additional
+            information that won't be changed during training. Allowing to cache
+            it and reduce inference costs (see `Generator`).
         examples (list): The default examples to use in the prompt
             (see `Decision`).
         instructions (list): The default instructions to use (see `Decision`).
@@ -100,6 +104,7 @@ class Branch(Module):
         inject_decision=True,
         return_decision=True,
         language_model=None,
+        static_system_prompt=None,
         prompt_template=None,
         examples=None,
         instructions=None,
@@ -128,6 +133,7 @@ class Branch(Module):
         self.inject_decision = inject_decision
         self.return_decision = return_decision
         self.prompt_template = prompt_template
+        self.static_system_prompt = static_system_prompt
         self.examples = examples
         self.instructions = instructions
         self.use_inputs_schema = use_inputs_schema
@@ -137,6 +143,7 @@ class Branch(Module):
             labels=labels,
             language_model=language_model,
             prompt_template=prompt_template,
+            static_system_prompt=static_system_prompt,
             examples=examples,
             instructions=instructions,
             use_inputs_schema=use_inputs_schema,
@@ -245,6 +252,7 @@ class Branch(Module):
             "inject_decision": self.inject_decision,
             "return_decision": self.return_decision,
             "prompt_template": self.prompt_template,
+            "static_system_prompt": self.static_system_prompt,
             "examples": self.examples,
             "instructions": self.instructions,
             "use_inputs_schema": self.use_inputs_schema,

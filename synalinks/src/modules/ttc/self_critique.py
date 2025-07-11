@@ -41,7 +41,7 @@ class CritiqueWithReward(DataModel):
         description=(
             "The reward value corresponding to the critique"
             "  (a float between 0.0 and 1.0)"
-            " 0.0 being very bad and 1.0 perfect"
+            " 0.0 being very bad and 1.0 very good"
         ),
     )
 
@@ -110,6 +110,10 @@ class SelfCritique(Module):
     Args:
         language_model (LanguageModel): The language model to use.
         prompt_template (str): The jinja2 prompt template (see `Generator`).
+        static_system_prompt (str): A static system prompt that **do not** evolve 
+            during training. This prompt allow the user to provide additional
+            information that won't be changed during training. Allowing to cache
+            it and reduce inference costs (see `Generator`).
         examples (list): The default list of examples (see `Generator`).
         instructions (list): The default instructions being a list of string containing
             additional instructions for the language model (see `Generator`).
@@ -129,6 +133,7 @@ class SelfCritique(Module):
         self,
         language_model=None,
         prompt_template=None,
+        static_system_prompt=None,
         examples=None,
         instructions=None,
         use_inputs_schema=False,
@@ -147,6 +152,7 @@ class SelfCritique(Module):
 
         self.language_model = language_model
         self.prompt_template = prompt_template
+        self.static_system_prompt = static_system_prompt
         self.examples = examples
         self.instructions = instructions
         self.use_inputs_schema = use_inputs_schema
@@ -162,6 +168,7 @@ class SelfCritique(Module):
         self.generator = Generator(
             schema=schema,
             language_model=self.language_model,
+            static_system_prompt=self.static_system_prompt,
             prompt_template=self.prompt_template,
             examples=self.examples,
             instructions=self.instructions,
@@ -176,6 +183,9 @@ class SelfCritique(Module):
 
     def get_config(self):
         config = {
+            "examples": self.examples,
+            "static_system_prompt": self.static_system_prompt,
+            "prompt_template": self.prompt_template,
             "examples": self.examples,
             "instructions": self.instructions,
             "use_inputs_schema": self.use_inputs_schema,

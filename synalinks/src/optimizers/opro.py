@@ -1,6 +1,7 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
 from typing import List
+from typing import Optional
 
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import DataModel
@@ -15,7 +16,7 @@ from synalinks.src.saving import serialization_lib
 
 class OPROOptimizedVariable(DataModel):
     predictions: List[Prediction] = []
-    instructions: Instructions
+    instructions: Optional[Instructions] = None
     instructions_candidates: List[Instructions] = []
 
 
