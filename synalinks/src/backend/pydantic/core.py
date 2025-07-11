@@ -178,6 +178,17 @@ class MetaDataModel(type(pydantic.BaseModel)):
         )
 
     def __contains__(cls, other_cls):
+        """Check if the schema of `cls` is contained within the schema of `other_cls`.
+
+        This allows using the `in` operator to check schema compatibility between data models.
+
+        Args:
+            other_cls (DataModel): The data model to compare with.
+
+        Returns:
+            (bool): `True` if all properties of `cls` are present in `other_cls`,
+            meaning `cls in other_cls`. Otherwise, returns `False`.
+        """
         if not inspect.isclass(other_cls):
             return False
         return contains_schema(other_cls.get_schema(), cls.get_schema())
