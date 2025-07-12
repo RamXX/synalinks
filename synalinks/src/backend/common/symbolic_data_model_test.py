@@ -57,5 +57,9 @@ class SymbolicDataModelTest(testing.TestCase):
         class Bar(DataModel):
             bar: str
 
-        self.assertTrue(Foo in FooBar)
-        self.assertFalse(Bar in Foo)
+        foo_symbolic = SymbolicDataModel(data_model=Foo)
+        foobar_symbolic = SymbolicDataModel(data_model=FooBar)
+        bar_symbolic = SymbolicDataModel(data_model=Bar)
+
+        self.assertTrue(foo_symbolic in foobar_symbolic)
+        self.assertFalse(bar_symbolic in foo_symbolic)
