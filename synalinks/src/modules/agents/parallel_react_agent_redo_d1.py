@@ -317,16 +317,16 @@ class ParallelReACTAgent(Module):
   
         decision_schema = dynamic_enum_nested(
             MultiDecisionAnswer.get_schema(),
-            "$defs/tool_choices/items/properties/tool",
+            "$defs/ToolChoice/properties/tool",
             self.labels,
             description="Available tools to choose from"
         )
 
 
-        # Debug: print the decision schema when the agent is instantiated
-        import json
-        print("Decision schema:")
-        print(json.dumps(decision_schema, indent=2))
+        # # Debug: print the decision schema when the agent is instantiated
+        # import json
+        # print("Decision schema:")
+        # print(json.dumps(decision_schema, indent=2))
 
 
         self.decision = Generator(
@@ -349,15 +349,10 @@ class ParallelReACTAgent(Module):
     async def call(self, inputs, training=False):
         current_step = inputs
 
-        class Question(DataModel):
-            question: str
-
         for _ in range(self.max_iterations):
-            question_data_model = Question(question=self.question)
-
             inputs = await ops.concat(
                 inputs,
-                question_data_model,
+                {"question": self.question},
                 name=self.name + "_inputs_with_question",
             )
             decision_result = await self.decision(current_step, training=training)
@@ -382,6 +377,48 @@ class ParallelReACTAgent(Module):
         final_answer = await self.final_generator(current_step, training=training)
 
         return final_answer
+    # async def compute_output_spec(self, inputs, training=False):
+    #     for i in range(self.max_iterations):
+    #         inputs = await self.thinking[i](inputs)
+    #         inputs = await self.critique[i](inputs)
+    #     return await self.generator(inputs)
+
+    async def compute_output_spec(self, inputs, training=False):
+        """
+        Compute the output specification for the ParallelReACTAgent.
+        This method follows the same logic as call() but for spec computation.
+        """
+        current_step = inputs
+
+        for _ in range(self.max_iterations):
+            # Add the question to inputs for decision making
+            inputs_with_question = await ops.concat(
+                inputs,
+                {"question": self.question},
+                name=self.name + "_inputs_with_question",
+            )
+            
+            # Get the decision result specification
+            decision_result = await self.decision.compute_output_spec(current_step, training=training)
+            
+            # Since we're computing specs, we need to handle the potential tool choices
+            # In spec computation, we assume all possible tools could be used
+            if self.actions:
+                # Compute specs for all possible actions
+                action_specs = []
+                for action in self.actions:
+                    action_spec = await action.compute_output_spec(current_step, training=training)
+                    action_specs.append(action_spec)
+                
+                # Combine all action specs
+                if action_specs:
+                    combined_spec = await ops.concat(*action_specs)
+                    current_step = await ops.concat(current_step, combined_spec)
+
+        # Return the final generator's output spec
+        return await self.final_generator.compute_output_spec(current_step, training=training)
+    
+
     # def print_decision_schema():
     #     """Print the decision schema as JSON output"""
     
