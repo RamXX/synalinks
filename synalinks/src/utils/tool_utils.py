@@ -157,6 +157,9 @@ class Tool:
     def _has_return(self):
         return self._signature.return_annotation is not self._signature.empty
 
+    def description(self) -> str:
+        return self._docstring.short_description or ""
+
     def name(self) -> str:
         return self._func.__name__
 
