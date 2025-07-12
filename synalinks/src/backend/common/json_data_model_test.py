@@ -298,5 +298,9 @@ class JsonDataModelTest(testing.TestCase):
         class Bar(DataModel):
             bar: str
 
-        self.assertTrue(Foo in FooBar)
-        self.assertFalse(Bar in Foo)
+        foo_json = JsonDataModel(data_model=Foo(foo="a"))
+        foobar_json = JsonDataModel(data_model=FooBar(foo="a", bar="b"))
+        bar_json = JsonDataModel(data_model=Bar(bar="c"))
+
+        self.assertTrue(foo_json in foobar_json)
+        self.assertFalse(bar_json in foo_json)
