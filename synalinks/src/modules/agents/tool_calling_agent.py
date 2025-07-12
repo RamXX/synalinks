@@ -300,7 +300,9 @@ class ToolCallingAgent(Module):
 
             tool_results = await asyncio.gather(*tasks)
 
-            if tool_results:
+            if len(tool_results) == 1:
+                combined_results = tool_results[0]
+            else:
                 combined_results = tool_results[0]
                 for i in range(1, len(tool_results)):
                     combined_results = await ops.concat(
@@ -308,7 +310,7 @@ class ToolCallingAgent(Module):
                         tool_results[i],
                         name=f"{self.name}_combined_results_{i}"
                     )
-                current_step = await ops.concat(current_step, combined_results)
+            current_step = await ops.concat(current_step, combined_results)
 
         final_answer = await self.final_generator(current_step, training=training)
         return final_answer
@@ -334,8 +336,18 @@ class ToolCallingAgent(Module):
                 action_spec = await action.compute_output_spec(current_step, training=training)
                 action_specs.append(action_spec)
             
-            # Combine all possible action outputs
-            combined_spec = await ops.concat(*action_specs)
+            if len(action_specs) == 1:
+                # Single spec, use directly
+                combined_spec = action_specs[0]
+            else:
+                # Multiple specs, concatenate sequentially
+                combined_spec = action_specs[0]
+                for i in range(1, len(action_specs)):
+                    combined_spec = await ops.concat(
+                        combined_spec, 
+                        action_specs[i],
+                        name=f"{self.name}_combined_spec_{i}"
+                    )
             current_step = await ops.concat(current_step, combined_spec)
 
         return await self.final_generator.compute_output_spec(current_step, training=training)
