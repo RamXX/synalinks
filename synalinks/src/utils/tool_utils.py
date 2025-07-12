@@ -202,3 +202,26 @@ class Tool:
             obj_schema["required"] = self._required_params
 
         return obj_schema
+
+
+def toolkit_to_prompt(toolkit: typing.List[Tool] = None) -> str:
+    """Convert a toolkit into a static text prompt.
+
+    Args:
+        toolkit: The set of available tools
+
+    Returns:
+        A string describing each available tool by name and description.
+    """
+    toolkit = toolkit or []
+
+    if not toolkit:
+        return "The toolkit is empty. No tools available."
+
+    prompt = "The toolkit contains %d tools:\n\n" % len(toolkit)
+
+    description = [f"- ({_.name()}) {_.description()}\n" for _ in toolkit]
+
+    prompt = prompt + "".join(description)
+
+    return prompt
