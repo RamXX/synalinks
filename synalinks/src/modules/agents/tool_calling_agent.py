@@ -3,18 +3,18 @@ import copy
 
 from typing import List
 from synalinks.src import ops
-from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_enum
 from synalinks.src.modules.module import Module
 from synalinks.src.utils.tool_utils import Tool
 from synalinks.src.modules.core.action import Action
 from synalinks.src.modules.core.generator import Generator
-from synalinks.src.backend import DataModel, Field
+from synalinks.src.backend import DataModel, Field, JsonDataModel
+from synalinks.src.saving import serialization_lib
 
 class ToolChoice(DataModel):
     tool: str = Field(
         description="Name of the specific tool to execute from the available functions."
     )
-    subgoal: str = Field(
+    tool_thinking: str = Field(
         description="Clear, specific explanation of what you want to achieve with this tool call and why it's needed at this step."
     )
 
@@ -25,6 +25,10 @@ class MultiDecisionAnswer(DataModel):
     tool_choices: List[ToolChoice] = Field(
         description="Array of tools to execute in parallel, each with its specific purpose. Return empty array if no tools are needed."
     )
+
+class Question(DataModel):
+    question: str = Field(description="The question to ask")
+
 
 def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, description=None):
     """Update a schema with dynamic Enum at a nested path.
@@ -91,9 +95,11 @@ def get_tool_selection_question():
     '''
     Default question prompt for tool selection in the React agent
     Returns:
-        str: The question asking the LM to choose tools to execute
+        Question: The question asking the LM to choose tools to execute
     '''
-    return "Analyze the current situation and decide which tools to use next. Provide your step-by-step thinking and select the appropriate tools with their specific subgoals."
+    return Question(
+        question="Analyze the current situation and decide which tools to use next. Provide your step-by-step thinking and select the appropriate tools with their specific subgoals."
+    )
 
 def get_tool_selection_instruction():
     '''
@@ -110,7 +116,7 @@ def get_tool_selection_instruction():
         "Consider the context and information already available before selecting tools.",
     ]
 
-class ParallelReACTAgent(Module):
+class ToolCallingAgent(Module):
 
     '''
     Args:
@@ -242,7 +248,7 @@ class ParallelReACTAgent(Module):
   
         decision_schema = dynamic_enum_nested(
             MultiDecisionAnswer.get_schema(),
-            "tool_choices/items/properties/tool",
+            "$defs/ToolChoice/properties/tool",
             self.labels,
             description="Available tools to choose from"
         )
@@ -267,11 +273,18 @@ class ParallelReACTAgent(Module):
         current_step = inputs
 
         for _ in range(self.max_iterations):
+            question_data = JsonDataModel(
+                json=self.question.get_json(),
+                data_model=Question,
+                name=self.name + "_question"
+            )
+            
             inputs = await ops.concat(
                 inputs,
-                {"question": self.question},
+                question_data,
                 name=self.name + "_inputs_with_question",
             )
+            
             decision_result = await self.decision(current_step, training=training)
             tool_choices = decision_result.get("tool_choices", [])
 
@@ -287,9 +300,68 @@ class ParallelReACTAgent(Module):
 
             tool_results = await asyncio.gather(*tasks)
 
-            combined_results = await ops.concat(*tool_results)
-            current_step = await ops.concat(current_step, combined_results)
+            if tool_results:
+                combined_results = tool_results[0]
+                for i in range(1, len(tool_results)):
+                    combined_results = await ops.concat(
+                        combined_results, 
+                        tool_results[i],
+                        name=f"{self.name}_combined_results_{i}"
+                    )
+                current_step = await ops.concat(current_step, combined_results)
 
         final_answer = await self.final_generator(current_step, training=training)
-
         return final_answer
+
+    async def compute_output_spec(self, inputs, training=False):
+        current_step = inputs
+
+        question_data = JsonDataModel(
+            json=self.question.get_json(),
+            data_model=Question,
+            name=self.name + "_question"
+        )
+        
+        inputs = await ops.concat(
+            inputs,
+            question_data,
+            name=self.name + "_inputs_with_question",
+        )
+        
+        if self.actions:
+            action_specs = []
+            for action in self.actions:
+                action_spec = await action.compute_output_spec(current_step, training=training)
+                action_specs.append(action_spec)
+            
+            # Combine all possible action outputs
+            combined_spec = await ops.concat(*action_specs)
+            current_step = await ops.concat(current_step, combined_spec)
+
+        return await self.final_generator.compute_output_spec(current_step, training=training)
+
+    def get_config(self):
+        config = {
+            "schema": self.schema,
+            "functions": self.functions,
+            "question": self.question,
+            "prompt_template": self.prompt_template,
+            "examples": self.examples,
+            "instructions": self.instructions,
+            "use_inputs_schema": self.use_inputs_schema,
+            "use_outputs_schema": self.use_outputs_schema,
+            "return_inputs_with_trajectory": self.return_inputs_with_trajectory,
+            "return_inputs_only": self.return_inputs_only,
+            "max_iterations": self.max_iterations,
+            "name": self.name,
+            "description": self.description,
+            "trainable": self.trainable,
+        }
+        language_model_config = {}
+        language_model_config["decision_language_model"] = serialization_lib.serialize_synalinks_object(
+            self.decision_language_model
+        )
+        language_model_config["action_language_model"] = serialization_lib.serialize_synalinks_object(
+            self.action_language_model
+        )
+        return {**config, **language_model_config}
