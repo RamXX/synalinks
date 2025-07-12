@@ -45,3 +45,17 @@ class SymbolicDataModelTest(testing.TestCase):
             f"<SymbolicDataModel schema={standardize_schema(Query.get_schema())}",
             repr(x),
         )
+
+    def test_contains_symbolic_data_model(self):
+        class Foo(DataModel):
+            foo: str
+
+        class FooBar(DataModel):
+            foo: str
+            bar: str
+
+        class Bar(DataModel):
+            bar: str
+
+        self.assertTrue(Foo in FooBar)
+        self.assertFalse(Bar in Foo)
