@@ -11,7 +11,6 @@ from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend.common.json_data_model import JsonDataModel
 from synalinks.src.backend.common.symbolic_data_model import SymbolicDataModel
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
-from synalinks.src.backend.common.json_schema_utils import contains_schema
 
 IS_THREAD_SAFE = True
 
@@ -177,21 +176,18 @@ class MetaDataModel(type(pydantic.BaseModel)):
             ops.Xor().symbolic_call(other, cls)
         )
 
-    def __contains__(cls, other_cls):
-        """Check if the schema of `cls` is contained within the schema of `other_cls`.
-
-        This allows using the `in` operator to check schema compatibility between data models.
+    def __contains__(cls, other):
+        """Check if the schema of `other` is contained in this one.
 
         Args:
-            other_cls (DataModel): The data model to compare with.
+            other: The other data model to compare with.
 
         Returns:
-            (bool): `True` if all properties of `cls` are present in `other_cls`,
-            meaning `cls in other_cls`. Otherwise, returns `False`.
+            (bool): True if all properties of `other` are present in this one.
         """
-        if not inspect.isclass(other_cls):
-            return False
-        return contains_schema(other_cls.get_schema(), cls.get_schema())
+        from synalinks.src.backend.common.json_schema_utils import contains_schema
+
+        return contains_schema(cls.get_schema(), other.get_schema())
 
     def factorize(cls):
         """Factorizes the data model.
