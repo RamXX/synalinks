@@ -24,9 +24,11 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
 import inspect
+import logging
 import typing
 
 import docstring_parser
+
 
 JsonSchema = typing.Union[
     typing.Dict[str, typing.Any],
@@ -129,7 +131,7 @@ class Tool:
 
         doc = inspect.getdoc(func)
         if not doc:
-            raise ValueError(f"Missing docstring for function '{self.name()}'")
+            raise ValueError(f"The tool ({self.name()}) must have a docstring")
 
         self._docstring = docstring_parser.parse(doc)
         self._signature = inspect.signature(func)
@@ -138,6 +140,12 @@ class Tool:
         self._required_params = []
 
         self._parse_arguments()
+
+        if not self.description():
+            logging.warning(
+                "The tool (%s) has no description. " % self.name() +
+                "This is unsafe behavior and may lead to issues."
+            )
 
     def __call__(self, *args, **kwargs):
         return self._func(*args, **kwargs)
