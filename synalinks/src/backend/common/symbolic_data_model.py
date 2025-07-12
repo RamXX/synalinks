@@ -304,7 +304,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """Check if the schema of `other` is contained in this one.
 
         Args:
-            other: The other data model to compare with.
+            other (SymbolicDataModel | DataModel): The other data model to compare with.
 
         Returns:
             (bool): True if all properties of `other` are present in this one.

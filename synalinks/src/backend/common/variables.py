@@ -269,7 +269,7 @@ class Variable:
         """Check if the schema of `other` is contained within the schema of this variable.
 
         Args:
-            other: The data model to compare against this variable's schema.
+            other (SymbolicDataModel | DataModel): The data model to compare against this variable's schema.
 
         Returns:
             bool: True if `other`'s schema is a subset of this variable's schema.
