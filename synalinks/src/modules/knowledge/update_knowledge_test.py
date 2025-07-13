@@ -53,7 +53,7 @@ class UpdateKnowledgeTest(testing.TestCase):
         embedding_model = EmbeddingModel(model="ollama/mxbai-embed-large")
 
         knowledge_base = KnowledgeBase(
-            index_name="neo4j://localhost:7687",
+            uri="neo4j://localhost:7687",
             entity_models=[Document],
             embedding_model=embedding_model,
             metric="cosine",
@@ -94,7 +94,7 @@ class UpdateKnowledgeTest(testing.TestCase):
         )
 
         knowledge_base = KnowledgeBase(
-            index_name="neo4j://localhost:7687",
+            uri="neo4j://localhost:7687",
             entity_models=[Document],
             embedding_model=embedding_model,
             metric="cosine",
@@ -145,7 +145,7 @@ class UpdateKnowledgeTest(testing.TestCase):
         )
 
         knowledge_base = KnowledgeBase(
-            index_name="neo4j://localhost:7687",
+            uri="neo4j://localhost:7687",
             entity_models=[Document],
             embedding_model=embedding_model,
             metric="cosine",
@@ -189,7 +189,7 @@ class UpdateKnowledgeTest(testing.TestCase):
         )
 
         knowledge_base = KnowledgeBase(
-            index_name="neo4j://localhost:7687",
+            uri="neo4j://localhost:7687",
             entity_models=[Document],
             embedding_model=embedding_model,
             metric="cosine",

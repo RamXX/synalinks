@@ -79,7 +79,8 @@ def load_knowledge():
             for i in range(len(context["title"])):
                 documents.append(
                     Document(
-                        title=context["title"][i], text="\n".join(context["sentences"][i])
+                        title=context["title"][i],
+                        text="\n".join(context["sentences"][i]),
                     )
                 )
     documents = np.array(documents, dtype="object")

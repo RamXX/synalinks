@@ -71,6 +71,10 @@ class MultiDecision(Module):
         language_model (LanguageModel): The language model to use.
         prompt_template (str): The default jinja2 prompt template
             to use (see `Generator`).
+        static_system_prompt (str): A static system prompt that **do not** evolve 
+            during training. This prompt allow the user to provide additional
+            information that won't be changed during training. Allowing to cache
+            it and reduce inference costs (see `Generator`).
         examples (list): The default examples to use in the prompt
             (see `Generator`).
         instructions (list): The default instructions to use (see `Generator`).
@@ -89,6 +93,7 @@ class MultiDecision(Module):
         labels=None,
         language_model=None,
         prompt_template=None,
+        static_system_prompt=None,
         examples=None,
         instructions=None,
         use_inputs_schema=False,
@@ -114,19 +119,21 @@ class MultiDecision(Module):
         self.question = question
         self.labels = labels
         self.language_model = language_model
+        self.static_system_prompt = static_system_prompt
         self.prompt_template = prompt_template
         self.examples = examples
         self.instructions = instructions
         self.use_inputs_schema = use_inputs_schema
         self.use_outputs_schema = use_outputs_schema
         self.decision = Generator(
-            schema=schema,
-            language_model=language_model,
-            prompt_template=prompt_template,
-            examples=examples,
-            instructions=instructions,
-            use_inputs_schema=use_inputs_schema,
-            use_outputs_schema=use_outputs_schema,
+            schema=self.schema,
+            language_model=self.language_model,
+            prompt_template=self.prompt_template,
+            static_system_prompt=self.static_system_prompt,
+            examples=self.examples,
+            instructions=self.instructions,
+            use_inputs_schema=self.use_inputs_schema,
+            use_outputs_schema=self.use_outputs_schema,
             name=self.name + "_generator",
         )
 
@@ -146,6 +153,7 @@ class MultiDecision(Module):
             "question": self.question,
             "labels": self.labels,
             "prompt_template": self.prompt_template,
+            "static_system_prompt": self.static_system_prompt,
             "examples": self.examples,
             "instructions": self.instructions,
             "use_inputs_schema": self.use_inputs_schema,

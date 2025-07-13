@@ -46,6 +46,7 @@ class ProgramTest(testing.TestCase):
                 "generator": {
                     "generator_state": {
                         "prompt_template": default_prompt_template(),
+                        "static_system_prompt": None,
                         "examples": [],
                         "instructions": Instructions(
                             instructions=[],
@@ -125,6 +126,7 @@ class ProgramTest(testing.TestCase):
                 "generator": {
                     "generator_state": {
                         "prompt_template": default_prompt_template(),
+                        "static_system_prompt": None,
                         "examples": [],
                         "instructions": Instructions(
                             instructions=[],

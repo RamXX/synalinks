@@ -102,6 +102,7 @@ from synalinks.src.modules.knowledge.update_knowledge import (
     UpdateKnowledge as UpdateKnowledge,
 )
 from synalinks.src.modules.merging.concat import Concat as Concat
+from synalinks.src.modules.merging.concat import Concat as Concatenate
 from synalinks.src.modules.merging.logical_and import And as And
 from synalinks.src.modules.merging.logical_or import Or as Or
 from synalinks.src.modules.merging.logical_xor import Xor as Xor

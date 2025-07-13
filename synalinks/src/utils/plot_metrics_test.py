@@ -78,14 +78,28 @@ class PlotMetricsTest(testing.TestCase):
 
     def test_plot_metrics_with_filter(self):
         """Test plot_metrics with metrics filter."""
-        metrics = ["reward", "reward_val", "f1_score", "accuracy", "precision", "recall"]
+        metrics = [
+            "reward",
+            "reward_val",
+            "f1_score",
+            "accuracy",
+            "precision",
+            "recall",
+        ]
         metrics_dict = self.generate_random_metrics(metrics=metrics)
         metrics_filter = ["reward", "f1_score", "accuracy"]
         plot_metrics(metrics_dict, metrics_filter=metrics_filter, to_folder="/tmp/")
 
     def test_plot_metrics_comparison_with_filter(self):
         """Test plot_metrics_comparison with metrics filter."""
-        metrics = ["reward", "reward_val", "f1_score", "accuracy", "precision", "recall"]
+        metrics = [
+            "reward",
+            "reward_val",
+            "f1_score",
+            "accuracy",
+            "precision",
+            "recall",
+        ]
         conditions = ["Program A", "Program B"]
         comparison_metrics = self.generate_comparison_metrics(
             conditions=conditions, metrics=metrics

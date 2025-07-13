@@ -104,14 +104,28 @@ class PlotHistoryTest(testing.TestCase):
 
     def test_plot_history_with_filter(self):
         """Test plot_history with metrics filter."""
-        metrics = ["reward", "reward_val", "f1_score", "accuracy", "precision", "recall"]
+        metrics = [
+            "reward",
+            "reward_val",
+            "f1_score",
+            "accuracy",
+            "precision",
+            "recall",
+        ]
         history = self.generate_random_history(num_epochs=20, metrics=metrics)
         metrics_filter = ["reward", "f1_score", "accuracy"]
         plot_history(history, metrics_filter=metrics_filter, to_folder="/tmp/")
 
     def test_plot_history_comparison_with_filter(self):
         """Test plot_history_comparison with metrics filter."""
-        metrics = ["reward", "reward_val", "f1_score", "accuracy", "precision", "recall"]
+        metrics = [
+            "reward",
+            "reward_val",
+            "f1_score",
+            "accuracy",
+            "precision",
+            "recall",
+        ]
         conditions = ["Program A", "Program B"]
         comparison_histories = self.generate_comparison_histories(
             conditions=conditions, num_epochs=20, metrics=metrics

@@ -12,7 +12,6 @@ from synalinks.src.backend.config import capture_exception
 from synalinks.src.backend.config import maybe_initialize_telemetry
 from synalinks.src.saving import serialization_lib
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
-from synalinks.src.utils.tool_utils import Tool
 
 
 @synalinks_export(
@@ -296,7 +295,10 @@ class LanguageModel(SynalinksSaveable):
                 if schema:
                     json_instance = json.loads(response_str)
                 else:
-                    json_instance = {"role": ChatRole.ASSISTANT, "content": response_str}
+                    json_instance = {
+                        "role": ChatRole.ASSISTANT,
+                        "content": response_str,
+                    }
                 return json_instance
             except Exception as e:
                 warnings.warn(f"Error occured while trying to call {self}: " + str(e))

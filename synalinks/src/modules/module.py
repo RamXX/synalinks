@@ -22,6 +22,7 @@ from synalinks.src.ops.operation import Operation
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 from synalinks.src.utils import python_utils
 from synalinks.src.utils import tracking
+from synalinks.src.utils.naming import auto_name
 
 if backend.backend() == "pydantic":
     from synalinks.src.backend.pydantic.module import PydanticModule as BackendModule
@@ -217,9 +218,9 @@ class Module(BackendModule, Operation, SynalinksSaveable):
                     args[0] = args[0].to_symbolic_data_model()
                 else:
                     args = tree.map_structure(
-                        lambda x: x.to_symbolic_data_model()
-                        if backend.is_data_model(x)
-                        else x,
+                        lambda x: (
+                            x.to_symbolic_data_model() if backend.is_data_model(x) else x
+                        ),
                         args,
                     )
                 await self.__call__(*args, **kwargs)
@@ -756,6 +757,14 @@ class Module(BackendModule, Operation, SynalinksSaveable):
                     f"Exception encountered: ''{e}''"
                 )
         self.built = True
+        
+    def clone(self, name=None):
+        clone = self.from_config(self.get_config())
+        if name:
+            clone.name = name
+        else:
+            clone.name = auto_name(self.name)
+        return clone
 
 
 def is_json_data_model_or_symbolic_data_model(x, allow_none=False):

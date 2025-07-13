@@ -77,6 +77,10 @@ class ChainOfThought(Module):
             If not provided use the `data_model` to infer it.
         data_model (DataModel | SymbolicDataModel | JsonDataModel): The target data model.
         language_model (LanguageModel): The language model to use.
+        static_system_prompt (str): A static system prompt that **do not** evolve 
+            during training. This prompt allow the user to provide additional
+            information that won't be changed during training. Allowing to cache
+            it and reduce inference costs (see `Generator`).
         prompt_template (str): The jinja2 prompt template (see `Generator`).
         examples (list): The default list of examples (see `Generator`).
         instructions (list): The default instructions being a list of string containing
@@ -99,6 +103,7 @@ class ChainOfThought(Module):
         data_model=None,
         language_model=None,
         prompt_template=None,
+        static_system_prompt=None,
         examples=None,
         instructions=None,
         use_inputs_schema=False,
@@ -119,6 +124,7 @@ class ChainOfThought(Module):
             schema = data_model.get_schema()
         self.schema = schema
         self.language_model = language_model
+        self.static_system_prompt = static_system_prompt
         self.prompt_template = prompt_template
         self.examples = examples
         self.instructions = instructions
@@ -137,6 +143,7 @@ class ChainOfThought(Module):
         self.generator = Generator(
             data_model=final_data_model,
             language_model=self.language_model,
+            static_system_prompt=self.static_system_prompt,
             prompt_template=self.prompt_template,
             examples=self.examples,
             instructions=self.instructions,
@@ -153,6 +160,7 @@ class ChainOfThought(Module):
         config = {
             "schema": self.schema,
             "prompt_template": self.prompt_template,
+            "static_system_prompt": self.static_system_prompt,
             "examples": self.examples,
             "instructions": self.instructions,
             "use_inputs_schema": self.use_inputs_schema,

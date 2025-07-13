@@ -33,7 +33,7 @@ async def main():
     )
 
     knowledge_base = synalinks.KnowledgeBase(
-        index_name="neo4j://localhost:7687",
+        uri="neo4j://localhost:7687",
         entity_models=[City, Country, Place, Event],
         relation_models=[IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn],
         embedding_model=embedding_model,
@@ -92,17 +92,19 @@ if __name__ == "__main__":
   "query": "What is the French capital?",
   "thinking": "The question is asking for information about a specific city, which is the capital of France. The subjects involved are 'French' and 'capital'. However, since we are looking for a city, I will focus on the second subject.",
   "subject_label": "City",
-  "subject_similarity_query": "*",
+  "subject_similarity_search": "?",
   "relation_label": "IsCapitalOf",
   "object_label": "Country",
-  "object_similarity_query": "France",
+  "object_similarity_search": "France",
   "result": [
     {
       "subj": {
         "name": "Rome",
         "label": "City"
       },
-      "relation": "IsCapitalOf",
+      "relation": {
+        "label": "IsCapitalOf"
+      },
       "obj": {
         "name": "Vatican City",
         "label": "Country"
@@ -114,7 +116,9 @@ if __name__ == "__main__":
         "name": "Vatican City",
         "label": "City"
       },
-      "relation": "IsCapitalOf",
+      "relation": {
+        "label": "IsCapitalOf"
+      },
       "obj": {
         "name": "Vatican City",
         "label": "Country"
@@ -126,7 +130,9 @@ if __name__ == "__main__":
         "name": "London",
         "label": "City"
       },
-      "relation": "IsCapitalOf",
+      "relation": {
+        "label": "IsCapitalOf"
+      },
       "obj": {
         "name": "United Kingdom",
         "label": "Country"
@@ -138,7 +144,9 @@ if __name__ == "__main__":
         "name": "Belfast",
         "label": "City"
       },
-      "relation": "IsCapitalOf",
+      "relation": {
+        "label": "IsCapitalOf"
+      },
       "obj": {
         "name": "United Kingdom",
         "label": "Country"
@@ -150,7 +158,9 @@ if __name__ == "__main__":
         "name": "Rome",
         "label": "City"
       },
-      "relation": "IsCapitalOf",
+      "relation": {
+        "label": "IsCapitalOf"
+      },
       "obj": {
         "name": "Italy",
         "label": "Country"
@@ -162,7 +172,9 @@ if __name__ == "__main__":
         "name": "Paris",
         "label": "City"
       },
-      "relation": "IsCapitalOf",
+      "relation": {
+        "label": "IsCapitalOf"
+      },
       "obj": {
         "name": "Germany",
         "label": "Country"
@@ -174,7 +186,9 @@ if __name__ == "__main__":
         "name": "Paris",
         "label": "City"
       },
-      "relation": "IsCapitalOf",
+      "relation": {
+        "label": "IsCapitalOf"
+      },
       "obj": {
         "name": "Europe",
         "label": "Country"
@@ -186,7 +200,9 @@ if __name__ == "__main__":
         "name": "London",
         "label": "City"
       },
-      "relation": "IsCapitalOf",
+      "relation": {
+        "label": "IsCapitalOf"
+      },
       "obj": {
         "name": "Europe",
         "label": "Country"
@@ -198,7 +214,9 @@ if __name__ == "__main__":
         "name": "Rome",
         "label": "City"
       },
-      "relation": "IsCapitalOf",
+      "relation": {
+        "label": "IsCapitalOf"
+      },
       "obj": {
         "name": "Europe",
         "label": "Country"
@@ -210,7 +228,9 @@ if __name__ == "__main__":
         "name": "Paris",
         "label": "City"
       },
-      "relation": "IsCapitalOf",
+      "relation": {
+        "label": "IsCapitalOf"
+      },
       "obj": {
         "name": "France",
         "label": "Country"

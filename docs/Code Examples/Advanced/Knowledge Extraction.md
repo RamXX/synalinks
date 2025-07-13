@@ -37,41 +37,85 @@ Synalinks addresses this challenge by enabling you to decompose complex extracti
 For scenarios where you have access to powerful language models capable of handling complex, multi-faceted extraction tasks, the one-stage approach offers simplicity and directness. This method excels when working with large proprietary models that possess the capacity to simultaneously identify entities, infer relationships, and maintain semantic coherence across the entire knowledge graph.
 
 ```python
+import synalinks
+import asyncio
+from typing import List, Union
 
-# We group the entities and relations in a knowledge graph
-
-class Knowledge(synalinks.KnowledgeGraph):
-    entities: List[Union[City, Country, Place, Event]]
-    relations: List[Union[IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn]]
+from knowledge_graph_schema import City, Country, Place, Event
+from knowledge_graph_schema import IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn
+from knowledge_dataset import Document, load_data
 
 
-async def one_stage_program(
-    language_model: synalinks.LanguageModel,
-    knowledge_base: synalinks.KnowledgeBase,
-):
+class KnowledgeEntitiesAndRelations(synalinks.KnowledgeGraph):
+    entities: List[Union[City, Country, Place, Event]] = synalinks.Field(
+        description=(
+            "A comprehensive list containing various entities such as cities,"
+            " countries, places, and events."
+        ),
+    )
+    relations: List[Union[IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn]] = (
+        synalinks.Field(
+            description=(
+                "A comprehensive list containing various entities such as cities,"
+                " countries, places, and events."
+            ),
+        )
+    )
+
+
+async def main():
+    language_model = synalinks.LanguageModel(
+        model="ollama/mistral",
+    )
+
+    embedding_model = synalinks.EmbeddingModel(
+        model="ollama/mxbai-embed-large",
+    )
+
+    knowledge_base = synalinks.KnowledgeBase(
+        uri="neo4j://localhost:7687",
+        entity_models=[City, Country, Place, Event],
+        relation_models=[IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn],
+        embedding_model=embedding_model,
+        metric="cosine",
+        wipe_on_start=True,
+    )
+
     inputs = synalinks.Input(data_model=Document)
     knowledge_graph = await synalinks.Generator(
-        data_model=Knowledge,
+        data_model=KnowledgeEntitiesAndRelations,
         language_model=language_model,
     )(inputs)
+
     embedded_knowledge_graph = await synalinks.Embedding(
         embedding_model=embedding_model,
+        in_mask=["name"],
     )(knowledge_graph)
+
+    outputs = await synalinks.UpdateKnowledge(
+        knowledge_base=knowledge_base,
+    )(embedded_knowledge_graph)
 
     program = synalinks.Program(
         inputs=inputs,
         outputs=outputs,
-        name="two_stage_extraction",
-        description="A two stage KG extraction pipeline",
+        name="one_stage_extraction",
+        description="A one stage KG extraction pipeline",
     )
 
     synalinks.utils.plot_program(
         program,
-        to_folder="examples/knowledge_extraction",
+        to_folder="examples/knowledge/extraction",
         show_trainable=True,
     )
 
-    return program
+    dataset = load_data()
+
+    await program.predict(dataset, batch_size=1)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 
 ```
 
@@ -88,36 +132,73 @@ The one-stage approach minimizes latency and reduces the complexity of pipeline 
 The two-stage approach represents a strategic decomposition of the extraction process, separating entity identification from relationship inference. This separation allows for specialized optimization at each stage and provides greater control.
 
 ```python
+import synalinks
+import asyncio
+from typing import List, Union
 
-class MapEntities(synalinks.Entities):
-    entities: List[Union[City, Country, Place, Event]]
-
-class MapRelations(synalinks.Relations):
-    relations: List[Union[IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn]]
+from knowledge_graph_schema import City, Country, Place, Event
+from knowledge_graph_schema import IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn
+from knowledge_dataset import Document, load_data
 
 
-async def two_stage_program(
-    language_model: synalinks.LanguageModel,
-    knowledge_base: synalinks.KnowledgeBase,
-):
+class KnowledgeEntities(synalinks.Entities):
+    entities: List[Union[City, Country, Place, Event]] = synalinks.Field(
+        description=(
+            "A comprehensive list containing various entities such as cities,"
+            " countries, places, and events."
+        ),
+    )
+
+
+class KnowledgeRelations(synalinks.Relations):
+    relations: List[Union[IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn]] = (
+        synalinks.Field(
+            description=(
+                "A comprehensive list of relations including IsCapitalOf, IsLocatedIn,"
+                " IsCityOf, and TookPlaceIn, which describe interactions and associations"
+                " between entities."
+            ),
+        )
+    )
+
+
+async def main():
+    language_model = synalinks.LanguageModel(
+        model="ollama/mistral",
+    )
+
+    embedding_model = synalinks.EmbeddingModel(
+        model="ollama/mxbai-embed-large",
+    )
+
+    knowledge_base = synalinks.KnowledgeBase(
+        uri="neo4j://localhost:7687",
+        entity_models=[City, Country, Place, Event],
+        relation_models=[IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn],
+        embedding_model=embedding_model,
+        metric="cosine",
+        wipe_on_start=True,
+    )
+
     inputs = synalinks.Input(data_model=Document)
     entities = await synalinks.Generator(
-        data_model=MapEntities,
+        data_model=KnowledgeEntities,
         language_model=language_model,
     )(inputs)
-    
+
     # inputs_with_entities = inputs AND entities (See Control Flow tutorial)
     inputs_with_entities = inputs & entities
     relations = await synalinks.Generator(
-        data_model=MapRelations,
+        data_model=KnowledgeRelations,
         language_model=language_model,
     )(inputs_with_entities)
-    
-    # knowledge_graph = inputs AND entities (See Control Flow tutorial)
+
+    # knowledge_graph = entities AND relations
     knowledge_graph = entities & relations
 
     embedded_knowledge_graph = await synalinks.Embedding(
         embedding_model=embedding_model,
+        in_mask=["name"],
     )(knowledge_graph)
 
     updated_knowledge_graph = await synalinks.UpdateKnowledge(
@@ -135,10 +216,19 @@ async def two_stage_program(
 
     synalinks.utils.plot_program(
         program,
-        to_folder="examples/knowledge_extraction",
+        to_folder="examples/knowledge/extraction",
         show_trainable=True,
     )
-    return program
+
+    dataset = load_data()
+
+    print("Starting KG extraction...")
+    await program.predict(dataset, batch_size=1)
+    print("Done.")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 
 ```
 
@@ -222,7 +312,7 @@ async def main():
     )
 
     knowledge_base = synalinks.KnowledgeBase(
-        index_name="neo4j://localhost:7687",
+        uri="neo4j://localhost:7687",
         entity_models=[City, Country, Place, Event],
         relation_models=[IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn],
         embedding_model=embedding_model,
@@ -372,7 +462,7 @@ async def main():
     )
 
     knowledge_base = synalinks.KnowledgeBase(
-        index_name="neo4j://localhost:7687",
+        uri="neo4j://localhost:7687",
         entity_models=[City, Country, Place, Event],
         relation_models=[IsCapitalOf, IsLocatedIn, IsCityOf, TookPlaceIn],
         embedding_model=embedding_model,

@@ -39,7 +39,7 @@ class KnowledgeBaseTest(testing.TestCase):
         )
 
         knowledge_base = KnowledgeBase(
-            index_name="neo4j://localhost:7687",
+            uri="neo4j://localhost:7687",
             entity_models=[Document, Chunk],
             relation_models=[IsPartOf],
             embedding_model=embedding_model,
@@ -59,7 +59,7 @@ class KnowledgeBaseTest(testing.TestCase):
         )
 
         knowledge_base = KnowledgeBase(
-            index_name="neo4j://localhost:7687",
+            uri="neo4j://localhost:7687",
             entity_models=[Document, Chunk],
             relation_models=[IsPartOf],
             embedding_model=embedding_model,

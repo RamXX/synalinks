@@ -20,66 +20,41 @@ from synalinks.src.utils.naming import to_snake_case
 class Neo4JAdapter(DatabaseAdapter):
     def __init__(
         self,
-        index_name=None,
+        uri=None,
         entity_models=None,
         relation_models=None,
         embedding_model=None,
         metric="cosine",
         wipe_on_start=False,
     ):
-        super().__init__(
-            index_name=index_name,
-            embedding_model=embedding_model,
-        )
-        self.db = os.getenv("NEO4J_DATABASE", "neo4j")
+        self.db_name = os.getenv("NEO4J_DATABASE", "neo4j")
         self.username = os.getenv("NEO4J_USERNAME", "neo4j")
         self.password = os.getenv("NEO4J_PASSWORD", "neo4j")
 
-        self.embedding_model = embedding_model
-        self.embedding_dim = len(
-            asyncio.get_event_loop().run_until_complete(embedding_model(texts=["test"]))[
-                "embeddings"
-            ][0]
+        super().__init__(
+            uri=uri,
+            entity_models=entity_models,
+            relation_models=relation_models,
+            embedding_model=embedding_model,
+            metric=metric,
+            wipe_on_start=wipe_on_start,
         )
 
-        self.metric = metric
-
-        if not entity_models:
-            entity_models = []
-        if not relation_models:
-            relation_models = []
-        self.entity_models = entity_models
-        self.relation_models = relation_models
-
-        if wipe_on_start:
-            asyncio.get_event_loop().run_until_complete(
-                self.query(
-                    """
-                    MATCH (n)
-                    CALL (n) {
-                        DETACH DELETE n
-                    } IN TRANSACTIONS OF 10000 ROWS
-                    """
-                )
-            )
-
-        query = "\n".join(
-            [
-                "CREATE VECTOR INDEX `entity` IF NOT EXISTS",
-                "FOR (n:Entity) ON n.embedding",
-                "OPTIONS {indexConfig : {"
-                " `vector.dimensions`: $dimension,"
-                " `vector.similarity_function`: $similarityFunction"
-                "}};",
-            ]
-        )
-        params = {
-            "dimension": self.embedding_dim,
-            "similarityFunction": self.metric,
-        }
+    def wipe_database(self):
+        """Wipe all data from the database"""
         asyncio.get_event_loop().run_until_complete(
-            self.query(query, params=params),
+            self.query(
+                """
+                MATCH (n)
+                CALL (n) {
+                    DETACH DELETE n
+                } IN TRANSACTIONS OF 10000 ROWS
+                """
+            )
         )
+
+    def create_vector_index(self):
+        """Create vector indexes"""
         for entity_model in self.entity_models:
             node_label = self.sanitize_label(entity_model.get_schema().get("title"))
             index_name = to_snake_case(node_label)
@@ -107,19 +82,18 @@ class Neo4JAdapter(DatabaseAdapter):
             )
 
     async def query(self, query: str, params: Dict[str, Any] = None, **kwargs):
-        driver = neo4j.GraphDatabase.driver(
-            self.index_name, auth=(self.username, self.password)
-        )
+        driver = neo4j.GraphDatabase.driver(self.uri, auth=(self.username, self.password))
         result_list = []
         try:
-            with driver.session(database=self.db) as session:
+            with driver.session(database=self.db_name) as session:
                 if params:
                     result = session.run(query, **params, **kwargs)
                 else:
                     result = session.run(query, **kwargs)
                 for record in reversed(list(result)):
                     data = record.data()
-                    data = out_mask_json(data, mask=["embedding", "embeddings"])
+                    if isinstance(data, dict):
+                        data = out_mask_json(data, mask=["embedding"])
                     result_list.append(data)
                 session.close()
         finally:
@@ -129,7 +103,7 @@ class Neo4JAdapter(DatabaseAdapter):
     async def update(
         self,
         data_model,
-        threshold=0.9,
+        threshold=0.8,
     ):
         if is_relation(data_model):
             subj = data_model.get_nested_entity("subj")
@@ -152,7 +126,7 @@ class Neo4JAdapter(DatabaseAdapter):
             relation_properties = self.sanitize_properties(data_model.get_json())
             set_clauses = []
             for key in relation_properties.keys():
-                if key not in ("subj", "obj", "label"):
+                if key not in ("subj", "obj"):
                     set_clauses.append(f"r.{key} = ${key}")
             set_statement = "SET " + ", ".join(set_clauses) if set_clauses else ""
 
@@ -161,15 +135,15 @@ class Neo4JAdapter(DatabaseAdapter):
                     "CALL db.index.vector.queryNodes($subjIndexName, 1, $subjVector)",
                     "YIELD node AS s, score AS subj_score",
                     "WHERE subj_score >= $threshold",
-                    "",
                     "CALL db.index.vector.queryNodes($objIndexName, 1, $objVector)",
                     "YIELD node AS o, score AS obj_score",
                     "WHERE obj_score >= $threshold",
-                    "",
                     f"MERGE (s)-[r:{relation_label}]->(o)",
-                    set_statement
-                    if set_statement
-                    else "// No additional properties to set",
+                    (
+                        set_statement
+                        if set_statement
+                        else "// No additional properties to set"
+                    ),
                 ]
             )
             params = {
@@ -178,10 +152,10 @@ class Neo4JAdapter(DatabaseAdapter):
                 "threshold": threshold,
                 "subjVector": subj_vector,
                 "objVector": obj_vector,
+                **relation_properties,
             }
             await self.query(query, params=params)
         elif is_entity(data_model):
-            properties = self.sanitize_properties(data_model.get_json())
             node_label = self.sanitize_label(data_model.get("label"))
             vector = data_model.get("embedding")
 
@@ -193,23 +167,32 @@ class Neo4JAdapter(DatabaseAdapter):
                 )
                 return
 
+            node_properties = self.sanitize_properties(data_model.get_json())
+            set_clauses = []
+            for key in node_properties.keys():
+                set_clauses.append(f"n.{key} = ${key}")
+            set_statement = "SET " + ", ".join(set_clauses) if set_clauses else ""
+
             query = "\n".join(
                 [
                     "CALL db.index.vector.queryNodes($indexName, 1, $vector)",
                     "YIELD node, score",
-                    "WITH node, score",
                     "WHERE score >= $threshold",
                     "WITH count(node) as existing_count",
                     "WHERE existing_count = 0",
-                    f"CREATE (n:Entity:{node_label})",
-                    f"SET {', '.join([f'n.{key} = ${key}' for key in properties.keys()])}",  # noqa E501
+                    f"CREATE (n:{node_label})",
+                    (
+                        set_statement
+                        if set_statement
+                        else "// No additional properties to set"
+                    ),
                 ]
             )
             params = {
                 "indexName": to_snake_case(node_label),
                 "threshold": threshold,
                 "vector": vector,
-                **properties,
+                **node_properties,
             }
             await self.query(query, params=params)
         else:
@@ -231,19 +214,14 @@ class Neo4JAdapter(DatabaseAdapter):
         text = similarity_search.get("similarity_search")
         entity_label = similarity_search.get("entity_label")
         vector = (await self.embedding_model(texts=[text]))["embeddings"][0]
-
-        index_name = (
-            to_snake_case(self.sanitize_label(entity_label))
-            if entity_label != "*"
-            else "entity"
-        )
-
+        index_name = to_snake_case(self.sanitize_label(entity_label))
         query = "\n".join(
             [
                 "CALL db.index.vector.queryNodes(",
                 " $indexName,",
                 " $numberOfNearestNeighbours,",
                 " $vector) YIELD node AS node, score",
+                "WITH node, score",
                 "WHERE score >= $threshold",
                 "RETURN {name: node.name, label: node.label} AS node, score",
                 "LIMIT $numberOfNearestNeighbours",
@@ -268,239 +246,127 @@ class Neo4JAdapter(DatabaseAdapter):
             raise ValueError(
                 "The `triplet_search` argument should be a `TripletSearch` data model"
             )
-
         subject_label = triplet_search.get("subject_label")
-        subject_label = (
-            self.sanitize_label(subject_label) if subject_label != "*" else subject_label
-        )
-        subject_similarity_query = triplet_search.get("subject_similarity_query")
+        subject_label = self.sanitize_label(subject_label)
+        subject_similarity_search = triplet_search.get("subject_similarity_search")
         relation_label = triplet_search.get("relation_label")
-        relation_label = (
-            self.sanitize_label(relation_label)
-            if relation_label != "*"
-            else relation_label
-        )
+        relation_label = self.sanitize_label(relation_label)
         object_label = triplet_search.get("object_label")
-        object_label = (
-            self.sanitize_label(object_label) if object_label != "*" else object_label
-        )
-        object_similarity_query = triplet_search.get("object_similarity_query")
+        object_label = self.sanitize_label(object_label)
+        object_similarity_search = triplet_search.get("object_similarity_search")
 
         params = {
             "numberOfNearestNeighbours": k,
             "threshold": threshold,
             "k": k,
         }
-
         query_lines = []
-        where_conditions = []
 
-        # Determine which searches we need
         has_subject_similarity = (
-            subject_similarity_query and subject_similarity_query != "*"
+            subject_similarity_search and subject_similarity_search != "?"
         )
         has_object_similarity = (
-            object_similarity_query and object_similarity_query != "*"
+            object_similarity_search and object_similarity_search != "?"
         )
 
         if has_subject_similarity and has_object_similarity:
-            # Both subject and object have similarity search
             subject_vector = (
-                await self.embedding_model(texts=[subject_similarity_query])
+                await self.embedding_model(texts=[subject_similarity_search])
             )["embeddings"][0]
             object_vector = (
-                await self.embedding_model(texts=[object_similarity_query])
+                await self.embedding_model(texts=[object_similarity_search])
             )["embeddings"][0]
             params["subjVector"] = subject_vector
             params["objVector"] = object_vector
 
-            if subject_label != "*":
-                params["subjIndexName"] = to_snake_case(subject_label)
-                query_lines.append(
-                    (
-                        "CALL db.index.vector.queryNodes("
-                        "$subjIndexName, $numberOfNearestNeighbours, $subjVector)"
-                    )
+            params["subjIndexName"] = to_snake_case(subject_label)
+            query_lines.append(
+                (
+                    "CALL db.index.vector.queryNodes("
+                    "$subjIndexName, $numberOfNearestNeighbours, $subjVector)"
                 )
-            else:
-                query_lines.append(
-                    (
-                        "CALL db.index.vector.queryNodes("
-                        "'entity', $numberOfNearestNeighbours, $subjVector)"
-                    )
-                )
-
+            )
             query_lines.extend(
                 [
                     "YIELD node AS subj, score AS subj_score",
                     "WHERE subj_score >= $threshold",
-                    "WITH collect({subj: subj, subj_score: subj_score}) AS subjects",
                 ]
             )
-
-            if object_label != "*":
-                params["objIndexName"] = to_snake_case(object_label)
-                query_lines.append(
-                    (
-                        "CALL db.index.vector.queryNodes("
-                        "$objIndexName, $numberOfNearestNeighbours, $objVector)"
-                    )
+            params["objIndexName"] = to_snake_case(object_label)
+            query_lines.append(
+                (
+                    "CALL db.index.vector.queryNodes("
+                    "$objIndexName, $numberOfNearestNeighbours, $objVector)"
                 )
-            else:
-                query_lines.append(
-                    (
-                        "CALL db.index.vector.queryNodes("
-                        "'entity', $numberOfNearestNeighbours, $objVector)"
-                    )
-                )
-
+            )
             query_lines.extend(
                 [
                     "YIELD node AS obj, score AS obj_score",
                     "WHERE obj_score >= $threshold",
-                    "UNWIND subjects AS s",
-                    "WITH s.subj AS subj, s.subj_score AS subj_score, obj, obj_score",
+                    "WITH subj, subj_score, obj, obj_score",
                 ]
             )
-
-            if relation_label != "*":
-                query_lines.append(f"MATCH (subj)-[relation:{relation_label}]->(obj)")
-            else:
-                query_lines.append("MATCH (subj)-[relation]->(obj)")
+            query_lines.append(f"MATCH (subj)-[relation:{relation_label}]->(obj)")
             query_lines.append("WITH subj, subj_score, relation, obj, obj_score")
-
         elif has_subject_similarity:
             subject_vector = (
-                await self.embedding_model(texts=[subject_similarity_query])
+                await self.embedding_model(texts=[subject_similarity_search])
             )["embeddings"][0]
             params["subjVector"] = subject_vector
 
-            if subject_label != "*":
-                params["subjIndexName"] = to_snake_case(subject_label)
-                query_lines.append(
-                    (
-                        "CALL db.index.vector.queryNodes("
-                        "$subjIndexName, $numberOfNearestNeighbours, $subjVector)"
-                    )
+            params["subjIndexName"] = to_snake_case(subject_label)
+            query_lines.append(
+                (
+                    "CALL db.index.vector.queryNodes("
+                    "$subjIndexName, $numberOfNearestNeighbours, $subjVector)"
                 )
-            else:
-                query_lines.append(
-                    (
-                        "CALL db.index.vector.queryNodes("
-                        "'entity', $numberOfNearestNeighbours, $subjVector)"
-                    )
-                )
-
+            )
             query_lines.extend(
                 [
                     "YIELD node AS subj, score AS subj_score",
                     "WHERE subj_score >= $threshold",
                 ]
             )
-
-            if relation_label != "*" and object_label != "*":
-                query_lines.append(
-                    f"MATCH (subj)-[relation:{relation_label}]->(obj:{object_label})"
-                )
-            elif relation_label != "*":
-                query_lines.append(
-                    f"MATCH (subj)-[relation:{relation_label}]->(obj:Entity)"
-                )
-            elif object_label != "*":
-                query_lines.append(f"MATCH (subj)-[relation]->(obj:{object_label})")
-            else:
-                query_lines.append("MATCH (subj)-[relation]->(obj:Entity)")
-            query_lines.append(
-                "WITH subj, subj_score, relation, obj, 1.0 AS obj_score"
-            )
+            query_lines.append(f"MATCH (subj)-[relation:{relation_label}]->(obj)")
+            query_lines.append("WITH subj, subj_score, relation, obj, 1.0 AS obj_score")
 
         elif has_object_similarity:
             object_vector = (
-                await self.embedding_model(texts=[object_similarity_query])
+                await self.embedding_model(texts=[object_similarity_search])
             )["embeddings"][0]
             params["objVector"] = object_vector
-
-            if object_label != "*":
-                params["objIndexName"] = to_snake_case(object_label)
-                query_lines.append(
-                    (
-                        "CALL db.index.vector.queryNodes("
-                        "$objIndexName, $numberOfNearestNeighbours, $objVector)"
-                    )
-                )
-            else:
-                query_lines.append(
-                    (
-                        "CALL db.index.vector.queryNodes("
-                        "'entity', $numberOfNearestNeighbours, $objVector)"
-                    )
-                )
-
-            query_lines.extend(
-                ["YIELD node AS obj, score AS obj_score", "WHERE obj_score >= $threshold"]
-            )
-
-            if relation_label != "*" and subject_label != "*":
-                query_lines.append(
-                    f"MATCH (subj:{subject_label})-[relation:{relation_label}]->(obj)"
-                )
-            elif relation_label != "*":
-                query_lines.append(
-                    f"MATCH (subj:Entity)-[relation:{relation_label}]->(obj)"
-                )
-            elif subject_label != "*":
-                query_lines.append(f"MATCH (subj:{subject_label})-[relation]->(obj)")
-            else:
-                query_lines.append("MATCH (subj:Entity)-[relation]->(obj)")
+            params["objIndexName"] = to_snake_case(object_label)
             query_lines.append(
-                "WITH subj, 1.0 AS subj_score, relation, obj, obj_score"
+                (
+                    "CALL db.index.vector.queryNodes("
+                    "$objIndexName, $numberOfNearestNeighbours, $objVector)"
+                )
             )
-
-        else:
-            # Build the full pattern match
-            subj_pattern = (
-                f"subj:{subject_label}" if subject_label != "*" else "subj:Entity"
-            )
-            rel_pattern = (
-                f"relation:{relation_label}" if relation_label != "*" else "relation"
-            )
-            obj_pattern = (
-                f"obj:{object_label}" if object_label != "*" else "obj:Entity"
-            )
-
             query_lines.extend(
                 [
-                    f"MATCH ({subj_pattern})-[{rel_pattern}]->({obj_pattern})",
-                    "WITH subj, 1.0 AS subj_score, relation, obj, 1.0 AS obj_score",
+                    "YIELD node AS obj, score AS obj_score",
+                    "WHERE obj_score >= $threshold",
                 ]
             )
-
-        # Add geometric mean score calculation for triplets
+            query_lines.append(f"MATCH (subj)-[relation:{relation_label}]->(obj)")
+            query_lines.append("WITH subj, 1.0 AS subj_score, relation, obj, obj_score")
+        else:
+            query_lines.append(
+                (
+                    f"MATCH (subj:{subject_label})"
+                    f"-[relation:{relation_label}]->"
+                    f"(obj:{object_label})"
+                )
+            )
+            query_lines.append(
+                "WITH subj, 1.0 AS subj_score, relation, obj, 1.0 AS obj_score"
+            )
         query_lines.append(
             (
-                "WITH subj, subj_score, relation, obj, obj_score, "
-                "sqrt(subj_score * obj_score) "
-                "AS score"
+                "RETURN subj, properties(relation) AS relation, obj, "
+                "sqrt(subj_score * obj_score) AS score"
             )
         )
-        where_conditions.append("score >= $threshold")
-
-        if where_conditions:
-            query_lines.append(f"WHERE {' AND '.join(where_conditions)}")
-
-        # Clean the node data to exclude embeddings before returning
-        query_lines.extend(
-            [
-                "RETURN {name: subj.name, label: subj.label} AS subj,",
-                "       type(relation) AS relation,",
-                "       {name: obj.name, label: obj.label} AS obj,",
-                "       score",
-                "ORDER BY score DESC",
-            ]
-        )
-
         query_lines.append("LIMIT $k")
         query = "\n".join(query_lines)
-
-        result = await self.query(query, params=params)
-        return result
+        return await self.query(query, params)

@@ -95,6 +95,7 @@ nav:
         - Synalinks API/Modules API/Core Modules/Not module.md
         - Synalinks API/Modules API/Core Modules/Generator module.md
         - Synalinks API/Modules API/Core Modules/Decision module.md
+        - Synalinks API/Modules API/Core Modules/MultiDecision module.md
         - Synalinks API/Modules API/Core Modules/Action module.md
         - Synalinks API/Modules API/Core Modules/Branch module.md
       - Knowledge Modules:

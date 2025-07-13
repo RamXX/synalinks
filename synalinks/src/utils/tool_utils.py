@@ -149,6 +149,12 @@ class Tool:
 
     def __call__(self, *args, **kwargs):
         return self._func(*args, **kwargs)
+    
+    async def async__call__(self, *args, **kwargs):
+        if not inspect.iscoroutinefunction(self._func):
+            raise TypeError(f"{self.name()} is not an asynchronous function")
+
+        return await self._func(*args, **kwargs)
 
     def _parse_arguments(self):
         for param_name, param in self._signature.parameters.items():
@@ -164,6 +170,9 @@ class Tool:
 
     def _has_return(self):
         return self._signature.return_annotation is not self._signature.empty
+    
+    def description(self) -> str:
+        return self._docstring.short_description or ""
 
     def description(self) -> str:
         return self._docstring.short_description or ""

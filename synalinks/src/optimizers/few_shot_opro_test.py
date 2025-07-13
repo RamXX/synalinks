@@ -76,10 +76,12 @@ class FewShotOPROTest(testing.TestCase):
         program_vars = program.get_variable(index=0).get_json()
         self.assertTrue(len(program_vars["examples"]) > 0)
         self.assertTrue(len(program_vars["instructions"]) > 0)
-        
+
     @patch("litellm.aembedding")
     @patch("litellm.acompletion")
-    async def test_few_shot_opro_training_with_optimizer_training(self, mock_completion, mock_embedding):
+    async def test_few_shot_opro_training_with_optimizer_training(
+        self, mock_completion, mock_embedding
+    ):
         language_model = LanguageModel(model="ollama/mistral")
 
         embedding_model = EmbeddingModel(model="ollama/all-minilm")

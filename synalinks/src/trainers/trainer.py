@@ -552,7 +552,7 @@ class Trainer:
 
         if isinstance(self.optimizer, optimizers_module.Optimizer) and epochs > 0:
             await self.optimizer.finalize_variable_values(self.trainable_variables)
-            
+
             if self.optimizer.trainable_variables and train_optimizer:
                 await self.optimizer.finalize_variable_values(
                     self.optimizer.trainable_variables,
@@ -809,7 +809,7 @@ class Trainer:
             )
         else:
             warnings.warn("The program does not have any trainable variables.")
-            
+
         if self.optimizer.trainable_variables and train_optimizer:
             few_shot_optimizer = optimizers_module.RandomFewShot()
             await few_shot_optimizer.apply_optimization(

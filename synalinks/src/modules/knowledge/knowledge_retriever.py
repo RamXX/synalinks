@@ -108,7 +108,7 @@ class KnowledgeRetriever(Module):
             (Defaults to 10).
         threshold (float): Minimum similarity score for results.
             Entities with similarity below this threshold are excluded.
-            Should be between 0.0 and 1.0 (Defaults to 0.7).
+            Should be between 0.0 and 1.0 (Defaults to 0.5).
         prompt_template (str): The default jinja2 prompt template
             to use (see `Generator`).
         examples (list): The default examples to use in the prompt
@@ -134,7 +134,7 @@ class KnowledgeRetriever(Module):
         entity_models=None,
         relation_models=None,
         k=10,
-        threshold=0.8,
+        threshold=0.5,
         prompt_template=None,
         examples=None,
         instructions=None,
@@ -159,9 +159,19 @@ class KnowledgeRetriever(Module):
         self.examples = examples
         if not instructions:
             instructions = [
-                "Always think about what you need to retrieve before inferring the triplet search parameters",
-                "The similarity query parameters should be a short natural language string describing the subjects/objects to match"
-                "Remember to replace the similarity query with `*` if you need to match all",
+                (
+                    "Think about the triplet you are looking for, "
+                    "which relation label do you need, then the "
+                    "subject and object label"
+                ),
+                (
+                    "The similarity search parameters should be a short "
+                    "natural language string describing the entities to match"
+                ),
+                (
+                    "Remember to replace the similarity search with `?` "
+                    "for the entity you are looking for"
+                ),
             ]
         self.instructions = instructions
         self.use_inputs_schema = use_inputs_schema
@@ -177,7 +187,6 @@ class KnowledgeRetriever(Module):
             ]
         else:
             node_labels = []
-        node_labels.append("*")
 
         if relation_models:
             relation_labels = [
@@ -186,27 +195,26 @@ class KnowledgeRetriever(Module):
             ]
         else:
             relation_labels = []
-        relation_labels.append("*")
 
         self.schema = dynamic_enum(
             schema=self.schema,
             prop_to_update="subject_label",
             labels=node_labels,
-            description="The subject label (use `*` to match them all)",
+            description="The subject label to match",
         )
 
         self.schema = dynamic_enum(
             schema=self.schema,
             prop_to_update="relation_label",
             labels=relation_labels,
-            description="The relation label (use `*` to match them all)",
+            description="The relation label to match",
         )
 
         self.schema = dynamic_enum(
             schema=self.schema,
             prop_to_update="object_label",
             labels=node_labels,
-            description="The object label (use `*` to match them all)",
+            description="The object label to match",
         )
 
         self.query_generator = ChainOfThought(

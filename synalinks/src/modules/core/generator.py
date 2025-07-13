@@ -2,6 +2,7 @@
 
 import re
 from typing import List
+from typing import Optional
 
 import jinja2
 
@@ -34,13 +35,14 @@ def default_prompt_template():
     """
     return """
 <system>
+{% if static_system_prompt %}{{ static_system_prompt }}
+{% endif %}
 {% if inputs_schema %}You will be given an input JSON object with the following schema. 
 Input JSON Schema:
 {{ inputs_schema }}
 {% endif %}
 {% if outputs_schema %}
 Your task is to answer with a JSON object following this output JSON schema.
-
 Output JSON Schema:
 {{ outputs_schema }}
 {% endif %}
@@ -60,11 +62,13 @@ Output:
 {% endfor %}
 {% endif %}
 </system>
+{% if inputs %}
 <user>
 Input:
 {{ inputs }}
 Output:
-</user>"""
+</user>
+{% endif %}"""
 
 
 @synalinks_export("synalinks.chat_prompt_template")
@@ -99,10 +103,11 @@ def chat_prompt_template():
 class GeneratorState(DataModel):
     """The generator variables."""
 
-    prompt_template: str = None
+    prompt_template: Optional[str] = None
+    static_system_prompt: Optional[str] = None
     examples: List[Prediction] = []
     predictions: List[Prediction] = []
-    instructions: Instructions
+    instructions: Optional[Instructions] = None
     instructions_candidates: List[Instructions] = []
 
 
@@ -163,10 +168,14 @@ class Generator(Module):
             model for structured output.
         language_model (LanguageModel): The language model to use.
         prompt_template (str): The jinja2 prompt template.
+        static_system_prompt (str): A static system prompt that **do not** evolve 
+            during training. This prompt allow the user to provide additional
+            information that won't be changed during training. Allowing to cache
+            it and reduce inference costs.
         examples (list): The default list of examples, the examples
             are a list of tuples containing input/output JSON pairs.
         instructions (list): The default instructions being a list of string containing
-            addtional instructions for the language model.
+            additional instructions for the language model.
         use_inputs_schema (bool): Optional. Whether or not use the inputs schema in
             the prompt (Default to False).
         use_outputs_schema (bool): Optional. Whether or not use the outputs schema in
@@ -186,6 +195,7 @@ class Generator(Module):
         data_model=None,
         language_model=None,
         prompt_template=None,
+        static_system_prompt=None,
         examples=None,
         instructions=None,
         use_inputs_schema=False,
@@ -208,6 +218,7 @@ class Generator(Module):
         if not prompt_template:
             prompt_template = default_prompt_template()
         self.prompt_template = prompt_template
+        self.static_system_prompt = static_system_prompt
         if not examples:
             examples = []
         self.examples = examples
@@ -232,6 +243,7 @@ class Generator(Module):
 
         self.state = self.add_variable(
             initializer=GeneratorState(
+                static_system_prompt=static_system_prompt,
                 prompt_template=prompt_template,
                 examples=predictions,
                 predictions=predictions,
@@ -312,6 +324,7 @@ class Generator(Module):
     def format_messages(self, inputs=None):
         template = jinja2.Template(self.state.get("prompt_template"))
         rendered_prompt = template.render(
+            static_system_prompt=self.static_system_prompt,
             inputs_schema=inputs.get_schema() if self.use_inputs_schema else None,
             outputs_schema=self.schema if self.use_outputs_schema else None,
             examples=[
@@ -319,7 +332,7 @@ class Generator(Module):
                 for pred in self.state.get("examples")
             ],
             instructions=self.state.get("instructions").get("instructions"),
-            inputs=inputs.get_json(),
+            inputs=inputs.get_json() if inputs else None,
         )
         matches = XML_TAGS_REGEX.findall(rendered_prompt)
         extracted_tags = [(match[0], match[1].strip()) for match in matches]
@@ -334,6 +347,7 @@ class Generator(Module):
         config = {
             "schema": self.schema,
             "prompt_template": self.prompt_template,
+            "static_system_prompt": self.static_system_prompt,
             "examples": self.examples,
             "instructions": self.instructions,
             "use_inputs_schema": self.use_inputs_schema,
