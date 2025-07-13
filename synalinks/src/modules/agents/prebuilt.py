@@ -2,8 +2,8 @@
 
 import asyncio
 import copy
-
 from typing import List
+
 from synalinks.src import ops
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import DataModel
@@ -12,7 +12,8 @@ from synalinks.src.modules.core.action import Action
 from synalinks.src.modules.core.generator import Generator
 from synalinks.src.modules.module import Module
 from synalinks.src.utils.nlp_utils import to_singular_property
-from synalinks.src.utils.tool_utils import Tool
+from synalinks.src.utils.tool_utils import Tool, toolkit_to_prompt
+from synalinks.src.saving import serialization_lib
 
 if backend() != "pydantic":
     raise ValueError(
@@ -23,7 +24,7 @@ from synalinks.src.backend import Field
 
 
 class ToolChoice(DataModel):
-    name: str
+    tool: str
     purpose: str = Field(
         description="A clear, specific explanation of what the tool should accomplish."
     )
@@ -34,7 +35,7 @@ class ToolDecision(DataModel):
         description="A step-by-step analysis of the current state, what has been done, and what should be done next."
     )
     choices: List[ToolChoice] = Field(
-        description="The array of tool calls to run in parallel with their specific purpose."
+        description="The array of tool choices to run in parallel with their specific purpose."
     )
 
 
@@ -86,26 +87,38 @@ def dynamic_enum_on_nested_property(schema, property, labels, description=None):
     return schema
 
 
-def get_tool_decision_instructions():
-    '''
-    Behavioral instructions for tool selection decisions.
-    Returns:
-        list: List of instruction strings for the tool selection process
-    '''
+def get_default_decision_question(toolkit: List[Tool] = None):
+    """The default question prompt to make decisions in a ReAct agent."""
+    toolkit = toolkit or []
+
+    toolkit_prompt = toolkit_to_prompt(toolkit)
+
+    prompt = (
+        "Analyze the current state: What do you observe? What do you need to accomplish? "
+        "The analysis and its reasoning must be aligned with the available toolkit.\n\n"
+    )
+
+    prompt = prompt + toolkit_prompt
+
+    return prompt
+
+
+def get_default_decision_instructions() -> List[str]:
+    """The default guiding instructions to make decisions in a ReAct agent."""
     return [
-        "Always reflect on your previous actions and their results to avoid redundancy.",
-        "You can call the same tool multiple times if needed with different subgoals.",
-        "For each tool you select, provide a clear and specific subgoal explaining what you want to achieve.",
-        "Be strategic about parallel execution - choose tools that can run simultaneously without dependencies.",
-        "If no more tools are needed to complete the task, return an empty tool_choices array.",
-        "Consider the context and information already available before selecting tools.",
+        "Assess context first: Before taking any action, carefully consider the current context and all available information."
+        "Reflect on prior steps: Review your previous actions and their outcomes to avoid unnecessary repetition.",
+        "Reason methodically: Think step-by-step to determine the most appropriate tools to use from your available toolkit.",
+        "Reuse tools when needed: You may use the same tool multiple times, especially when pursuing different subgoals.",
+        "Define clear subgoals: For each selected tool, specify a clear and precise subgoal that explains what you aim to accomplish.",
+        "Use parallelism strategically: Choose tools and subgoals that can be executed in parallel without interdependencies.",
+        "Avoid unnecessary actions: If you already have enough information to complete the task, return an empty choices array.",
     ]
 
 
 @synalinks_export(["synalinks.modules.Agent", "synalinks.Agent"])
 class Agent(Module):
-
-    '''
+    """
     ReAct agent as a directed acyclic graph that chooses at each step which tools to run.
 
     Note:
@@ -113,8 +126,10 @@ class Agent(Module):
 
     Example:
     ```python
-    import synalinks
     import asyncio
+    
+    import synalinks
+
 
     class Query(synalinks.DataModel):
         query: str = synalinks.Field(
@@ -184,7 +199,7 @@ class Agent(Module):
         data_model (DataModel | JsonDataModel | SymbolicDataModel): Optional.
             The data model to use for the final answer.
             If None provided, the Agent will return a ChatMessage-like data model.
-        functions (list): A list of Python functions for the agent to choose from.
+        toolkit (list): The toolkit of functions for the agent to choose from.
         question (str): Optional. The question to branch on actions at each step.
         language_model (LanguageModel): The language model to use, if provided
             it will ignore `decision_language_model` and `action_language_model` argument.
@@ -208,13 +223,13 @@ class Agent(Module):
         name (str): Optional. The name of the module.
         description (str): Optional. The description of the module.
         trainable (bool): Whether the module's variables should be trainable.
-    '''
+    """
 
     def __init__(
         self,
         schema=None,
         data_model=None,
-        functions=None,
+        toolkit=None,
         question=None,
         language_model=None,
         decision_language_model=None,
@@ -226,7 +241,7 @@ class Agent(Module):
         use_outputs_schema=False,
         return_inputs_with_trajectory=False,
         return_inputs_only=False,
-        max_iterations=5,
+        max_iterations=10,
         name=None,
         description=None,
         trainable=True,
@@ -238,9 +253,14 @@ class Agent(Module):
             trainable=trainable,
         )
 
-        if not schema and data_model:
-            schema = data_model.get_schema()
-        self.schema = schema
+        if schema:
+            self.schema = schema
+        elif data_model:
+            self.schema = data_model.get_schema()
+        else:
+            raise ValueError(
+                "You must set either `schema` or `data_model` arguments."
+            )
 
         if language_model:
             self.decision_language_model = language_model
@@ -251,53 +271,52 @@ class Agent(Module):
         else:
             raise ValueError(
                 "You must set either `language_model` "
-                " or both `action_language_model` and `decision_language_model`."
+                " or both `action_language_model` and `decision_language_model` arguments."
             )
 
         self.prompt_template = prompt_template
 
         if not examples:
             examples = []
+
         self.examples = examples
 
         if not instructions:
-            instructions = get_tool_decision_instructions()
+            instructions = get_default_decision_instructions()
+
         self.instructions = instructions
 
         self.use_inputs_schema = use_inputs_schema
         self.use_outputs_schema = use_outputs_schema
+    
         if return_inputs_only and return_inputs_with_trajectory:
             raise ValueError(
-                "You cannot set both "
-                "`return_inputs_only` and `return_inputs_with_trajectory` "
-                "arguments to True. Choose only one."
+                "You cannot set both `return_inputs_only` and "
+                "`return_inputs_with_trajectory` arguments to true: choose only one."
             )
-        #TODO: Needs to be implemented into the actual agent output
+
         self.return_inputs_with_trajectory = return_inputs_with_trajectory
         self.return_inputs_only = return_inputs_only
 
-        assert max_iterations > 1
+        assert max_iterations > 1, "The agent must perform at least one decision-making step."
         self.max_iterations = max_iterations
 
         if not question:
-            question = get_tool_selection_question()
+            question = get_default_decision_question()
+
         self.question = question
 
-        self.labels = []
+        toolkit = toolkit or []
 
-        self.functions = functions or []
-        if self.functions == []:
-            raise ValueError(
-                'Agent requires at least one function to operate'
-            )
-        for fn in self.functions:
-            self.labels.append(Tool(fn).name())
+        self.toolkit = [_ if isinstance(_, Tool) else Tool(_) for _ in toolkit]
+        self.labels = [_.name() for _ in self.toolkit]
 
         self.actions = []
-        for fn in self.functions:
+
+        for _ in self.toolkit:
             self.actions.append(
                 Action(
-                    fn=fn,
+                    fn=_._func,
                     language_model=self.action_language_model,
                     prompt_template=self.prompt_template,
                     use_inputs_schema=self.use_inputs_schema,
@@ -311,52 +330,128 @@ class Agent(Module):
             self.labels,
             description="The name of the tool to run from the available toolkit."
         )
-        self.decision = Generator(
+
+        self.decision_maker = Generator(
             schema=decision_schema,
             language_model=self.decision_language_model,
             instructions=self.instructions,
             prompt_template=self.prompt_template,
             use_inputs_schema=self.use_inputs_schema,
             use_outputs_schema=self.use_outputs_schema,
-            name=self.name + "_generator",
+            name=self.name + "_decision_maker",
         )
 
-        self.final_generator = Generator(
+        self.response_maker = Generator(
             schema=self.schema,
             language_model=self.action_language_model,
-            instructions=["Provide the final answer based on all the information gathered."],
-            name=f"{self.name}_final_answer",
+            instructions=["Provide the final response, taking into account all the information gathered."],
+            name=f"{self.name}_response_maker",
         )
 
     async def call(self, inputs, training=False):
-        current_step = inputs
+        state = inputs
 
         for _ in range(self.max_iterations):
-            inputs = await ops.concat(
-                inputs,
+            state = await ops.concat(
+                state,
                 {"question": self.question},
                 name=self.name + "_inputs_with_question",
             )
-            decision_result = await self.decision(current_step, training=training)
-            tool_choices = decision_result.get("tool_choices", [])
+
+            tool_decision = await self.decision_maker(state, training=training)
+            tool_choices = tool_decision.get("choices", [])
 
             if not tool_choices:
                 break
 
-            #TODO: Yoan feedback? Is the action implementation ok like that?
-            tasks = []
+            futures = []
+
             for tool_choice in tool_choices:
-                tool_name = tool_choice.get("tool")
-                tool_index = self.labels.index(tool_name)
-                action = self.actions[tool_index]
-                tasks.append(action(current_step, training=training))
+                function = tool_choice.get("tool")
+                action = self.actions[self.labels.index(function)]
 
-            tool_results = await asyncio.gather(*tasks)
+                futures.append(action(state, training=training))
 
-            combined_results = await ops.concat(*tool_results)
-            current_step = await ops.concat(current_step, combined_results)
+            messages = await asyncio.gather(*futures)
 
-        final_answer = await self.final_generator(current_step, training=training)
+            if len(messages) == 1:
+                tool_response = messages[0]
+            else:
+                tool_response = messages[0]
 
-        return final_answer
+                for i in range(1, len(messages)):
+                    tool_response = await ops.concat(
+                        tool_response, 
+                        messages[i],
+                        name=f"{self.name}_tool_message_{i}"
+                    )
 
+            state = await ops.concat(state, tool_response)
+
+        response = await self.response_maker(state, training=training)
+
+        if self.return_inputs_with_trajectory:
+            response.factorize()
+
+        if self.return_inputs_only:
+            response = inputs + response
+
+        return response
+
+    async def compute_output_spec(self, inputs, training=False):
+        state = inputs
+        
+        state = await ops.concat(
+            state,
+            {"question": self.question},
+            name=self.name + "_inputs_with_question",
+        )
+        
+        if self.actions:
+            action_specs = []
+
+            for action in self.actions:
+                spec = await action.compute_output_spec(state, training=training)
+                action_specs.append(spec)
+            
+            if len(action_specs) == 1:
+                combined_spec = action_specs[0]
+            else:
+                combined_spec = action_specs[0]
+                for i in range(1, len(action_specs)):
+                    combined_spec = await ops.concat(
+                        combined_spec, 
+                        action_specs[i],
+                        name=f"{self.name}_combined_spec_{i}"
+                    )
+            state = await ops.concat(state, combined_spec)
+
+        return await self.response_maker.compute_output_spec(state, training=training)
+
+    def get_config(self):
+        config = {
+            "schema": self.schema,
+            "toolkit": self.toolkit,
+            "question": self.question,
+            "prompt_template": self.prompt_template,
+            "examples": self.examples,
+            "instructions": self.instructions,
+            "use_inputs_schema": self.use_inputs_schema,
+            "use_outputs_schema": self.use_outputs_schema,
+            "return_inputs_with_trajectory": self.return_inputs_with_trajectory,
+            "return_inputs_only": self.return_inputs_only,
+            "max_iterations": self.max_iterations,
+            "name": self.name,
+            "description": self.description,
+            "trainable": self.trainable,
+        }
+
+        language_model_config = {}
+        language_model_config["decision_language_model"] = serialization_lib.serialize_synalinks_object(
+            self.decision_language_model
+        )
+        language_model_config["action_language_model"] = serialization_lib.serialize_synalinks_object(
+            self.action_language_model
+        )
+
+        return {**config, **language_model_config}
