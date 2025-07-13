@@ -2,12 +2,12 @@
 
 import asyncio
 import copy
-from typing import List
+from typing import List, Dict, Any
 
 from synalinks.src import ops
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import DataModel, Field, JsonDataModel
-from synalinks.src.modules.core.action import Action
+from synalinks.src.modules.core.action import Action, GenericAction
 from synalinks.src.modules.core.generator import Generator
 from synalinks.src.modules.module import Module
 from synalinks.src.saving.serialization_lib import deserialize_synalinks_object, serialize_synalinks_object
@@ -16,7 +16,7 @@ from synalinks.src.utils.tool_utils import Tool, toolkit_to_static_prompt
 
 
 class ToolChoice(DataModel):
-    tool: str
+    name: str
     purpose: str = Field(
         description="A clear, specific explanation of what the tool should accomplish."
     )
@@ -31,12 +31,24 @@ class ToolDecision(DataModel):
     )
 
 
-class Question(DataModel):
-    toolkit: str = Field(description="The toolkit of available tools")
+class Toolkit(DataModel):
+    toolkit: str = Field(description="The description of available toolkit")
 
 
 class Purpose(DataModel):
-    purpose: str = Field(description="The purpose of the running action")
+    purpose: str = Field(description="The purpose of the chosen tool")
+
+
+class ToolMessage(DataModel):    
+    name: str
+    inputs: Dict[str, Any] = Field(description="The inputs")
+    outputs: Dict[str, Any] = Field(description="The outputs")
+
+
+class ToolAction(DataModel):
+    """A generic action with tool name and I/O"""
+
+    action: ToolMessage = Field(description="An action already performed")
 
 
 def dynamic_enum_on_nested_property(schema, property, labels, description=None):
@@ -87,18 +99,29 @@ def dynamic_enum_on_nested_property(schema, property, labels, description=None):
     return schema
 
 
-def get_default_decision_question(toolkit: List[Tool] = None):
-    """The default question prompt to make decisions in a ReAct agent."""
+def tool_action_from_generic_action_message(name: str, message: GenericAction, schema: Dict[str, Any]) -> JsonDataModel:
+    """Convert a generic action message to a tool action message."""
+    message = ToolMessage(name=name, **message.get("action"))
+    message = ToolAction(action=message)
+
+    return JsonDataModel(
+        json=message.get_json(),
+        schema=schema,
+    )
+
+
+def get_default_decision_toolkit(toolkit: List[Tool] = None):
+    """The default toolkit prompt to make decisions in a ReAct agent."""
     toolkit = toolkit or []
     toolkit = toolkit_to_static_prompt(toolkit)
 
-    question = Question(toolkit=toolkit)
+    toolkit_static_prompt = Toolkit(toolkit=toolkit)
 
-    return question
+    return toolkit_static_prompt
 
 
 def get_default_decision_instructions() -> List[str]:
-    """The default guiding instructions to make decisions in a ReAct agent."""
+    """The default mandatory instructions to make decisions in a ReAct agent."""
     return [
         "Analyze the current state: What do you observe? What do you need to accomplish next? Before taking any action, carefully consider context and all available information.",
         "Reflect on prior steps: Review your previous actions and their outcomes to avoid unnecessary repetition.",
@@ -122,14 +145,81 @@ class Agent(Module):
     References:
         - [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629)
 
+    Example:
+        ```python
+        import asyncio
+
+        import synalinks
+
+
+        class Query(synalinks.DataModel):
+            query: str = synalinks.Field(
+                description="The user query",
+            )
+
+
+        class Answer(synalinks.DataModel):
+            answer: str = synalinks.Field(
+                description="The final answer to the query.",
+            )
+        
+
+        async def main():
+            async def websearch(query: str):
+                \"""Perform a web search for the given query.
+                
+                Args:
+                    query (str): The search query to perform.
+                \"""
+                return {
+                    "results": [
+                        f"Result 1 for {query}",
+                        f"Result 2 for {query}",
+                        f"Result 3 for {query}",
+                    ],
+                    "log": "Web search completed successfully."
+                }
+
+            language_model = synalinks.LanguageModel(model="ollama/mistral")
+
+            x = synalinks.Input(data_model=Query)
+            y = await synalinks.Agent(
+                language_model=language_model,
+                data_model=Answer,
+                toolkit=[websearch],
+                return_inputs_with_trajectory=True,
+            )(x)
+
+            program = synalinks.Program(
+                inputs=x,
+                outputs=y,
+                name="navigator",
+                description="A ReAct agent with websearch",
+            )
+
+            result = await program(
+                Query(query=(
+                    "What are the latest news on the import taxes Trump just imposed on the EU? "
+                    "When you have found those... What is the sentiment of European and American people on social media? "
+                    "How could this be a blessing in disguise for the EU reinassance?"
+                    )
+                )
+            )
+
+            print(result.prettify_json())
+
+    
+        if __name__ == "__main__":
+            asyncio.run(main())
+        ```
+
     Args:
         schema (dict): The JSON schema to use for the final answer.
             If not provided, it will use the `output_data_model` argument.
         data_model (DataModel | JsonDataModel | SymbolicDataModel): Optional.
             The data model to use for the final answer.
             If None provided, the Agent will return a ChatMessage-like data model.
-        toolkit (list): The toolkit of functions for the agent to choose from.
-        question (str): Optional. The question to branch on actions at each step.
+        toolkit (list): The available toolkit of functions.
         language_model (LanguageModel): The language model to use, if provided
             it will ignore `decision_language_model` and `action_language_model` argument.
         decision_language_model (LanguageModel): The language model used for
@@ -146,7 +236,7 @@ class Agent(Module):
             the decision prompt (Default to False) (see `Decision`).
         return_inputs_with_trajectory (bool): Optional. Whether or not to concatenate the
             inputs along with the agent trajectory to the outputs (Default to False).
-        return_inputs_only (bool): Optional. Whether or not to concatenate the inputs
+        return_inputs (bool): Optional. Whether or not to concatenate the inputs
             to the outputs (Default to False).
         max_iterations (int): The maximum number of steps to perform.
         name (str): Optional. The name of the module.
@@ -159,7 +249,6 @@ class Agent(Module):
         schema=None,
         data_model=None,
         toolkit=None,
-        question=None,
         language_model=None,
         decision_language_model=None,
         action_language_model=None,
@@ -168,14 +257,12 @@ class Agent(Module):
         instructions=None,
         use_inputs_schema=False,
         use_outputs_schema=False,
-        return_type="response",  # I/O, trajectory
         return_inputs_with_trajectory=False,
-        return_inputs_only=False,
+        return_inputs=False,
         max_iterations=10,
         name=None,
         description=None,
         trainable=True,
-
     ):
         super().__init__(
             name=name,
@@ -219,54 +306,55 @@ class Agent(Module):
         self.use_inputs_schema = use_inputs_schema
         self.use_outputs_schema = use_outputs_schema
     
-        if return_inputs_only and return_inputs_with_trajectory:
+        if return_inputs and return_inputs_with_trajectory:
             raise ValueError(
-                "You cannot set both `return_inputs_only` and "
+                "You cannot set both `return_inputs` and "
                 "`return_inputs_with_trajectory` arguments to true: choose only one."
             )
 
         self.return_inputs_with_trajectory = return_inputs_with_trajectory
-        self.return_inputs_only = return_inputs_only
+        self.return_inputs = return_inputs
 
         assert max_iterations > 0, "The agent must perform at least one decision-making step."
         self.max_iterations = max_iterations
 
         toolkit = toolkit or []
+        toolkit = [_ if isinstance(_, Tool) else Tool(_) for _ in toolkit]
 
-        self.toolkit = [_ if isinstance(_, Tool) else Tool(_) for _ in toolkit]
-        self.labels = [_.name() for _ in self.toolkit]
+        self.toolkit = toolkit
 
-        if question:
-            question = Question(question=question)
-        else:
-            question = get_default_decision_question(self.toolkit)
-
-        self.question = question
-
-        self.actions = []
-
-        for _ in self.toolkit:
-            self.actions.append(
-                Action(
-                    fn=_._func,
-                    language_model=self.action_language_model,
-                    prompt_template=self.prompt_template,
-                    use_inputs_schema=self.use_inputs_schema,
-                    use_outputs_schema=self.use_outputs_schema,
-                )
+        self.actions = {
+            _.name(): Action(
+                fn=_._func,
+                language_model=self.action_language_model,
+                prompt_template=self.prompt_template,
+                use_inputs_schema=self.use_inputs_schema,
+                use_outputs_schema=self.use_outputs_schema,
+                name=self.name + f"_action_{_.name()}",
             )
+            for _ in self.toolkit
+        }
+
+        self.tool_action_schema = dynamic_enum_on_nested_property(
+            ToolAction.get_schema(),
+            "ToolMessage/properties/name",
+            list(self.actions.keys()),
+            description="The name of tool that was run."
+        )
   
         decision_schema = dynamic_enum_on_nested_property(
             ToolDecision.get_schema(),
-            "ToolChoice/properties/tool",
-            self.labels,
-            description="The name of the tool to run from the available toolkit."
+            "ToolChoice/properties/name",
+            list(self.actions.keys()),
+            description="The name of tool to run from available toolkit."
         )
 
         self.decision_maker = Generator(
             schema=decision_schema,
             language_model=self.decision_language_model,
             instructions=self.instructions,
+            static_system_prompt=toolkit_to_static_prompt(self.toolkit),
+            examples=self.examples,
             prompt_template=self.prompt_template,
             use_inputs_schema=self.use_inputs_schema,
             use_outputs_schema=self.use_outputs_schema,
@@ -277,26 +365,14 @@ class Agent(Module):
             schema=self.schema,
             language_model=self.action_language_model,
             instructions=["Provide the final response, taking into account all the information gathered."],
-            name=f"{self.name}_response_maker",
+            name=self.name + "_response_maker",
         )
 
     async def call(self, inputs, training=False):
-        state = inputs
-
-        question = JsonDataModel(
-            json=self.question.get_json(),
-            data_model=Question,
-            name=self.name + "_question"
-        )
-
-        state = await ops.concat(
-            state,
-            question,
-            name=self.name + "_inputs_with_question",
-        )
+        step = inputs
 
         for _ in range(self.max_iterations):                
-            decision = await self.decision_maker(state, training=training)
+            decision = await self.decision_maker(step, training=training)
             choices = decision.get("choices", [])
 
             if not choices:
@@ -305,7 +381,7 @@ class Agent(Module):
             futures = []
 
             for choice in choices:
-                tool = choice.get("tool")
+                name = choice.get("name")
                 purpose = choice.get("purpose")
 
                 purpose = Purpose(purpose=purpose)
@@ -314,67 +390,56 @@ class Agent(Module):
                     data_model=Purpose,
                 )
 
-                action = self.actions[self.labels.index(tool)]
+                action = self.actions[name]
 
                 futures.append(action(purpose, training=training))
 
             messages = await asyncio.gather(*futures)
 
-            if len(messages) == 1:
-                tool_message = messages[0]
-            else:
-                tool_message = messages[0]
+            tool_message = None
 
-                for i in range(1, len(messages)):
-                    tool_message = await ops.concat(
-                        tool_message, 
-                        messages[i],
-                        name=f"{self.name}_tool_message_{i}"
-                    )
+            for choice, message in zip(choices, messages):
+                name = choice.get("name")
 
-            state = await ops.concat(state, tool_message)
+                message = tool_action_from_generic_action_message(
+                    name=name, message=message, schema=self.tool_action_schema,
+                )
 
-        response = await self.response_maker(state, training=training)
+                if not tool_message:
+                    tool_message = message
+                else:
+                    tool_message = await ops.concat(tool_message, message)
+
+            step = await ops.concat(step, tool_message)
+
+        response = await self.response_maker(step, training=training)
 
         if self.return_inputs_with_trajectory:
-            response = await ops.concat(state, response)
-            # FIXME: response.factorize()
+            response = await ops.concat(step, response)
+            # FIXME
+            # response.factorize()
 
-        if self.return_inputs_only:
+        if self.return_inputs:
             response = await ops.concat(inputs, response)
 
         return response
 
     async def compute_output_spec(self, inputs, training=False):
-        state = inputs
+        step = inputs
 
-        question = JsonDataModel(
-            json=self.question.get_json(),
-            data_model=Question,
-            name=self.name + "_question"
-        )
-
-        state = await ops.concat(
-            state,
-            question,
-            name=self.name + "_inputs_with_question",
-        )
-
-        # Simulate the iterative decision-making loop
         for _ in range(self.max_iterations):
-            decision_spec = await self.decision_maker.compute_output_spec(state)
+            decision_spec = await self.decision_maker.compute_output_spec(step)
             
-            # Simulate tool execution if actions exist
             if self.actions:
                 action_specs = []
 
-                for action in self.actions:
-                    # Create a dummy purpose for computing output spec
-                    purpose = Purpose(purpose="dummy purpose for output spec computation")
+                for action in self.actions.values():
+                    purpose = Purpose(purpose="mock purpose for output spec computation")
                     purpose = JsonDataModel(
                         json=purpose.get_json(),
                         data_model=Purpose,
                     )
+
                     spec = await action.compute_output_spec(purpose)
                     action_specs.append(spec)
                 
@@ -382,20 +447,20 @@ class Agent(Module):
                     combined_spec = action_specs[0]
                 else:
                     combined_spec = action_specs[0]
+
                     for i in range(1, len(action_specs)):
                         combined_spec = await ops.concat(
-                            combined_spec, 
-                            action_specs[i],
-                            name=f"{self.name}_combined_spec_{i}"
+                            combined_spec, action_specs[i],
                         )
-                state = await ops.concat(state, combined_spec)
 
-        response = await self.response_maker.compute_output_spec(state)
+                step = await ops.concat(step, combined_spec)
+
+        response = await self.response_maker.compute_output_spec(step)
 
         if self.return_inputs_with_trajectory:
-            response = await ops.concat(state, response)
+            response = await ops.concat(step, response)
 
-        if self.return_inputs_only:
+        if self.return_inputs:
             response = await ops.concat(inputs, response)
 
         return response
@@ -404,14 +469,13 @@ class Agent(Module):
         config = {
             "schema": self.schema,
             "toolkit": self.toolkit,
-            "question": self.question,
             "prompt_template": self.prompt_template,
             "examples": self.examples,
             "instructions": self.instructions,
             "use_inputs_schema": self.use_inputs_schema,
             "use_outputs_schema": self.use_outputs_schema,
             "return_inputs_with_trajectory": self.return_inputs_with_trajectory,
-            "return_inputs_only": self.return_inputs_only,
+            "return_inputs": self.return_inputs,
             "max_iterations": self.max_iterations,
             "name": self.name,
             "description": self.description,
