@@ -6,11 +6,11 @@ from synalinks.src import testing
 from synalinks.src.backend import DataModel
 from synalinks.src.language_models import LanguageModel
 from synalinks.src.modules import Input
-from synalinks.src.modules.agents import parallel_react_agent_redo_d1
+from synalinks.src.modules.agents.tool_calling_agent import ToolCallingAgent
 from synalinks.src.programs import Program
 
 
-class SearchAgentTest(testing.TestCase):
+class ToolCallingAgentTest(testing.TestCase):
     @patch("litellm.acompletion")
     async def test_basic_flow_with_parallel_searches(self, mock_completion):
         class Query(DataModel):
@@ -134,34 +134,31 @@ class SearchAgentTest(testing.TestCase):
 
         language_model = LanguageModel(model="ollama_chat/deepseek-r1")
 
-        # First decision - agent decides to use tools
-        decision_with_tools = (
+        tool_choices_response = (
             "{"
-            '"thinking": "I need to search for information about Tesla '
-            'to answer this question. I should search for both company '
-            'information and recent news to provide a comprehensive answer.", '
-            '"tool_choices": ['
-            '{"tool": "web_search", "tool_thinking": "Get general company information about Tesla"}, '
-            '{"tool": "news_search", "tool_thinking": "Get recent news and updates about Tesla"}'
-            ']'
+                '"thinking": "I need to search for information about Tesla '
+                    'to answer this question. I should search for both company '
+                    'information and recent news to provide a comprehensive answer.", '
+                '"tool_choices": ['
+                    '{"tool": "web_search", "tool_thinking": "Get general company information about Tesla"}, '
+                    '{"tool": "news_search", "tool_thinking": "Get recent news and updates about Tesla"}, '
+                    '{"tool": "news_search", "tool_thinking": "Get news and updates about Tesla from last week"}'
+                ']'
             "}"
         )
 
-        # Tool execution responses
-        inference_response_web = '{"query": "Tesla company information"}'
-        inference_response_news = '{"topic": "Tesla"}'
+        inference_response_web = """{"query": "Tesla company information"}"""
+        inference_response_news = """{"topic": "Tesla"}"""
+        inference_response_news_2 = """{"topic": "Tesla last week"}"""
 
-        # Second decision - agent decides to finish
-        decision_finish = (
+        tool_choices_response_1 = (
             "{"
-            '"thinking": "I now have both company information and recent news '
-            'about Tesla, so I can provide the final answer with all the '
-            'information gathered.", '
-            '"tool_choices": []'
+                '"thinking": "I now have both company information and recent news '
+                    'about Tesla, so I can provide the final answer.", '
+                '"tool_choices": []'
             "}"
         )
 
-        # Final answer generation
         final_answer = (
             "{"
             '"company_info": "Tesla, Inc. is an American electric vehicle and '
@@ -170,21 +167,22 @@ class SearchAgentTest(testing.TestCase):
             '"news_summary": "Latest Tesla news: Stock price reaches new highs '
             "following successful Cybertruck launch. Analysts optimistic about "
             '2025 outlook.", '
-            '"total_sources": 9'
+            '"total_sources": 13'
             "}"
         )
 
         mock_responses = [
-            {"choices": [{"message": {"content": decision_with_tools}}]},
+            {"choices": [{"message": {"content": tool_choices_response}}]},
             {"choices": [{"message": {"content": inference_response_web}}]},
             {"choices": [{"message": {"content": inference_response_news}}]},
-            {"choices": [{"message": {"content": decision_finish}}]},
+            {"choices": [{"message": {"content": inference_response_news_2}}]},
+            {"choices": [{"message": {"content": tool_choices_response_1}}]},
             {"choices": [{"message": {"content": final_answer}}]},
         ]
         mock_completion.side_effect = mock_responses
 
         x0 = Input(data_model=Query)
-        x1 = await ParallelReACTAgent(
+        x1 = await ToolCallingAgent(
             data_model=SearchResult,
             language_model=language_model,
             functions=[web_search, news_search],
@@ -200,7 +198,8 @@ class SearchAgentTest(testing.TestCase):
             Query(
                 query=(
                     "I need comprehensive information about Tesla. "
-                    "Can you provide both company details and recent news?"
+                    "Can you provide company details, recent news, and also "
+                    "any specific news from the past week?"
                 )
             )
         )
@@ -208,5 +207,5 @@ class SearchAgentTest(testing.TestCase):
         self.assertIn("Tesla, Inc.", result.get("company_info"))
         self.assertIn("Stock price reaches new highs", result.get("news_summary"))
         self.assertEqual(
-            result.get("total_sources"), 9
+            result.get("total_sources"), 13
         )  # 5 from web_search + 4 from news_search

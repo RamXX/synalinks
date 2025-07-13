@@ -3,18 +3,18 @@ import copy
 
 from typing import List
 from synalinks.src import ops
-from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_enum
 from synalinks.src.modules.module import Module
 from synalinks.src.utils.tool_utils import Tool
 from synalinks.src.modules.core.action import Action
 from synalinks.src.modules.core.generator import Generator
-from synalinks.src.backend import DataModel, Field
+from synalinks.src.backend import DataModel, Field, JsonDataModel
+from synalinks.src.saving import serialization_lib
 
 class ToolChoice(DataModel):
     tool: str = Field(
         description="Name of the specific tool to execute from the available functions."
     )
-    subgoal: str = Field(
+    tool_thinking: str = Field(
         description="Clear, specific explanation of what you want to achieve with this tool call and why it's needed at this step."
     )
 
@@ -26,9 +26,13 @@ class MultiDecisionAnswer(DataModel):
         description="Array of tools to execute in parallel, each with its specific purpose. Return empty array if no tools are needed."
     )
 
+class Question(DataModel):
+    question: str = Field(description="The question to ask")
+
+
 def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, description=None):
     """Update a schema with dynamic Enum at a nested path.
- 
+
     Args:
         schema (dict): The schema to update.
         property_path (str): Nested path like "tool_choices/items/properties/tool"
@@ -41,7 +45,6 @@ def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, descr
     """
     schema = copy.deepcopy(schema)
     
-    # Ensure $defs is at the top level
     if schema.get("$defs"):
         schema = {"$defs": schema.pop("$defs"), **schema}
     else:
@@ -49,208 +52,54 @@ def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, descr
     
     if parent_schema:
         parent_schema = copy.deepcopy(parent_schema)
-        if not parent_schema.get("$defs"):
-            parent_schema["$defs"] = {}
     
-    # Create enum definition
     final_prop = property_path.split("/")[-1]
     title = final_prop.title().replace("_", " ")
     
-    enum_definition = {
-        "enum": labels,
-        "title": title,
-        "type": "string",
-    }
-    
     if description:
-        enum_definition["description"] = description
+        enum_definition = {
+            "enum": labels,
+            "description": description,
+            "title": title,
+            "type": "string",
+        }
+    else:
+        enum_definition = {
+            "enum": labels,
+            "title": title,
+            "type": "string",
+        }
     
-    # Add enum definition to $defs
-    target_schema = parent_schema if parent_schema else schema
-    target_schema["$defs"][title] = enum_definition
+    if parent_schema:
+        parent_schema["$defs"].update({title: enum_definition})
+    else:
+        schema["$defs"].update({title: enum_definition})
     
-    # Navigate to the nested property and update it
     path_parts = property_path.split("/")
     current = schema
     
-    # Navigate through the path, creating missing structure if needed
-    for i, part in enumerate(path_parts[:-1]):
+    for part in path_parts[:-1]:
         if part == "items":
-            # For array items, we need to ensure the items object exists
-            if "items" not in current:
-                current["items"] = {}
-            current = current["items"]
+            current = current.setdefault("items", {})
         elif part == "properties":
-            # For object properties, ensure properties object exists
-            if "properties" not in current:
-                current["properties"] = {}
-            current = current["properties"]
+            current = current.setdefault("properties", {})
         else:
-            # For regular property navigation
-            if part not in current:
-                current[part] = {}
-            current = current[part]
-    
-    # Set the final property to reference the enum
-    final_prop = path_parts[-1]
+            current = current.setdefault(part, {})
+
     current[final_prop] = {"$ref": f"#/$defs/{title}"}
-    
+        
     return parent_schema if parent_schema else schema
-
-
-# def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, description=None):
-#     print("gp_dynamic_enum_nested called")
-#     """Update a schema with dynamic Enum at a nested path.
-
-#     Args:
-#         schema (dict): The schema to update.
-#         property_path (str): Nested path like "tool_choices/items/properties/tool"
-#         labels (list): The list of labels (strings).
-#         parent_schema (dict, optional): An optional parent schema to use as the base.
-#         description (str, optional): An optional description for the enum.
-
-#     Returns:
-#         dict: The updated schema with the enum applied to the nested property.
-#     """
-#     schema = copy.deepcopy(schema)
-    
-#     # Ensure $defs is at the top level
-#     if schema.get("$defs"):
-#         schema = {"$defs": schema.pop("$defs"), **schema}
-#     else:
-#         schema = {"$defs": {}, **schema}
-    
-#     if parent_schema:
-#         parent_schema = copy.deepcopy(parent_schema)
-#         if not parent_schema.get("$defs"):
-#             parent_schema["$defs"] = {}
-    
-#     # Create enum definition
-#     final_prop = property_path.split("/")[-1]
-#     title = final_prop.title().replace("_", " ")
-    
-#     enum_definition = {
-#         "enum": labels,
-#         "title": title,
-#         "type": "string",
-#     }
-    
-#     if description:
-#         enum_definition["description"] = description
-    
-#     # Add enum definition to $defs
-#     target_schema = parent_schema if parent_schema else schema
-#     target_schema["$defs"][title] = enum_definition
-    
-#     # Navigate to the nested property and update it
-#     path_parts = property_path.split("/")
-#     current = schema
-    
-#     # Navigate through the path, creating missing structure if needed
-#     for i, part in enumerate(path_parts[:-1]):
-#         if part == "items":
-#             # For array items, we need to ensure the items object exists
-#             if "items" not in current:
-#                 current["items"] = {}
-#             current = current["items"]
-#         elif part == "properties":
-#             # For object properties, ensure properties object exists
-#             if "properties" not in current:
-#                 current["properties"] = {}
-#             current = current["properties"]
-#         else:
-#             # For regular property navigation
-#             if part not in current:
-#                 current[part] = {}
-#             current = current[part]
-    
-#     # Set the final property to reference the enum
-#     final_prop = path_parts[-1]
-#     current[final_prop] = {"$ref": f"#/$defs/{title}"}
-    
-#     return parent_schema if parent_schema else schema
-
-#claude
-# def dynamic_enum_nested(schema, property_path, labels, parent_schema=None, description=None):
-#     print("claude_dynamic_enum_nested called")
-#     """Update a schema with dynamic Enum at a nested path.
- 
-#     Args:
-#         schema (dict): The schema to update.
-#         property_path (str): Nested path like "tool_choices/items/properties/tool"
-#         labels (list): The list of labels (strings).
-#         parent_schema (dict, optional): An optional parent schema to use as the base.
-#         description (str, optional): An optional description for the enum.
-
-#     Returns:
-#         dict: The updated schema with the enum applied to the nested property.
-#     """
-#     schema = copy.deepcopy(schema)
-    
-#     # Ensure $defs is at the top level
-#     if schema.get("$defs"):
-#         schema = {"$defs": schema.pop("$defs"), **schema}
-#     else:
-#         schema = {"$defs": {}, **schema}
-    
-#     if parent_schema:
-#         parent_schema = copy.deepcopy(parent_schema)
-#         if not parent_schema.get("$defs"):
-#             parent_schema["$defs"] = {}
-    
-#     # Create enum definition
-#     final_prop = property_path.split("/")[-1]
-#     title = final_prop.title().replace("_", " ")
-    
-#     enum_definition = {
-#         "enum": labels,
-#         "title": title,
-#         "type": "string",
-#     }
-    
-#     if description:
-#         enum_definition["description"] = description
-    
-#     # Add enum definition to $defs
-#     target_schema = parent_schema if parent_schema else schema
-#     target_schema["$defs"][title] = enum_definition
-    
-#     # Navigate to the nested property and update it
-#     path_parts = property_path.split("/")
-#     current = schema
-    
-#     # Navigate through the path, creating missing structure if needed
-#     for i, part in enumerate(path_parts[:-1]):
-#         if part == "items":
-#             # For array items, we need to ensure the items object exists
-#             if "items" not in current:
-#                 current["items"] = {}
-#             current = current["items"]
-#         elif part == "properties":
-#             # For object properties, ensure properties object exists
-#             if "properties" not in current:
-#                 current["properties"] = {}
-#             current = current["properties"]
-#         else:
-#             # For regular property navigation
-#             if part not in current:
-#                 current[part] = {}
-#             current = current[part]
-    
-#     # Set the final property to reference the enum
-#     final_prop = path_parts[-1]
-#     current[final_prop] = {"$ref": f"#/$defs/{title}"}
-    
-#     return parent_schema if parent_schema else schema
 
 
 def get_tool_selection_question():
     '''
     Default question prompt for tool selection in the React agent
     Returns:
-        str: The question asking the LM to choose tools to execute
+        Question: The question asking the LM to choose tools to execute
     '''
-    return "Analyze the current situation and decide which tools to use next. Provide your step-by-step thinking and select the appropriate tools with their specific subgoals."
+    return Question(
+        question="Analyze the current situation and decide which tools to use next. Provide your step-by-step thinking and select the appropriate tools with their specific subgoals."
+    )
 
 def get_tool_selection_instruction():
     '''
@@ -267,7 +116,7 @@ def get_tool_selection_instruction():
         "Consider the context and information already available before selecting tools.",
     ]
 
-class ParallelReACTAgent(Module):
+class ToolCallingAgent(Module):
 
     '''
     Args:
@@ -399,7 +248,7 @@ class ParallelReACTAgent(Module):
   
         decision_schema = dynamic_enum_nested(
             MultiDecisionAnswer.get_schema(),
-            "tool_choices/items/properties/tool",
+            "$defs/ToolChoice/properties/tool",
             self.labels,
             description="Available tools to choose from"
         )
@@ -424,18 +273,24 @@ class ParallelReACTAgent(Module):
         current_step = inputs
 
         for _ in range(self.max_iterations):
+            question_data = JsonDataModel(
+                json=self.question.get_json(),
+                data_model=Question,
+                name=self.name + "_question"
+            )
+            
             inputs = await ops.concat(
                 inputs,
-                {"question": self.question},
+                question_data,
                 name=self.name + "_inputs_with_question",
             )
+            
             decision_result = await self.decision(current_step, training=training)
             tool_choices = decision_result.get("tool_choices", [])
 
             if not tool_choices:
                 break
 
-            #TODO: Yoan feedback? Is the action implementation ok like that?
             tasks = []
             for tool_choice in tool_choices:
                 tool_name = tool_choice.get("tool")
@@ -445,21 +300,80 @@ class ParallelReACTAgent(Module):
 
             tool_results = await asyncio.gather(*tasks)
 
-            combined_results = await ops.concat(*tool_results)
+            if len(tool_results) == 1:
+                combined_results = tool_results[0]
+            else:
+                combined_results = tool_results[0]
+                for i in range(1, len(tool_results)):
+                    combined_results = await ops.concat(
+                        combined_results, 
+                        tool_results[i],
+                        name=f"{self.name}_combined_results_{i}"
+                    )
             current_step = await ops.concat(current_step, combined_results)
 
         final_answer = await self.final_generator(current_step, training=training)
-
         return final_answer
-    if __name__ == "__main__":
-        # from synalinks.src.modules.agents.parallel_react_agent_redo import dynamic_enum_nested, MultiDecisionAnswer
 
-        # Example usage
-        schema = MultiDecisionAnswer.get_schema()
-        property_path = "$defs/ToolChoice/properties/tool"
-        labels = ["web_search", "news_search"]
-        description = "Available tools to choose from"
+    async def compute_output_spec(self, inputs, training=False):
+        current_step = inputs
 
-        updated_schema = dynamic_enum_nested(schema, property_path, labels, description=description)
-        import json
-        print(json.dumps(updated_schema, indent=2))
+        question_data = JsonDataModel(
+            json=self.question.get_json(),
+            data_model=Question,
+            name=self.name + "_question"
+        )
+        
+        inputs = await ops.concat(
+            inputs,
+            question_data,
+            name=self.name + "_inputs_with_question",
+        )
+        
+        if self.actions:
+            action_specs = []
+            for action in self.actions:
+                action_spec = await action.compute_output_spec(current_step, training=training)
+                action_specs.append(action_spec)
+            
+            if len(action_specs) == 1:
+                # Single spec, use directly
+                combined_spec = action_specs[0]
+            else:
+                # Multiple specs, concatenate sequentially
+                combined_spec = action_specs[0]
+                for i in range(1, len(action_specs)):
+                    combined_spec = await ops.concat(
+                        combined_spec, 
+                        action_specs[i],
+                        name=f"{self.name}_combined_spec_{i}"
+                    )
+            current_step = await ops.concat(current_step, combined_spec)
+
+        return await self.final_generator.compute_output_spec(current_step, training=training)
+
+    def get_config(self):
+        config = {
+            "schema": self.schema,
+            "functions": self.functions,
+            "question": self.question,
+            "prompt_template": self.prompt_template,
+            "examples": self.examples,
+            "instructions": self.instructions,
+            "use_inputs_schema": self.use_inputs_schema,
+            "use_outputs_schema": self.use_outputs_schema,
+            "return_inputs_with_trajectory": self.return_inputs_with_trajectory,
+            "return_inputs_only": self.return_inputs_only,
+            "max_iterations": self.max_iterations,
+            "name": self.name,
+            "description": self.description,
+            "trainable": self.trainable,
+        }
+        language_model_config = {}
+        language_model_config["decision_language_model"] = serialization_lib.serialize_synalinks_object(
+            self.decision_language_model
+        )
+        language_model_config["action_language_model"] = serialization_lib.serialize_synalinks_object(
+            self.action_language_model
+        )
+        return {**config, **language_model_config}
