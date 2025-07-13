@@ -6,21 +6,13 @@ from typing import List
 
 from synalinks.src import ops
 from synalinks.src.api_export import synalinks_export
-from synalinks.src.backend import DataModel
-from synalinks.src.backend.config import backend
+from synalinks.src.backend import DataModel, Field, JsonDataModel
 from synalinks.src.modules.core.action import Action
 from synalinks.src.modules.core.generator import Generator
 from synalinks.src.modules.module import Module
+from synalinks.src.saving.serialization_lib import deserialize_synalinks_object, serialize_synalinks_object
 from synalinks.src.utils.nlp_utils import to_singular_property
 from synalinks.src.utils.tool_utils import Tool, toolkit_to_prompt
-from synalinks.src.saving import serialization_lib
-
-if backend() != "pydantic":
-    raise ValueError(
-        f"The module requires the Pydantic backend, but current backend is {backend()}. "
-    )
-
-from synalinks.src.backend import Field
 
 
 class ToolChoice(DataModel):
@@ -37,6 +29,14 @@ class ToolDecision(DataModel):
     choices: List[ToolChoice] = Field(
         description="The array of tool choices to run in parallel with their specific purpose."
     )
+
+
+class Question(DataModel):
+    toolkit: str = Field(description="The toolkit of available tools")
+
+
+class Purpose(DataModel):
+    purpose: str = Field(description="The purpose of the running action")
 
 
 def dynamic_enum_on_nested_property(schema, property, labels, description=None):
@@ -90,29 +90,24 @@ def dynamic_enum_on_nested_property(schema, property, labels, description=None):
 def get_default_decision_question(toolkit: List[Tool] = None):
     """The default question prompt to make decisions in a ReAct agent."""
     toolkit = toolkit or []
+    toolkit = toolkit_to_prompt(toolkit)
 
-    toolkit_prompt = toolkit_to_prompt(toolkit)
+    question = Question(toolkit=toolkit)
 
-    prompt = (
-        "Analyze the current state: What do you observe? What do you need to accomplish? "
-        "The analysis and its reasoning must be aligned with the available toolkit.\n\n"
-    )
-
-    prompt = prompt + toolkit_prompt
-
-    return prompt
+    return question
 
 
 def get_default_decision_instructions() -> List[str]:
     """The default guiding instructions to make decisions in a ReAct agent."""
     return [
-        "Assess context first: Before taking any action, carefully consider the current context and all available information."
+        "Analyze the current state: What do you observe? What do you need to accomplish next? Before taking any action, carefully consider context and all available information.",
         "Reflect on prior steps: Review your previous actions and their outcomes to avoid unnecessary repetition.",
-        "Reason methodically: Think step-by-step to determine the most appropriate tools to use from your available toolkit.",
-        "Reuse tools when needed: You may use the same tool multiple times, especially when pursuing different subgoals.",
-        "Define clear subgoals: For each selected tool, specify a clear and precise subgoal that explains what you aim to accomplish.",
-        "Use parallelism strategically: Choose tools and subgoals that can be executed in parallel without interdependencies.",
-        "Avoid unnecessary actions: If you already have enough information to complete the task, return an empty choices array.",
+        "Reason methodically: Think step-by-step to determine the most appropriate choices with the available toolkit.",
+        "Avoid unnecessary actions: If you already have enough information to complete the user task, return an empty choices array.",
+        "Keep subgoals atomic: Each choice must focus on accomplishing exactly one specific task. Break down complex objectives into multiple separate choices rather than creating compound subgoals.",
+        "Split complex steps across parallel choices: When facing a multi-part objective, create multiple choices using the same tool with different atomic subgoals that can execute simultaneously without dependencies.",
+        "Write self-contained subgoals: Each subgoal must be completely self-explanatory without referencing context, other subgoals, or using pronouns. Include all necessary information explicitly within the subgoal description.",
+        "Ensure parallel independence: Make tool choices that can execute concurrently without requiring results from each other. Avoid creating dependencies between parallel subgoals.",
     ]
 
 
@@ -123,72 +118,6 @@ class Agent(Module):
 
     Note:
         - Each function must return a JSON object and be asynchrounous.
-
-    Example:
-    ```python
-    import asyncio
-    
-    import synalinks
-
-
-    class Query(synalinks.DataModel):
-        query: str = synalinks.Field(
-            description="The user query",
-        )
-
-    class FinalAnswer(synalinks.DataModel):
-        answer: float = synalinks.Field(
-            description="The correct final answer",
-        )
-
-    async def main():
-
-        async def calculate(expression: str):
-            \"""Calculate the result of a mathematical expression.
-
-            Args:
-                expression (str): The mathematical expression to calculate, such as
-                    '2 + 2'. The expression can contain numbers, operators (+, -, *, /),
-                    parentheses, and spaces.
-            \"""
-            if not all(char in "0123456789+-*/(). " for char in expression):
-                return {
-                    "result": None,
-                    "log": "Error: invalid characters in expression",
-                }
-            try:
-                # Evaluate the mathematical expression safely
-                result = round(float(eval(expression, {"__builtins__": None}, {})), 2)
-                return {
-                    "result": result,
-                    "log": "Successfully executed",
-                }
-            except Exception as e:
-                return {
-                    "result": None,
-                    "log": f"Error: {e}",
-                }
-
-        language_model = synalinks.LanguageModel(model="ollama/mistral")
-
-        x0 = synalinks.Input(data_model=Query)
-        x1 = await synalinks.ReACTAgent(
-            data_model=FinalAnswer,
-            language_model=language_model,
-            functions=[calculate],
-            max_iterations=3,
-        )(x0)
-
-        program = synalinks.Program(
-            inputs=x0,
-            outputs=x1,
-            name="math_agent",
-            description="A math agent that can use a calculator",
-        )
-
-    if __name__ == "__main__":
-        asyncio.run(main())
-    ```
 
     References:
         - [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629)
@@ -239,6 +168,7 @@ class Agent(Module):
         instructions=None,
         use_inputs_schema=False,
         use_outputs_schema=False,
+        return_type="response",  # I/O, trajectory
         return_inputs_with_trajectory=False,
         return_inputs_only=False,
         max_iterations=10,
@@ -298,18 +228,20 @@ class Agent(Module):
         self.return_inputs_with_trajectory = return_inputs_with_trajectory
         self.return_inputs_only = return_inputs_only
 
-        assert max_iterations > 1, "The agent must perform at least one decision-making step."
+        assert max_iterations > 0, "The agent must perform at least one decision-making step."
         self.max_iterations = max_iterations
-
-        if not question:
-            question = get_default_decision_question()
-
-        self.question = question
 
         toolkit = toolkit or []
 
         self.toolkit = [_ if isinstance(_, Tool) else Tool(_) for _ in toolkit]
         self.labels = [_.name() for _ in self.toolkit]
+
+        if question:
+            question = Question(question=question)
+        else:
+            question = get_default_decision_question(self.toolkit)
+
+        self.question = question
 
         self.actions = []
 
@@ -351,82 +283,122 @@ class Agent(Module):
     async def call(self, inputs, training=False):
         state = inputs
 
-        for _ in range(self.max_iterations):
-            state = await ops.concat(
-                state,
-                {"question": self.question},
-                name=self.name + "_inputs_with_question",
-            )
+        question = JsonDataModel(
+            json=self.question.get_json(),
+            data_model=Question,
+            name=self.name + "_question"
+        )
 
-            tool_decision = await self.decision_maker(state, training=training)
-            tool_choices = tool_decision.get("choices", [])
+        state = await ops.concat(
+            state,
+            question,
+            name=self.name + "_inputs_with_question",
+        )
 
-            if not tool_choices:
+        for _ in range(self.max_iterations):                
+            decision = await self.decision_maker(state, training=training)
+            choices = decision.get("choices", [])
+
+            if not choices:
                 break
 
             futures = []
 
-            for tool_choice in tool_choices:
-                function = tool_choice.get("tool")
-                action = self.actions[self.labels.index(function)]
+            for choice in choices:
+                tool = choice.get("tool")
+                purpose = choice.get("purpose")
 
-                futures.append(action(state, training=training))
+                purpose = Purpose(purpose=purpose)
+                purpose = JsonDataModel(
+                    json=purpose.get_json(),
+                    data_model=Purpose,
+                )
+
+                action = self.actions[self.labels.index(tool)]
+
+                futures.append(action(purpose, training=training))
 
             messages = await asyncio.gather(*futures)
 
             if len(messages) == 1:
-                tool_response = messages[0]
+                tool_message = messages[0]
             else:
-                tool_response = messages[0]
+                tool_message = messages[0]
 
                 for i in range(1, len(messages)):
-                    tool_response = await ops.concat(
-                        tool_response, 
+                    tool_message = await ops.concat(
+                        tool_message, 
                         messages[i],
                         name=f"{self.name}_tool_message_{i}"
                     )
 
-            state = await ops.concat(state, tool_response)
+            state = await ops.concat(state, tool_message)
 
         response = await self.response_maker(state, training=training)
 
         if self.return_inputs_with_trajectory:
-            response.factorize()
+            response = await ops.concat(state, response)
+            # FIXME: response.factorize()
 
         if self.return_inputs_only:
-            response = inputs + response
+            response = await ops.concat(inputs, response)
 
         return response
 
     async def compute_output_spec(self, inputs, training=False):
         state = inputs
-        
+
+        question = JsonDataModel(
+            json=self.question.get_json(),
+            data_model=Question,
+            name=self.name + "_question"
+        )
+
         state = await ops.concat(
             state,
-            {"question": self.question},
+            question,
             name=self.name + "_inputs_with_question",
         )
-        
-        if self.actions:
-            action_specs = []
 
-            for action in self.actions:
-                spec = await action.compute_output_spec(state, training=training)
-                action_specs.append(spec)
+        # Simulate the iterative decision-making loop
+        for _ in range(self.max_iterations):
+            decision_spec = await self.decision_maker.compute_output_spec(state)
             
-            if len(action_specs) == 1:
-                combined_spec = action_specs[0]
-            else:
-                combined_spec = action_specs[0]
-                for i in range(1, len(action_specs)):
-                    combined_spec = await ops.concat(
-                        combined_spec, 
-                        action_specs[i],
-                        name=f"{self.name}_combined_spec_{i}"
-                    )
-            state = await ops.concat(state, combined_spec)
+            # Simulate tool execution if actions exist
+            if self.actions:
+                action_specs = []
 
-        return await self.response_maker.compute_output_spec(state, training=training)
+                for action in self.actions:
+                    # Create a dummy purpose for computing output spec
+                    purpose = Purpose(purpose="dummy purpose for output spec computation")
+                    purpose = JsonDataModel(
+                        json=purpose.get_json(),
+                        data_model=Purpose,
+                    )
+                    spec = await action.compute_output_spec(purpose)
+                    action_specs.append(spec)
+                
+                if len(action_specs) == 1:
+                    combined_spec = action_specs[0]
+                else:
+                    combined_spec = action_specs[0]
+                    for i in range(1, len(action_specs)):
+                        combined_spec = await ops.concat(
+                            combined_spec, 
+                            action_specs[i],
+                            name=f"{self.name}_combined_spec_{i}"
+                        )
+                state = await ops.concat(state, combined_spec)
+
+        response = await self.response_maker.compute_output_spec(state)
+
+        if self.return_inputs_with_trajectory:
+            response = await ops.concat(state, response)
+
+        if self.return_inputs_only:
+            response = await ops.concat(inputs, response)
+
+        return response
 
     def get_config(self):
         config = {
@@ -447,11 +419,21 @@ class Agent(Module):
         }
 
         language_model_config = {}
-        language_model_config["decision_language_model"] = serialization_lib.serialize_synalinks_object(
+        language_model_config["decision_language_model"] = serialize_synalinks_object(
             self.decision_language_model
         )
-        language_model_config["action_language_model"] = serialization_lib.serialize_synalinks_object(
+        language_model_config["action_language_model"] = serialize_synalinks_object(
             self.action_language_model
         )
 
         return {**config, **language_model_config}
+
+    @classmethod
+    def from_config(cls, config):
+        language_model = deserialize_synalinks_object(
+            config.pop("language_model")
+        )
+        return cls(
+            language_model=language_model,
+            **config,
+        )
