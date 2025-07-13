@@ -1,17 +1,17 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
 from synalinks.src import testing
-from synalinks.src.utils.tool_utils import Tool, toolkit_to_prompt
+from synalinks.src.utils.tool_utils import Tool, toolkit_to_static_prompt
 
 
 class ToolUtilsTest(testing.TestCase):
-    def test_toolkit_to_prompt_with_empty_toolkit(self):
+    def test_toolkit_to_static_prompt_with_empty_toolkit(self):
         expected = "The toolkit is empty. No tools available."
-        result = toolkit_to_prompt([])
+        result = toolkit_to_static_prompt([])
 
         self.assertEqual(expected, result)
 
-    def test_toolkit_to_prompt_with_multi_toolkit(self):
+    def test_toolkit_to_static_prompt_with_multi_toolkit(self):
         expected = (
             "The toolkit contains 3 tools:\n\n"
             "- (websearch) Search for information on the web.\n"
@@ -51,6 +51,6 @@ class ToolUtilsTest(testing.TestCase):
             Tool(send_mail)
         ]
         
-        result = toolkit_to_prompt(toolkit)
+        result = toolkit_to_static_prompt(toolkit)
 
         self.assertEqual(expected, result)

@@ -12,7 +12,7 @@ from synalinks.src.modules.core.generator import Generator
 from synalinks.src.modules.module import Module
 from synalinks.src.saving.serialization_lib import deserialize_synalinks_object, serialize_synalinks_object
 from synalinks.src.utils.nlp_utils import to_singular_property
-from synalinks.src.utils.tool_utils import Tool, toolkit_to_prompt
+from synalinks.src.utils.tool_utils import Tool, toolkit_to_static_prompt
 
 
 class ToolChoice(DataModel):
@@ -90,7 +90,7 @@ def dynamic_enum_on_nested_property(schema, property, labels, description=None):
 def get_default_decision_question(toolkit: List[Tool] = None):
     """The default question prompt to make decisions in a ReAct agent."""
     toolkit = toolkit or []
-    toolkit = toolkit_to_prompt(toolkit)
+    toolkit = toolkit_to_static_prompt(toolkit)
 
     question = Question(toolkit=toolkit)
 
