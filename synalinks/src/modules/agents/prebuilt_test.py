@@ -59,8 +59,8 @@ class AgentTest(testing.TestCase):
             "{"
                 '"reasoning": "I need to search for ...", '
                 '"choices": ['
-                    '{"tool": "websearch", "purpose": "Get ..."}, '
-                    '{"tool": "websearch", "purpose": "Get ..."}, '
+                    '{"name": "websearch", "purpose": "Get ..."}, '
+                    '{"name": "websearch", "purpose": "Get ..."}, '
                 ']'
             "}"
         )
