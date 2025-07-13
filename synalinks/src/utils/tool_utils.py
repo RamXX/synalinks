@@ -196,6 +196,7 @@ class Tool:
             "description": self._docstring.short_description,
             "type": "object",
             "properties": self._params_schema,
+            "additionalProperties": False,
         }
 
         if self._required_params:
@@ -218,7 +219,7 @@ def toolkit_to_prompt(toolkit: typing.List[Tool] = None) -> str:
     if not toolkit:
         return "The toolkit is empty. No tools available."
 
-    prompt = "The toolkit contains %d tools:\n\n" % len(toolkit)
+    prompt = "The toolkit contains %d tool%s:\n\n" % (len(toolkit), "s" if len(toolkit) > 1 else "")
 
     description = [f"- ({_.name()}) {_.description()}\n" for _ in toolkit]
 
