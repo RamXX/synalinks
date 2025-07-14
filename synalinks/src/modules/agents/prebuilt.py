@@ -371,9 +371,11 @@ class Agent(Module):
     async def call(self, inputs, training=False):
         step = inputs
 
-        for _ in range(self.max_iterations):                
+        for _ in range(self.max_iterations):  
             decision = await self.decision_maker(step, training=training)
             choices = decision.get("choices", [])
+
+            step = await ops.concat(step, decision)
 
             if not choices:
                 break
