@@ -12,7 +12,7 @@
   <a href="https://synalinks.github.io/synalinks" target="_blank"><strong>Documentation</strong></a> ·
   <a href="https://synalinks.github.io/synalinks/FAQ/" target="_blank"><strong>FAQ</strong></a> ·
   <a href="https://discord.gg/82nt97uXcM" target="_blank"><strong>Discord</strong></a> ·
-  <a href="https://synalinks.github.io/synalinks" target="_blank"><strong>Code Examples</strong></a>
+  <a href="https://github.com/SynaLinks/synalinks/tree/main/examples" target="_blank"><strong>Code Examples</strong></a>
 </p>
 
 </div>
@@ -28,6 +28,7 @@
 [![Discord](https://img.shields.io/discord/1118241178723291219)](https://discord.gg/82nt97uXcM)
 [![Python package](https://github.com/SynaLinks/Synalinks/actions/workflows/tests.yml/badge.svg)](https://github.com/SynaLinks/SynaLinks/actions/workflows/tests.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](https://opensource.org/license/apache-2-0)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/SynaLinks/synalinks)
 
 Too busy to read the documentation? Give **[LLM.md](https://raw.githubusercontent.com/SynaLinks/synalinks/refs/heads/main/LLM.md)** to your favorite LM provider.
 
