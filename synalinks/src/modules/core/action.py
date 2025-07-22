@@ -99,7 +99,7 @@ class Action(Module):
         language_model (LanguageModel): The language model to use.
         prompt_template (str): The default jinja2 prompt template
             to use (see `Generator`).
-        static_system_prompt (str): A static system prompt that **do not** evolve 
+        static_system_prompt (str): A static system prompt that **do not** evolve
             during training. This prompt allow the user to provide additional
             information that won't be changed during training. Allowing to cache
             it and reduce inference costs (see `Generator`).
@@ -135,7 +135,7 @@ class Action(Module):
             trainable=trainable,
         )
         self.fn = fn
-        schema = tool_utils.Tool(fn).obj_schema()
+        schema = tool_utils.Tool(fn).get_tool_schema()
         self.language_model = language_model
         self.prompt_template = prompt_template
         self.static_system_prompt = static_system_prompt
@@ -155,12 +155,14 @@ class Action(Module):
             name=self.name + "_generator",
         )
 
-    # FIXME: error handling
     async def call(self, inputs, training=False):
         if not inputs:
             return None
         fn_inputs = await self.action(inputs, training=training)
-        fn_outputs = await self.fn(**fn_inputs.get_json())
+        try:
+            fn_outputs = await self.fn(**fn_inputs.get_json())
+        except Exception as e:
+            fn_outputs = {"error": str(e)}
         generic_io = GenericIO(inputs=fn_inputs.get_json(), outputs=fn_outputs)
         return JsonDataModel(
             json=GenericAction(action=generic_io.get_json()).get_json(),

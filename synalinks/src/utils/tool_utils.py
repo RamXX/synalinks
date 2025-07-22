@@ -29,6 +29,9 @@ import typing
 
 import docstring_parser
 
+from synalinks.src.api_export import synalinks_export
+from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
+from synalinks.src.saving import serialization_lib
 
 JsonSchema = typing.Union[
     typing.Dict[str, typing.Any],
@@ -109,14 +112,15 @@ def get_param_schema(
     param_doc = next(descriptions, None)
     if param_doc is None:
         raise ValueError(f"Missing description for parameter '{param_name}' in docstring")
-
+    
+    param_schema = {}
+    param_schema["description"] = param_doc.replace("\n", " ")
+    param_schema["title"] = param_name.title().replace("_", " ")
     # Check if the param_type_str is already a dictionary.
     if isinstance(param_type_str, dict):
-        param_schema = param_type_str
+        param_schema.update(**param_type_str)
     else:
-        param_schema = {"type": param_type_str}
-
-    param_schema["description"] = param_doc
+        param_schema["type"] = param_type_str
 
     if param.default is not param.empty:
         param_schema["default"] = param.default
@@ -124,10 +128,17 @@ def get_param_schema(
     return param_schema
 
 
-class Tool:
-    def __init__(self, func: typing.Callable, include_return=False):
+@synalinks_export(
+    [
+        "synalinks.utils.Tool",
+        "synalinks.Tool",
+    ]
+)
+class Tool(SynalinksSaveable):
+    def __init__(self, func: typing.Callable):
         self._func = func
-        self._include_return = include_return
+        if not inspect.iscoroutinefunction(self._func):
+            raise TypeError(f"{self.name()} is not an asynchronous function")
 
         doc = inspect.getdoc(func)
         if not doc:
@@ -141,19 +152,13 @@ class Tool:
 
         self._parse_arguments()
 
-        if not self.description():
+        if not self.description:
             logging.warning(
-                "The tool (%s) has no description. " % self.name() +
-                "This is unsafe behavior and may lead to issues."
+                "The tool (%s) has no description. " % self.name
+                + "This is unsafe behavior and may lead to issues."
             )
 
-    def __call__(self, *args, **kwargs):
-        return self._func(*args, **kwargs)
-    
-    async def async__call__(self, *args, **kwargs):
-        if not inspect.iscoroutinefunction(self._func):
-            raise TypeError(f"{self.name()} is not an asynchronous function")
-
+    async def __call__(self, *args, **kwargs):
         return await self._func(*args, **kwargs)
 
     def _parse_arguments(self):
@@ -168,67 +173,36 @@ class Tool:
             if param.default is param.empty:
                 self._required_params.append(param_name)
 
-    def _has_return(self):
-        return self._signature.return_annotation is not self._signature.empty
-
+    @property
     def description(self) -> str:
         return self._docstring.short_description or ""
 
+    @property
     def name(self) -> str:
         return self._func.__name__
 
-    def func_schema(self):
-        func_schema = {
-            "name": self.name(),
-            "description": self._docstring.short_description,
-            "parameters": {
-                "type": "object",
-                "properties": self._params_schema,
-            },
-        }
-
-        if self._required_params:
-            func_schema["parameters"]["required"] = self._required_params
-
-        if self._include_return and self._has_return():
-            schema_type = json_schema_type(self._signature.return_annotation)
-            func_schema["return"] = schema_type
-
-        return func_schema
-
-    def obj_schema(self):
-        obj_schema = {
-            "title": self.name().title().replace("_", " "),
-            "description": self._docstring.short_description,
-            "type": "object",
-            "properties": self._params_schema,
+    def get_tool_schema(self):
+        schema = {
             "additionalProperties": False,
+            "description": self._docstring.short_description,
+            "properties": self._params_schema,
+            "required": self._required_params,
+            "title": self.name.title().replace("_", " "),
+            "type": "object",
         }
-
-        if self._required_params:
-            obj_schema["required"] = self._required_params
-
-        return obj_schema
-
-
-def toolkit_to_static_prompt(toolkit: typing.List[Tool] = None) -> str:
-    """Convert a toolkit into a static text prompt.
-
-    Args:
-        toolkit: The set of available tools
-
-    Returns:
-        A string describing each available tool by name and description.
-    """
-    toolkit = toolkit or []
-
-    if not toolkit:
-        return "The toolkit is empty. No tools available."
-
-    prompt = "The toolkit contains %d tool%s:\n\n" % (len(toolkit), "s" if len(toolkit) > 1 else "")
-
-    description = [f"- ({_.name()}) {_.description()}\n" for _ in toolkit]
-
-    prompt = prompt + "".join(description)
-
-    return prompt
+        return schema
+    
+    def get_config(self):
+        func_config = {
+            "func": serialization_lib.serialize_synalinks_object(
+                self._func
+            )
+        }
+        return {**func_config}
+        
+    @classmethod
+    def from_config(cls, config):
+        func = serialization_lib.deserialize_synalinks_object(
+            config.pop("func")
+        )
+        return cls(func)

@@ -74,117 +74,117 @@
 #             result_list.append(result.get_as_df().to_json(orient="records"))
 #         return result_list
 
-#     def _json_schema_to_kuzu_node_table(self, schema: Dict[str, Any]) -> str:
-#         """Convert JSON schema to Kuzu CREATE NODE TABLE statement"""
-#         table_name = self.sanitize_label(schema.get("title", "Entity"))
-#         properties = schema.get("properties", {})
+# def _json_schema_to_kuzu_node_table(self, schema: Dict[str, Any]) -> str:
+#     """Convert JSON schema to Kuzu CREATE NODE TABLE statement"""
+#     table_name = self.sanitize_label(schema.get("title", "Entity"))
+#     properties = schema.get("properties", {})
 
-#         columns = []
-#         primary_key = None
+#     columns = []
+#     primary_key = None
 
-#         # Add embedding column
-#         columns.append(f"embedding FLOAT[{self.embedding_dim}]")
+#     # Add embedding column
+#     columns.append(f"embedding FLOAT[{self.embedding_dim}]")
 
-#         for prop_name, prop_def in properties.items():
+#     for prop_name, prop_def in properties.items():
+#         prop_name = self.sanitize_property_name(prop_name)
+#         kuzu_type = self._json_type_to_kuzu_type(prop_def)
+#         if prop_name not in ["embedding"]:
+#             # Check if this should be the primary key
+#             if prop_name == "name":
+#                 if not primary_key:
+#                     primary_key = prop_name
+#                     columns.append(f"{prop_name} {kuzu_type} PRIMARY KEY")
+#                 else:
+#                     columns.append(f"{prop_name} {kuzu_type}")
+#             else:
+#                 columns.append(f"{prop_name} {kuzu_type}")
+
+#     if not primary_key:
+#         columns.insert(0, "id SERIAL PRIMARY KEY")
+
+#     columns_str = ", ".join(columns)
+#     ddl = f"CREATE NODE TABLE IF NOT EXISTS {table_name} ({columns_str})"
+#     return ddl
+
+# def _json_schema_to_kuzu_rel_table(self, schema: Dict[str, Any]) -> str:
+#     """Convert JSON schema to Kuzu CREATE REL TABLE statement"""
+#     table_name = self.sanitize_label(schema.get("title", "Relation"))
+#     properties = schema.get("properties", {})
+
+#     columns = []
+#     subj_labels = []
+#     obj_labels = []
+
+#     # Extract FROM and TO table information from schema if available
+#     if "subj" in properties:
+#         if "anyOf" in properties["subj"]:
+#             for union_type in properties["subj"]["anyOf"]:
+#                 subj_labels.append(union_type["$ref"].replace("#/$defs/", ""))
+#         else:
+#             subj_labels.append(properties["subj"]["$ref"].replace("#/$defs/", ""))
+
+#     if "obj" in properties:
+#         if "anyOf" in properties["obj"]:
+#             for union_type in properties["obj"]["anyOf"]:
+#                 obj_labels.append(union_type["$ref"].replace("#/$defs/", ""))
+#         else:
+#             obj_labels.append(properties["subj"]["$ref"].replace("#/$defs/", ""))
+
+#     # Add other properties (excluding subj, obj)
+#     for prop_name, prop_def in properties.items():
+#         if prop_name not in ["subj", "obj"]:
 #             prop_name = self.sanitize_property_name(prop_name)
 #             kuzu_type = self._json_type_to_kuzu_type(prop_def)
-#             if prop_name not in ["embedding"]:
-#                 # Check if this should be the primary key
-#                 if prop_name == "name":
-#                     if not primary_key:
-#                         primary_key = prop_name
-#                         columns.append(f"{prop_name} {kuzu_type} PRIMARY KEY")
-#                     else:
-#                         columns.append(f"{prop_name} {kuzu_type}")
+
+#             default_val = prop_def.get("default")
+#             if default_val is not None:
+#                 if isinstance(default_val, str):
+#                     columns.append(f"{prop_name} {kuzu_type} DEFAULT '{default_val}'")
 #                 else:
-#                     columns.append(f"{prop_name} {kuzu_type}")
-
-#         if not primary_key:
-#             columns.insert(0, "id SERIAL PRIMARY KEY")
-
-#         columns_str = ", ".join(columns)
-#         ddl = f"CREATE NODE TABLE IF NOT EXISTS {table_name} ({columns_str})"
-#         return ddl
-
-#     def _json_schema_to_kuzu_rel_table(self, schema: Dict[str, Any]) -> str:
-#         """Convert JSON schema to Kuzu CREATE REL TABLE statement"""
-#         table_name = self.sanitize_label(schema.get("title", "Relation"))
-#         properties = schema.get("properties", {})
-
-#         columns = []
-#         subj_labels = []
-#         obj_labels = []
-
-#         # Extract FROM and TO table information from schema if available
-#         if "subj" in properties:
-#             if "anyOf" in properties["subj"]:
-#                 for union_type in properties["subj"]["anyOf"]:
-#                     subj_labels.append(union_type["$ref"].replace("#/$defs/", ""))
+#                     columns.append(f"{prop_name} {kuzu_type} DEFAULT {default_val}")
 #             else:
-#                 subj_labels.append(properties["subj"]["$ref"].replace("#/$defs/", ""))
+#                 columns.append(f"{prop_name} {kuzu_type}")
 
-#         if "obj" in properties:
-#             if "anyOf" in properties["obj"]:
-#                 for union_type in properties["obj"]["anyOf"]:
-#                     obj_labels.append(union_type["$ref"].replace("#/$defs/", ""))
-#             else:
-#                 obj_labels.append(properties["subj"]["$ref"].replace("#/$defs/", ""))
+#     # Build the DDL
+#     if columns:
+#         columns_str = ", " + ", ".join(columns)
+#     else:
+#         columns_str = ""
 
-#         # Add other properties (excluding subj, obj)
-#         for prop_name, prop_def in properties.items():
-#             if prop_name not in ["subj", "obj"]:
-#                 prop_name = self.sanitize_property_name(prop_name)
-#                 kuzu_type = self._json_type_to_kuzu_type(prop_def)
+#     from_to_clauses = []
+#     for from_table, to_table in product(subj_labels, obj_labels):
+#         from_to_clauses.append(f"FROM {from_table} TO {to_table}")
+#     from_to_clauses = ", ".join(from_to_clauses)
 
-#                 default_val = prop_def.get("default")
-#                 if default_val is not None:
-#                     if isinstance(default_val, str):
-#                         columns.append(f"{prop_name} {kuzu_type} DEFAULT '{default_val}'")
-#                     else:
-#                         columns.append(f"{prop_name} {kuzu_type} DEFAULT {default_val}")
-#                 else:
-#                     columns.append(f"{prop_name} {kuzu_type}")
+#     ddl = (
+#         f"CREATE REL TABLE IF NOT EXISTS {table_name}({from_to_clauses}{columns_str})"
+#     )
 
-#         # Build the DDL
-#         if columns:
-#             columns_str = ", " + ", ".join(columns)
-#         else:
-#             columns_str = ""
+#     return ddl
 
-#         from_to_clauses = []
-#         for from_table, to_table in product(subj_labels, obj_labels):
-#             from_to_clauses.append(f"FROM {from_table} TO {to_table}")
-#         from_to_clauses = ", ".join(from_to_clauses)
+# def _json_type_to_kuzu_type(self, prop_def: Dict[str, Any]) -> str:
+#     """Convert JSON schema type to Kuzu data type"""
+#     json_type = prop_def.get("type", "string")
 
-#         ddl = (
-#             f"CREATE REL TABLE IF NOT EXISTS {table_name}({from_to_clauses}{columns_str})"
-#         )
+#     type_mapping = {
+#         "string": "STRING",
+#         "integer": "INT64",
+#         "number": "DOUBLE",
+#         "boolean": "BOOLEAN",
+#         "array": "STRING",  # Store as JSON string for simplicity
+#         "object": "STRING",  # Store as JSON string
+#     }
+#     # Handle format specifications
+#     if json_type == "string":
+#         format_type = prop_def.get("format")
+#         if format_type == "date":
+#             return "DATE"
+#         elif format_type == "date-time":
+#             return "TIMESTAMP"
+#         elif format_type == "time":
+#             return "TIME"
 
-#         return ddl
-
-#     def _json_type_to_kuzu_type(self, prop_def: Dict[str, Any]) -> str:
-#         """Convert JSON schema type to Kuzu data type"""
-#         json_type = prop_def.get("type", "string")
-
-#         type_mapping = {
-#             "string": "STRING",
-#             "integer": "INT64",
-#             "number": "DOUBLE",
-#             "boolean": "BOOLEAN",
-#             "array": "STRING",  # Store as JSON string for simplicity
-#             "object": "STRING",  # Store as JSON string
-#         }
-#         # Handle format specifications
-#         if json_type == "string":
-#             format_type = prop_def.get("format")
-#             if format_type == "date":
-#                 return "DATE"
-#             elif format_type == "date-time":
-#                 return "TIMESTAMP"
-#             elif format_type == "time":
-#                 return "TIME"
-
-#         return type_mapping.get(json_type, "STRING")
+#     return type_mapping.get(json_type, "STRING")
 
 #     async def update(
 #         self,

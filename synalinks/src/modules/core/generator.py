@@ -35,8 +35,7 @@ def default_prompt_template():
     """
     return """
 <system>
-{% if static_system_prompt %}{{ static_system_prompt }}
-{% endif %}
+{% if static_system_prompt %}{{ static_system_prompt }}{% endif %}
 {% if inputs_schema %}You will be given an input JSON object with the following schema. 
 Input JSON Schema:
 {{ inputs_schema }}
@@ -168,7 +167,7 @@ class Generator(Module):
             model for structured output.
         language_model (LanguageModel): The language model to use.
         prompt_template (str): The jinja2 prompt template.
-        static_system_prompt (str): A static system prompt that **do not** evolve 
+        static_system_prompt (str): A static system prompt that **do not** evolve
             during training. This prompt allow the user to provide additional
             information that won't be changed during training. Allowing to cache
             it and reduce inference costs.

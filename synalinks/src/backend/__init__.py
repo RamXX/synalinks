@@ -9,7 +9,8 @@ if backend() == "pydantic":
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend.common import name_scope
 from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_enum
-from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_enum_array
+from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_tool_calls
+from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_tool_choice
 from synalinks.src.backend.common.json_schema_utils import concatenate_schema
 from synalinks.src.backend.common.json_schema_utils import contains_schema
 from synalinks.src.backend.common.json_schema_utils import factorize_schema
@@ -53,6 +54,7 @@ if backend() == "pydantic":
     from synalinks.src.backend.pydantic.base import Relation
     from synalinks.src.backend.pydantic.base import Relations
     from synalinks.src.backend.pydantic.base import SimilaritySearch
+    from synalinks.src.backend.pydantic.base import ToolCall
     from synalinks.src.backend.pydantic.base import TripletSearch
     from synalinks.src.backend.pydantic.base import is_chat_message
     from synalinks.src.backend.pydantic.base import is_chat_messages
@@ -67,6 +69,7 @@ if backend() == "pydantic":
     from synalinks.src.backend.pydantic.base import is_relation
     from synalinks.src.backend.pydantic.base import is_relations
     from synalinks.src.backend.pydantic.base import is_similarity_search
+    from synalinks.src.backend.pydantic.base import is_tool_call
     from synalinks.src.backend.pydantic.base import is_triplet_search
     from synalinks.src.backend.pydantic.core import IS_THREAD_SAFE
     from synalinks.src.backend.pydantic.core import DataModel as BackendDataModel

@@ -384,13 +384,13 @@ class JsonDataModel:
             ops.Suffix(suffix=suffix).call(self),
         )
 
-    def get(self, key, default_value=None):
+    def get(self, name, default_value=None):
         """Get wrapper to make it easier to access JSON fields.
 
         Args:
-            key (str): The key to access.
+            name (str): The attribute name to access.
         """
-        return copy.deepcopy(self._json.get(key, default_value))
+        return copy.deepcopy(self._json.get(name, default_value))
 
     def update(self, kv_dict):
         """Update wrapper to make it easier to modify JSON fields.
@@ -399,6 +399,19 @@ class JsonDataModel:
             kv_dict (dict): The key/json dict to update.
         """
         self._json.update(kv_dict)
+        
+    # def __setattr__(self, name, value):
+    #     try:
+    #         value = value.get_json()
+    #     except Exception:
+    #         pass
+    #     self._json[name] = value
+        
+    # def __getattribute__(self, name):
+    #     if name in self._json:
+    #         return self._json[name]
+    #     else:
+    #         return None
 
     def clone(self, name=None):
         """Clone a data model and give it a different name."""

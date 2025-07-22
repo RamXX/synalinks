@@ -17,6 +17,7 @@ from typing import Dict
 from typing import List
 from typing import Literal
 from typing import Optional
+from typing import Union
 
 from pydantic import Field
 
@@ -96,6 +97,23 @@ class ChatRole(str, Enum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
+    TOOL = "tool"
+
+
+@synalinks_export(
+    [
+        "synalinks.backend.ToolCalling",
+        "synalinks.ToolCalling",
+    ]
+)
+class ToolCall(DataModel):
+    id: str = Field(
+        description="The id of the tool call",
+    )
+    name: str = Field(
+        description="The name of the function called",
+    )
+    arguments: Dict[str, Any] = Field(description="The arguments of the tool call")
 
 
 @synalinks_export(
@@ -107,8 +125,21 @@ class ChatRole(str, Enum):
 class ChatMessage(DataModel):
     """A chat message"""
 
-    role: ChatRole
-    content: str
+    role: ChatRole = Field(
+        description="The chat message role",
+    )
+    content: Union[str, Dict[str, Any]] = Field(
+        description="The content of the message",
+        default="",
+    )
+    tool_call_id: Optional[str] = Field(
+        description="The id of the tool call if role is `tool`",
+        default=None,
+    )
+    tool_calls: List[ToolCall] = Field(
+        description="The tool calls of the agent",
+        default=[],
+    )
 
 
 @synalinks_export(
@@ -164,6 +195,27 @@ def is_chat_messages(x):
         (bool): True if the condition is met
     """
     if contains_schema(x.get_schema(), ChatMessages.get_schema()):
+        return True
+    return False
+
+
+@synalinks_export(
+    [
+        "synalinks.backend.is_tool_call",
+        "synalinks.is_tool_call",
+    ]
+)
+def is_tool_call(x):
+    """Checks if the given data model is a tool call
+
+    Args:
+        x (DataModel | JsonDataModel | SymbolicDataModel | Variable):
+            The data model to check.
+
+    Returns:
+        (bool): True if the condition is met
+    """
+    if contains_schema(x.get_schema(), ToolCall.get_schema()):
         return True
     return False
 

@@ -1,56 +1,50 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
 from synalinks.src import testing
-from synalinks.src.utils.tool_utils import Tool, toolkit_to_static_prompt
+from synalinks.src.utils.tool_utils import Tool
+from synalinks.src import saving
+
+
+@saving.object_registration.register_synalinks_serializable()
+async def calculate(expression: str):
+    """Calculate the result of a mathematical expression.
+
+    Args:
+        expression (str): The mathematical expression to calculate, such as
+            '2 + 2'. The expression can contain numbers, operators (+, -, *, /),
+            parentheses, and spaces.
+    """
+    if not all(char in "0123456789+-*/(). " for char in expression):
+        return {
+            "result": None,
+            "log": "Error: invalid characters in expression",
+        }
+    try:
+        # Evaluate the mathematical expression safely
+        result = round(float(eval(expression, {"__builtins__": None}, {})), 2)
+        return {
+            "result": result,
+            "log": "Successfully executed",
+        }
+    except Exception as e:
+        return {
+            "result": None,
+            "log": f"Error: {e}",
+        }
 
 
 class ToolUtilsTest(testing.TestCase):
-    def test_toolkit_to_static_prompt_with_empty_toolkit(self):
-        expected = "The toolkit is empty. No tools available."
-        result = toolkit_to_static_prompt([])
-
-        self.assertEqual(expected, result)
-
-    def test_toolkit_to_static_prompt_with_multi_toolkit(self):
-        expected = (
-            "The toolkit contains 3 tools:\n\n"
-            "- (websearch) Search for information on the web.\n"
-            "- (calculate) Perform mathematical calculations.\n"
-            "- (send_mail) Send a mail to a recipient.\n"
-        )
-
-        def websearch(query: str):
-            """Search for information on the web.
-            
-            Args:
-                query: The search query to execute.
-            """
-            return f"Searching for: {query}"
+    def test_basic_tool(self):
         
-        def calculate(expression: str):
-            """Perform mathematical calculations.
-            
-            Args:
-                expression: The mathematical expression to evaluate.
-            """
-            return f"Calculating: {expression}"
-        
-        def send_mail(recipient: str, subject: str, body: str):
-            """Send a mail to a recipient.
+        tool = Tool(calculate)
 
-            Args:
-                recipient: The email address of the recipient.
-                subject: The subject line of the email.
-                body: The content of the email.
-            """
-            return f"Sending email to {recipient}"
+    async def test_tool_serialization(self):
         
-        toolkit = [
-            Tool(websearch),
-            Tool(calculate),
-            Tool(send_mail)
-        ]
+        tool = Tool(calculate)
+        tool_config = tool.get_config()
+        new_tool = Tool.from_config(tool_config)
         
-        result = toolkit_to_static_prompt(toolkit)
-
-        self.assertEqual(expected, result)
+        tool_call = await new_tool("2+2")
+        result = tool_call.get("result")
+        
+        self.assertTrue(result == 4)

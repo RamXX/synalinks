@@ -757,7 +757,7 @@ class Module(BackendModule, Operation, SynalinksSaveable):
                     f"Exception encountered: ''{e}''"
                 )
         self.built = True
-        
+
     def clone(self, name=None):
         clone = self.from_config(self.get_config())
         if name:

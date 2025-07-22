@@ -24,7 +24,7 @@ class EntityRetriever(Module):
     If you give multiple entity models to this module, the LM will select the most
     suitable one to perform the search. Having multiple entity models to search
     for is an easy way to enhance the performance of you RAG system by having
-    multiple indexes (one per entity model).
+    multiple indexes (one per entity model type).
 
     ```python
     import synalinks
@@ -43,14 +43,17 @@ class EntityRetriever(Module):
 
     class Document(synalinks.Entity):
         label: Literal["Document"]
-        content: str = synalinks.Field(
-            description="The document's content",
+        filename: str = synalinks.Field(
+            description="The document's filename",
+        )
+        text: str = synalinks.Field(
+            description="The document's text",
         )
 
     class Chunk(synalinks.Entity):
         label: Literal["Chunk"]
-        content: str = synalinks.Field(
-            description="The chunk's content",
+        text: str = synalinks.Field(
+            description="The chunk's text",
         )
 
     class IsPartOf(synalinks.Relation):
@@ -58,17 +61,20 @@ class EntityRetriever(Module):
         label: Literal["IsPartOf"]
         obj: Document
 
-    knowledge_base = synalinks.KnowledgeBase(
-        uri="neo4j://localhost:7687",
-        entity_models=[Document, Chunk],
-        relation_models=[IsPartOf],
-        embedding_model=embedding_model,
-        metric="cosine",
-        wipe_on_start=False,
-    )
-
     language_model = synalinks.LanguageModel(
         model="ollama/mistral",
+    )
+
+    embedding_model = synalinks.EmbeddingModel(
+        model="ollama/mxbai-embed-large"
+    )
+
+    knowledge_base = synalinks.KnowledgeBase(
+        uri="neo4j://localhost:7687",
+        entity_models=[Country, City],
+        relation_models=[IsCapitalOf, IsCityOf],
+        embedding_model=embedding_model,
+        metric="cosine",
     )
 
     async def main():

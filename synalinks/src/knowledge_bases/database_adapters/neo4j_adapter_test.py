@@ -235,15 +235,15 @@ class Neo4JAdapterTest(testing.TestCase):
 
         # Test triplet search
         from synalinks.src.backend import TripletSearch
-        
+
         triplet_search = TripletSearch(
             subject_label="Chunk",
             subject_similarity_search="",
-            relation_label="IsPartOf", 
+            relation_label="IsPartOf",
             object_label="Document",
             object_similarity_search="",
         ).to_json_data_model()
-        
+
         result = await adapter.triplet_search(triplet_search, threshold=0.0)
         self.assertTrue(len(result) > 0)
         self.assertIn("subj", result[0])
@@ -290,7 +290,7 @@ class Neo4JAdapterTest(testing.TestCase):
 
         # Test triplet search with subject similarity
         from synalinks.src.backend import TripletSearch
-        
+
         triplet_search = TripletSearch(
             subject_label="Chunk",
             subject_similarity_search="machine learning",
@@ -298,11 +298,11 @@ class Neo4JAdapterTest(testing.TestCase):
             object_label="Document",
             object_similarity_search="?",
         ).to_json_data_model()
-        
+
         result = await adapter.triplet_search(triplet_search, threshold=0.0)
         self.assertTrue(len(result) > 0)
 
-    @patch("litellm.aembedding") 
+    @patch("litellm.aembedding")
     async def test_adapter_triplet_search_with_object_similarity(self, mock_embedding):
         """Test triplet search with object similarity query"""
         expected_value = np.random.rand(1024)
@@ -342,7 +342,7 @@ class Neo4JAdapterTest(testing.TestCase):
 
         # Test triplet search with object similarity
         from synalinks.src.backend import TripletSearch
-        
+
         triplet_search = TripletSearch(
             subject_label="Chunk",
             subject_similarity_search="?",
@@ -350,7 +350,7 @@ class Neo4JAdapterTest(testing.TestCase):
             object_label="Document",
             object_similarity_search="programming tutorial",
         ).to_json_data_model()
-        
+
         result = await adapter.triplet_search(triplet_search, threshold=0.0)
         self.assertTrue(len(result) > 0)
 
@@ -392,21 +392,21 @@ class Neo4JAdapterTest(testing.TestCase):
         # Create relations
         rel1 = IsPartOf(subj=chunk1, label="IsPartOf", obj=doc1)
         rel2 = IsPartOf(subj=chunk2, label="IsPartOf", obj=doc2)
-        
+
         for rel in [rel1, rel2]:
             embedded_rel = await program(rel)
             await adapter.update(embedded_rel)
 
         # Test triplet search with both similarities
         from synalinks.src.backend import TripletSearch
-        
+
         triplet_search = TripletSearch(
             subject_label="Chunk",
             subject_similarity_search="statistics",
             relation_label="IsPartOf",
-            object_label="Document", 
+            object_label="Document",
             object_similarity_search="data science",
         ).to_json_data_model()
-        
+
         result = await adapter.triplet_search(triplet_search, threshold=0.0)
         self.assertTrue(len(result) > 0)

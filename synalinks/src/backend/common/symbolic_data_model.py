@@ -411,6 +411,22 @@ class SymbolicDataModel(SynalinksSaveable):
             "is correctly implemented, if so then you likely need to implement "
             " `compute_output_spec()` in your subclassed module."
         )
+        
+    # def __setattr__(self, name, value):
+    #     raise ValueError(
+    #         f"Attempting to update '{name}' from a symbolic "
+    #         "data model this operation is not possible, make sure that your `call()` "
+    #         "is correctly implemented, if so then you likely need to implement "
+    #         " `compute_output_spec()` in your subclassed module."
+    #     )
+        
+    # def __getattribute__(self, name):
+    #     raise ValueError(
+    #         f"Attempting to get '{name}' from a symbolic data model "
+    #         "this operation is not possible, make sure that your `call()` "
+    #         "is correctly implemented, if so then you likely need to implement "
+    #         " `compute_output_spec()` in your subclassed module."
+    #     )
 
     def clone(self, name=None):
         """Clone a symbolic data model and give it a different name."""
