@@ -143,7 +143,6 @@ def register_synalinks_serializable(package="Custom", name=None):
 
     return decorator
 
-
 @synalinks_export(
     [
         "synalinks.saving.get_registered_name",

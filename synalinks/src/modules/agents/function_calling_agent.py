@@ -521,7 +521,7 @@ class FunctionCallingAgent(Module):
                     name=self.name,
                 )
             
-    async def get_config(self):
+    def get_config(self):
         config = {
             "schema": self.schema,
             "prompt_template": self.prompt_template,

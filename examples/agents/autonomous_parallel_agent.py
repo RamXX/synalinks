@@ -15,6 +15,7 @@ class NumericalFinalAnswer(synalinks.DataModel):
     )
 
 
+@synalinks.utils.register_synalinks_serializable()
 async def calculate(expression: str):
     """Calculate the result of a mathematical expression.
 
@@ -69,6 +70,8 @@ async def main():
         name="math_agent",
         description="A math agent",
     )
+    
+    agent.save("agent.json")
 
     input_query = Query(query="How much is 152648 + 485?")
     response = await agent(input_query)

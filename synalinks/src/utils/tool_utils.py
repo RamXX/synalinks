@@ -138,11 +138,11 @@ class Tool(SynalinksSaveable):
     def __init__(self, func: typing.Callable):
         self._func = func
         if not inspect.iscoroutinefunction(self._func):
-            raise TypeError(f"{self.name()} is not an asynchronous function")
+            raise TypeError(f"{self.name} is not an asynchronous function")
 
         doc = inspect.getdoc(func)
         if not doc:
-            raise ValueError(f"The tool ({self.name()}) must have a docstring")
+            raise ValueError(f"The tool ({self.name}) must have a docstring")
 
         self._docstring = docstring_parser.parse(doc)
         self._signature = inspect.signature(func)
