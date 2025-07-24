@@ -1,46 +1,42 @@
-from mcp.server.fastmcp import FastMCP
-from synalinks.src.utils.mcp._test_common import run_streamable_server_multiprocessing
+from typing import Dict, Any
+from fastmcp import FastMCP
 
-class McpServer:
-    
-    def __init__(self):
-        self.status_server = None
-        self.math_server = None
-        self.status_server_context = None
-        self.math_server_context = None
+mcp = FastMCP("Demo 🚀")
 
-    def setup_servers(self):
-        """Setup mock MathMCP servers with tools"""
-        
-        # Status server setup
-        self.status_server = FastMCP(port=8182)
+@mcp.tool
+async def calculate(expression: str) -> Dict[str, Any]:
+    """Calculate the result of a mathematical expression.
 
-        @self.status_server.tool()
-        def get_status() -> str:
-            """Get server status"""
-            return "Server is running"
+    Args:
+        expression (str): The mathematical expression to calculate, such as
+            '2 + 2'. The expression can contain numbers, operators (+, -, *, /),
+            parentheses, and spaces.
+    """
+    if not all(char in "0123456789+-*/(). " for char in expression):
+        return {
+            "result": None,
+            "log": (
+                "Error: invalid characters in expression. "
+                "The expression can only contain numbers, operators (+, -, *, /),"
+                " parentheses, and spaces NOT letters."
+            ),
+        }
+    try:
+        # Evaluate the mathematical expression safely
+        result = round(float(eval(expression, {"__builtins__": None}, {})), 2)
+        return {
+            "result": result,
+            "log": "Successfully executed",
+        }
+    except Exception as e:
+        return {
+            "result": None,
+            "log": f"Error: {e}",
+        }
 
-        # Math server setup
-        self.math_server = FastMCP(port=8183)
-        
-        @self.math_server.tool()
-        def add_numbers(a: int, b: int) -> int:
-            """Add two numbers together"""
-            return a + b
-            
-    async def start_servers(self):
-        """Start the MCP servers"""
-        try:
-            # Set up server contexts
-            self.status_server_context = run_streamable_server_multiprocessing(self.status_server)
-            self.math_server_context = run_streamable_server_multiprocessing(self.math_server)
-            
-            # Enter contexts
-            self.status_server_context.__enter__()
-            self.math_server_context.__enter__()
-
-        except Exception as e:
-            return {
-                "result": None,
-                "log": f"Failed to start server: {e}",
-            }
+if __name__ == "__main__":
+    mcp.run(
+        transport="http",
+        host="127.0.0.1",
+        port=8183
+    )
