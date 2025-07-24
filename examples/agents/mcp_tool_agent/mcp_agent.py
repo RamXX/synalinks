@@ -1,18 +1,18 @@
-# import multiprocessing
+
+import multiprocessing
 import asyncio
 
+from mcp_server import McpServer
 from synalinks.src.backend import DataModel
 from synalinks.src.backend import Field
 from synalinks.src.language_models.language_model import LanguageModel
 from synalinks.src.modules.agents.function_calling_agent import FunctionCallingAgent
 from synalinks.src.programs import Program
 from synalinks.src.modules import Input
-from synalinks.src.utils.mcp._test_common import run_streamable_server_multiprocessing
 from synalinks.src.utils.mcp.client import MultiServerMCPClient
-from mcp.server.fastmcp import FastMCP
 
 # Multirpocessing for MacOS
-# multiprocessing.set_start_method('fork')
+multiprocessing.set_start_method('fork')
 
 class Query(DataModel):
     """Input query data model"""
@@ -31,48 +31,7 @@ class MCPMathAgent:
     """MCP-based Math Agent with ReACT capabilities"""
     
     def __init__(self):
-        self.status_server = None
-        self.math_server = None
-        self.status_server_context = None
-        self.math_server_context = None
-        self.client = None
         self.program = None
-        
-    def setup_servers(self):
-        """Setup mock MathMCP servers with tools"""
-        
-        # Status server setup
-        self.status_server = FastMCP(port=8182)
-
-        @self.status_server.tool()
-        def get_status() -> str:
-            """Get server status"""
-            return "Server is running"
-
-        # Math server setup
-        self.math_server = FastMCP(port=8183)
-        
-        @self.math_server.tool()
-        def add_numbers(a: int, b: int) -> int:
-            """Add two numbers together"""
-            return a + b
-            
-    async def start_servers(self):
-        """Start the MCP servers"""
-        try:
-            # Set up server contexts
-            self.status_server_context = run_streamable_server_multiprocessing(self.status_server)
-            self.math_server_context = run_streamable_server_multiprocessing(self.math_server)
-            
-            # Enter contexts
-            self.status_server_context.__enter__()
-            self.math_server_context.__enter__()
-
-        except Exception as e:
-            return {
-                "result": None,
-                "log": f"Failed to start server: {e}",
-            }
         
     async def setup_client(self):
         """Setup MCP client with server connections"""
@@ -98,7 +57,6 @@ class MCPMathAgent:
                 "result": None,
                 "log": f"Failed to client: {e}",
             }
-
     async def run_example_agent(self):
         """Create the autonomous agent with MCP tools"""
         try:
@@ -140,10 +98,12 @@ class MCPMathAgent:
             }
 
 async def main():
+
+    mcp_client = McpServer()
     mcp_agent = MCPMathAgent()
 
-    mcp_agent.setup_servers()
-    await mcp_agent.start_servers()
+    mcp_client.setup_servers()
+    await mcp_client.start_servers()
     await mcp_agent.setup_client()
     await mcp_agent.run_example_agent()
 
