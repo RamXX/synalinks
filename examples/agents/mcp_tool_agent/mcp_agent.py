@@ -27,9 +27,8 @@ async def main():
     mcp_client = synalinks.MultiServerMCPClient(
         {
             "math": {
-                "command": "python",
-                "args": ["./examples/agents/mcp_tool_agent/mcp_server.py"],
-                "transport": "stdio",
+                "url": "http://localhost:8183/mcp/",
+                "transport": "streamable_http",
             },
         }
     )
