@@ -60,6 +60,20 @@ Developping a successful LM application in a profesional context, beyond statele
 
 Synalinks can help you simplify these tasks by leveraging decade old practices in Deep Learning frameworks. We provide a comprehensive suite of tools and features designed to streamline the development process, making it easier to create, evaluate, train, document and deploy robust neuro-symbolic LMs applications.
 
+## What about other frameworks?
+
+<div align="center">
+
+| Framework | Parallel Function Calling | MCP support | Graph DB support |  JSON Operators |
+| --- | --- | --- | --- | --- |
+| Synalinks | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| DSPy      | ❌ No | ✅ Yes | ❌ No | ❌ No |
+| AdalFlow  | ❌ No | ✅ Yes | ❌ No | ❌ No |
+| TextGrad  | ❌ No | ❌ No | ❌ No | ❌ No |
+| Trace     | ❌ No | ❌No | ❌ No | ❌ No |
+
+</div>
+
 ## Install
 
 ```shell

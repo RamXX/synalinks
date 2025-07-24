@@ -74,7 +74,9 @@ from synalinks.src.initializers.initializer import Initializer as Initializer
 from synalinks.src.knowledge_bases.knowledge_base import KnowledgeBase as KnowledgeBase
 from synalinks.src.language_models.language_model import LanguageModel as LanguageModel
 from synalinks.src.metrics.metric import Metric as Metric
-from synalinks.src.modules.agents.function_calling_agent import FunctionCallingAgent as FunctionCallingAgent
+from synalinks.src.modules.agents.function_calling_agent import (
+    FunctionCallingAgent as FunctionCallingAgent,
+)
 from synalinks.src.modules.core.action import Action as Action
 from synalinks.src.modules.core.branch import Branch as Branch
 from synalinks.src.modules.core.decision import Decision as Decision
@@ -111,6 +113,7 @@ from synalinks.src.ops.operation import Operation as Operation
 from synalinks.src.programs.program import Program as Program
 from synalinks.src.programs.sequential import Sequential as Sequential
 from synalinks.src.rewards.reward import Reward as Reward
+from synalinks.src.utils.mcp.client import MultiServerMCPClient as MultiServerMCPClient
 from synalinks.src.utils.tool_utils import Tool as Tool
 from synalinks.src.version import __version__
 from synalinks.src.version import version as version

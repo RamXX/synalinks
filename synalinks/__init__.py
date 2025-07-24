@@ -18,6 +18,7 @@ from synalinks.api import Entities
 from synalinks.api import Entity
 from synalinks.api import EntityRetriever
 from synalinks.api import Function
+from synalinks.api import FunctionCallingAgent
 from synalinks.api import Generator
 from synalinks.api import GenericInputs
 from synalinks.api import GenericIO
@@ -34,10 +35,10 @@ from synalinks.api import KnowledgeRetriever
 from synalinks.api import LanguageModel
 from synalinks.api import Metric
 from synalinks.api import Module
+from synalinks.api import MultiServerMCPClient
 from synalinks.api import Not
 from synalinks.api import Operation
 from synalinks.api import Or
-from synalinks.api import FunctionCallingAgent
 from synalinks.api import Prediction
 from synalinks.api import Program
 from synalinks.api import Relation

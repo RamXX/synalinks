@@ -399,14 +399,14 @@ class JsonDataModel:
             kv_dict (dict): The key/json dict to update.
         """
         self._json.update(kv_dict)
-        
+
     # def __setattr__(self, name, value):
     #     try:
     #         value = value.get_json()
     #     except Exception:
     #         pass
     #     self._json[name] = value
-        
+
     # def __getattribute__(self, name):
     #     if name in self._json:
     #         return self._json[name]

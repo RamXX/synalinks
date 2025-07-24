@@ -1,8 +1,8 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
+from synalinks.src import saving
 from synalinks.src import testing
 from synalinks.src.utils.tool_utils import Tool
-from synalinks.src import saving
 
 
 @saving.object_registration.register_synalinks_serializable()
@@ -35,16 +35,14 @@ async def calculate(expression: str):
 
 class ToolUtilsTest(testing.TestCase):
     def test_basic_tool(self):
-        
-        tool = Tool(calculate)
+        _ = Tool(calculate)
 
     async def test_tool_serialization(self):
-        
         tool = Tool(calculate)
         tool_config = tool.get_config()
         new_tool = Tool.from_config(tool_config)
-        
+
         tool_call = await new_tool("2+2")
         result = tool_call.get("result")
-        
+
         self.assertTrue(result == 4)

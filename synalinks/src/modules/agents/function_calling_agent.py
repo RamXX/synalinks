@@ -4,6 +4,7 @@ import asyncio
 import uuid
 from typing import List
 
+from synalinks.src import ops
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import ChatMessage
 from synalinks.src.backend import ChatMessages
@@ -12,10 +13,7 @@ from synalinks.src.backend import JsonDataModel
 from synalinks.src.backend import SymbolicDataModel
 from synalinks.src.backend import ToolCall
 from synalinks.src.backend import is_chat_messages
-from synalinks.src.backend.common.dynamic_json_schema_utils import (
-    dynamic_tool_calls,
-)
-from synalinks.src import ops
+from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_tool_calls
 from synalinks.src.backend.common.json_utils import out_mask_json
 from synalinks.src.modules.core.generator import Generator
 from synalinks.src.modules.module import Module
@@ -169,9 +167,9 @@ class FunctionCallingAgent(Module):
     In *non-autonomous* mode (also called human in the loop or interactive mode), the
     user needs to validate/edit the tool arguments and send it back to the agent. In this
     mode, the agent requires an `ChatMessages` data model as input and output an
-    `ChatMessage` (or `ChatMessages` if `return_inputs_with_trajectory` is true) back to the user.
-    In that case, the agent ignore the `max_iterations` argument, as it will only 
-    perform one **step at a time**.
+    `ChatMessage` (or `ChatMessages` if `return_inputs_with_trajectory` is true)
+    back to the user. In that case, the agent ignore the `max_iterations` argument,
+    as it will only perform one **step at a time**.
 
     Example:
 
@@ -243,24 +241,24 @@ class FunctionCallingAgent(Module):
                 )
             ]
         )
-        
+
         for i in range(MAX_ITERATIONS):
-            
+
             response = await agent(input_messages)
-            
+
             print("Assistant response (with trajectory):")
             print(response.prettify_json())
-            
+
             assistant_message = response.get("messages")[-1]
-            
+
             if not assistant_message.get("tool_calls"):
                 break # We stop the loop if the agent didn't call any tool
-            
+
             # Validate the tool calls arguments (with an UI or CLI)
             # Then re-inject the validated assistant response in the input_messages
             # The corresponding tools will be called by the agent
             # Here we assume everything is okay for the purpose of the demo ^^
-            
+
             input_messages.messages.append(assistant_message)
 
     if __name__ == "__main__":
@@ -294,16 +292,16 @@ class FunctionCallingAgent(Module):
         if not schema and data_model:
             schema = data_model.get_schema()
         self.schema = schema
-        
+
         self.prompt_template = prompt_template
         if not static_system_prompt:
             static_system_prompt = get_default_static_prompt()
         self.static_system_prompt = static_system_prompt
-        
+
         if not instructions:
             instructions = get_default_instructions()
         self.instructions = instructions
-        
+
         self.examples = examples
         self.use_inputs_schema = use_inputs_schema
         self.use_outputs_schema = use_outputs_schema
@@ -346,7 +344,7 @@ class FunctionCallingAgent(Module):
                 use_inputs_schema=self.use_inputs_schema,
                 use_outputs_schema=self.use_outputs_schema,
                 language_model=self.language_model,
-                name=self.name + f"_tool_calls_generator",
+                name=self.name + "_tool_calls_generator",
             )
 
         if self.schema and self.autonomous:
@@ -356,7 +354,7 @@ class FunctionCallingAgent(Module):
                 static_system_prompt=self.static_system_prompt,
                 instructions=self.instructions,
                 return_inputs=self.return_inputs_with_trajectory,
-                name=self.name + f"_final_generator",
+                name=self.name + "_final_generator",
             )
 
     async def call(self, inputs, training=False):
@@ -367,15 +365,18 @@ class FunctionCallingAgent(Module):
                 trajectory = await ops.concat(
                     inputs,
                     ChatMessages(),
-                    name=self.name+"_trajectory",
+                    name=self.name + "_trajectory",
                 )
             else:
                 trajectory = inputs
         else:
             if not is_chat_messages(inputs):
-                raise ValueError("In interactive mode, the FunctionCallingAgent needs an ChatMessages as inputs")
+                raise ValueError(
+                    "In interactive mode, the FunctionCallingAgent "
+                    "needs an ChatMessages as inputs"
+                )
             trajectory = inputs
-        
+
         agent_messages = trajectory.get("messages")
 
         if self.autonomous:
@@ -423,7 +424,7 @@ class FunctionCallingAgent(Module):
                             content=tool_result,
                         ).get_json()
                     )
-                
+
                 trajectory.update({"messages": agent_messages})
             if self.schema:
                 return await self.final_generator(trajectory)
@@ -434,7 +435,7 @@ class FunctionCallingAgent(Module):
                 if agent_messages[-1].get("role") == ChatRole.ASSISTANT:
                     tasks = []
                     tool_calls_ids = []
-                    
+
                     tool_calls = agent_messages[-1].get("tool_calls")
                     for tool_call in tool_calls:
                         tool_name = tool_call.get("name")
@@ -442,7 +443,7 @@ class FunctionCallingAgent(Module):
                         tool_call_id = tool_call.get("id")
                         tool_calls_ids.append(tool_call_id)
                         tasks.append(self.tools[tool_name](**tools_arguments))
-                    
+
                     tool_results = await asyncio.gather(*tasks)
                     for j, tool_result in enumerate(tool_results):
                         tool_call_id = tool_calls_ids[j]
@@ -453,22 +454,22 @@ class FunctionCallingAgent(Module):
                                 content=tool_result,
                             ).get_json()
                         )
-                    
+
             trajectory.update({"messages": agent_messages})
-            
+
             tool_calls = await self.tool_calls_generator(trajectory)
-            
+
             assistant_message = ChatMessage(
                 role=ChatRole.ASSISTANT,
                 content=tool_calls.get("thinking", ""),
-                tool_calls=[]
+                tool_calls=[],
             )
-            
+
             for tool_call in tool_calls.get("tool_calls", []):
                 tool_name = tool_call.get("tool_name")
                 tools_arguments = out_mask_json(tool_call, mask=["tool_name"])
                 tool_call_id = str(uuid.uuid4())
-                
+
                 assistant_message.tool_calls.append(
                     ToolCall(
                         id=tool_call_id,
@@ -476,10 +477,10 @@ class FunctionCallingAgent(Module):
                         arguments=tools_arguments,
                     )
                 )
-            
+
             agent_messages.append(assistant_message.get_json())
             trajectory.update({"messages": agent_messages})
-            
+
             if self.return_inputs_with_trajectory:
                 return JsonDataModel(
                     json=trajectory.get_json(),
@@ -506,10 +507,13 @@ class FunctionCallingAgent(Module):
                 )
         else:
             if not is_chat_messages(inputs):
-                raise ValueError("In interactive mode, the FunctionCallingAgent needs an ChatMessages as inputs")
-            
+                raise ValueError(
+                    "In interactive mode, the FunctionCallingAgent "
+                    "needs an ChatMessages as inputs"
+                )
+
             _ = await self.tool_calls_generator(inputs)
-            
+
             if self.return_inputs_with_trajectory:
                 return SymbolicDataModel(
                     schema=ChatMessages.get_schema(),
@@ -520,7 +524,7 @@ class FunctionCallingAgent(Module):
                     schema=ChatMessage.get_schema(),
                     name=self.name,
                 )
-            
+
     def get_config(self):
         config = {
             "schema": self.schema,
@@ -548,7 +552,7 @@ class FunctionCallingAgent(Module):
             ]
         }
         return {**config, **language_model_config, **tools_config}
-            
+
     @classmethod
     def from_config(cls, config):
         tools = [

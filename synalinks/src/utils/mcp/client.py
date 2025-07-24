@@ -1,13 +1,8 @@
 import asyncio
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Any
 from typing import AsyncIterator
 
-from mcp import ClientSession
-
-from synalinks import ChatMessages
-from synalinks import GenericOutputs
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.utils.mcp.sessions import ClientSession
 from synalinks.src.utils.mcp.sessions import Connection
@@ -21,7 +16,8 @@ from synalinks.src.utils.mcp.tools import load_mcp_tools
 from synalinks.src.utils.tool_utils import Tool
 
 ASYNC_CONTEXT_MANAGER_ERROR = (
-    "MultiServerMCPClient cannot be used as a context manager (e.g., async with MultiServerMCPClient(...)). "
+    "MultiServerMCPClient cannot be used as a context "
+    "manager (e.g., async with MultiServerMCPClient(...)). "
     "Instead, you can do one of the following:\n"
     "1. client = MultiServerMCPClient(...)\n"
     "   tools = await client.get_tools()\n"
@@ -37,7 +33,10 @@ ASYNC_CONTEXT_MANAGER_ERROR = (
     ]
 )
 class MultiServerMCPClient:
-    """Client for connecting to multiple MCP servers and loading Synalinks-compatible tools, prompts and resources from them."""
+    """Client for connecting to multiple MCP servers and
+    loading Synalinks-compatible tools.
+
+    """
 
     def __init__(
         self,
@@ -58,7 +57,8 @@ class MultiServerMCPClient:
             {
                 "math": {
                     "command": "python",
-                    # Make sure to update to the full absolute path to your math_server.py file
+                    # Make sure to update to the full absolute path to your
+                    # math_server.py file
                     "args": ["/path/to/math_server.py"],
                     "transport": "stdio",
                 },
@@ -113,7 +113,8 @@ class MultiServerMCPClient:
         """
         if server_name not in self.connections:
             raise ValueError(
-                f"Couldn't find a server with name '{server_name}', expected one of '{list(self.connections.keys())}'"
+                f"Couldn't find a server with name '{server_name}', "
+                f"expected one of '{list(self.connections.keys())}'"
             )
 
         async with create_session(self.connections[server_name]) as session:
@@ -136,7 +137,8 @@ class MultiServerMCPClient:
         if server_name is not None:
             if server_name not in self.connections:
                 raise ValueError(
-                    f"Couldn't find a server with name '{server_name}', expected one of '{list(self.connections.keys())}'"
+                    f"Couldn't find a server with name '{server_name}', "
+                    f"expected one of '{list(self.connections.keys())}'"
                 )
             return await load_mcp_tools(None, connection=self.connections[server_name])
 

@@ -1,111 +1,63 @@
-
-import multiprocessing
+import synalinks
 import asyncio
+import litellm
 
-from mcp_server import McpServer
-from synalinks.src.backend import DataModel
-from synalinks.src.backend import Field
-from synalinks.src.language_models.language_model import LanguageModel
-from synalinks.src.modules.agents.function_calling_agent import FunctionCallingAgent
-from synalinks.src.programs import Program
-from synalinks.src.modules import Input
-from synalinks.src.utils.mcp.client import MultiServerMCPClient
+litellm._turn_on_debug()
 
-# Multirpocessing for MacOS
-multiprocessing.set_start_method('fork')
-
-class Query(DataModel):
+class Query(synalinks.DataModel):
     """Input query data model"""
-    query: str = Field(
+
+    query: str = synalinks.Field(
         description="The user query",
     )
 
-class FinalAnswer(DataModel):
+class FinalAnswer(synalinks.DataModel):
     """Final answer data model"""
-    answer: str = Field(
+
+    answer: str = synalinks.Field(
         description="The correct final answer",
     )
 
-
-class MCPMathAgent:
-    """MCP-based Math Agent with ReACT capabilities"""
-    
-    def __init__(self):
-        self.program = None
-        
-    async def setup_client(self):
-        """Setup MCP client with server connections"""
-        
-        status_connection = {
-            "url": "http://localhost:8182/mcp/",
-            "transport": "streamable_http",
-        }
-        
-        math_connection = {
-            "url": "http://localhost:8183/mcp/",
-            "transport": "streamable_http",
-        }
-            
-        try:
-            self.client = MultiServerMCPClient({
-                "status": status_connection,
-                "math": math_connection,
-            })
-
-        except Exception as e:
-            return {
-                "result": None,
-                "log": f"Failed to client: {e}",
-            }
-    async def run_example_agent(self):
-        """Create the autonomous agent with MCP tools"""
-        try:
-            assert self.client
-            tools = await self.client.get_tools()
-            
-            for tool in tools:
-                tool._func.__name__ = tool._func.__name__.replace('/', '_')
-
-            language_model = LanguageModel(
-                model="openai/gpt-4o-mini",
-            )
-
-            inputs = Input(data_model=Query)
-            outputs = await FunctionCallingAgent(
-                data_model=FinalAnswer,
-                tools=tools,
-                language_model=language_model,
-                max_iterations=5,
-                autonomous=True,
-            )(inputs)
-            
-            self.program = Program(
-                inputs=inputs,
-                outputs=outputs,
-                name="mcp_math_agent",
-                description="A math agent that can use an external calculator",
-            )
-
-            input_query = Query(query="How much is 152648 + 485 and what is the server status?")
-            response = await self.program(input_query)
-
-            print(response.prettify_json())
-            
-        except Exception as e:
-            return {
-                "result": None,
-                "log": f"Failed to agent: {e}",
-            }
-
 async def main():
 
-    mcp_client = McpServer()
-    mcp_agent = MCPMathAgent()
+    language_model = synalinks.LanguageModel(
+        model="ollama/mistral",
+    )
 
-    mcp_client.setup_servers()
-    await mcp_client.start_servers()
-    await mcp_agent.setup_client()
-    await mcp_agent.run_example_agent()
+    mcp_client = synalinks.MultiServerMCPClient(
+        {
+            "math": {
+                "command": "python",
+                "args": ["./examples/agents/mcp_tool_agent/mcp_server.py"],
+                "transport": "stdio",
+            },
+        }
+    )
+    
+    tools = await mcp_client.get_tools()
+    import json
+    print(json.dumps(tools[0].get_tool_schema(), indent=2))
+    
+#     inputs = synalinks.Input(data_model=Query)
+#     outputs = await synalinks.FunctionCallingAgent(
+#         data_model=FinalAnswer,
+#         tools=tools,
+#         language_model=language_model,
+#         max_iterations=5,
+#         autonomous=True,
+#     )(inputs)
+
+#     agent = synalinks.Program(
+#         inputs=inputs,
+#         outputs=outputs,
+#         name="mcp_math_agent",
+#         description="A math agent that can use an external calculator",
+#     )
+
+#     input_query = Query(query="How much is 152648 + 485 and what is the server status?")
+#     response = await agent(input_query)
+
+#     print(response.prettify_json())
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -6,13 +6,12 @@ from typing import Literal
 from typing import Union
 
 from synalinks.src import testing
-from synalinks.src.backend import DataModel, Field
+from synalinks.src.backend import DataModel
+from synalinks.src.backend import Field
 from synalinks.src.backend import is_schema_equal
 from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_enum
-from synalinks.src.backend.common.dynamic_json_schema_utils import (
-    dynamic_tool_calls,
-    dynamic_tool_choice,
-)
+from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_tool_calls
+from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_tool_choice
 from synalinks.src.utils.tool_utils import Tool
 
 
@@ -80,6 +79,7 @@ class DynamicToolCallsSchemaTest(testing.TestCase):
     def test_dynamic_tool_call_schema(self):
         class Calculate(DataModel):
             """Calculate the result of a mathematical expression."""
+
             tool_name: Literal["calculate"]
             expression: str = Field(
                 description=(
@@ -91,10 +91,9 @@ class DynamicToolCallsSchemaTest(testing.TestCase):
 
         class Thinking(DataModel):
             """Think about something."""
+
             tool_name: Literal["thinking"]
-            thinking: str = Field(
-                description="Your step by step thinking."
-            )
+            thinking: str = Field(description="Your step by step thinking.")
 
         class ToolCalls(DataModel):
             tool_calls: List[Union[Calculate, Thinking]]
@@ -107,11 +106,12 @@ class DynamicToolCallsSchemaTest(testing.TestCase):
         ]
 
         dynamic_schema = dynamic_tool_calls(tools=tools)
-        
+
         print("Expected:")
         print(ToolCalls.prettify_schema())
         print("Generated:")
         import json
+
         print(json.dumps(dynamic_schema, indent=2))
 
         self.assertEqual(expected_schema, dynamic_schema)
@@ -121,6 +121,7 @@ class DynamicToolChoiceSchemaTest(testing.TestCase):
     def test_dynamic_tool_call_schema(self):
         class Calculate(DataModel):
             """Calculate the result of a mathematical expression."""
+
             tool_name: Literal["calculate"]
             expression: str = Field(
                 description=(
@@ -132,10 +133,9 @@ class DynamicToolChoiceSchemaTest(testing.TestCase):
 
         class Thinking(DataModel):
             """Think about something."""
+
             tool_name: Literal["thinking"]
-            thinking: str = Field(
-                description="Your step by step thinking."
-            )
+            thinking: str = Field(description="Your step by step thinking.")
 
         class ToolChoice(DataModel):
             tool_choice: Union[Calculate, Thinking]
@@ -152,6 +152,7 @@ class DynamicToolChoiceSchemaTest(testing.TestCase):
         print(ToolChoice.prettify_schema())
         print("Generated:")
         import json
+
         print(json.dumps(dynamic_schema, indent=2))
 
         self.assertEqual(expected_schema, dynamic_schema)

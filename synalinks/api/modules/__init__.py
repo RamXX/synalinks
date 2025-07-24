@@ -6,7 +6,9 @@ since your modifications would be overwritten.
 
 from synalinks.src.modules import deserialize as deserialize
 from synalinks.src.modules import serialize as serialize
-from synalinks.src.modules.agents.function_calling_agent import FunctionCallingAgent as FunctionCallingAgent
+from synalinks.src.modules.agents.function_calling_agent import (
+    FunctionCallingAgent as FunctionCallingAgent,
+)
 from synalinks.src.modules.core.action import Action as Action
 from synalinks.src.modules.core.branch import Branch as Branch
 from synalinks.src.modules.core.decision import Decision as Decision

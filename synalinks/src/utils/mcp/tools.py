@@ -105,7 +105,10 @@ def _create_async_function_from_mcp_tool(
     connection: Connection | None = None,
     namespace: str | None = None,
 ) -> typing.Coroutine:
-    """Create a dynamic async function from an MCP tool that can be wrapped by Synalinks tool."""
+    """Create a dynamic async function from an MCP tool
+    that can be wrapped by Synalinks tool.
+
+    """
     properties = (
         mcp_tool.inputSchema.get("properties", {}) if mcp_tool.inputSchema else {}
     )

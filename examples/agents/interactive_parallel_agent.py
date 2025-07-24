@@ -3,6 +3,7 @@ import asyncio
 
 MAX_ITERATIONS = 5
 
+
 @synalinks.utils.register_synalinks_serializable()
 async def calculate(expression: str):
     """Calculate the result of a mathematical expression.
@@ -16,10 +17,10 @@ async def calculate(expression: str):
         return {
             "result": None,
             "log": (
-                    "Error: invalid characters in expression. "
-                    "The expression can only contain numbers, operators (+, -, *, /),"
-                    " parentheses, and spaces NOT letters."
-                ),
+                "Error: invalid characters in expression. "
+                "The expression can only contain numbers, operators (+, -, *, /),"
+                " parentheses, and spaces NOT letters."
+            ),
         }
     try:
         # Evaluate the mathematical expression safely
@@ -34,8 +35,8 @@ async def calculate(expression: str):
             "log": f"Error: {e}",
         }
 
-async def main():
 
+async def main():
     language_model = synalinks.LanguageModel(
         model="ollama/mistral",
     )
@@ -66,25 +67,25 @@ async def main():
             )
         ]
     )
-    
+
     for i in range(MAX_ITERATIONS):
-        
         response = await agent(input_messages)
-        
+
         print("Assistant response (with trajectory):")
         print(response.prettify_json())
-        
+
         assistant_message = response.get("messages")[-1]
-        
+
         if not assistant_message.get("tool_calls"):
-            break # We stop the loop if the agent didn't call any tool
-        
+            break  # We stop the loop if the agent didn't call any tool
+
         # Validate the tool calls arguments (with an UI or CLI)
         # Then re-inject the validated assistant response in the input_messages
         # The corresponding tools will be called by the agent
         # Here we assume everything is okay for the purpose of the demo ^^
-        
+
         input_messages.messages.append(assistant_message)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -188,8 +188,8 @@ async def _create_sse_session(
     """Create a new session to an MCP server using SSE.
 
     Args:
-        url: URL of the SSE server
-        headers: HTTP headers to send to the SSE endpoint
+        url: (str) URL of the SSE server
+        headers (dict): HTTP headers to send to the SSE endpoint
         timeout: HTTP timeout
         sse_read_timeout: SSE read timeout
         session_kwargs: Additional keyword arguments to pass to the ClientSession
@@ -222,10 +222,11 @@ async def _create_streamable_http_session(
     """Create a new session to an MCP server using Streamable HTTP.
 
     Args:
-        url: URL of the endpoint to connect to
-        headers: HTTP headers to send to the endpoint
+        url (str): URL of the endpoint to connect to
+        headers (dict): HTTP headers to send to the endpoint
         timeout: HTTP timeout
-        sse_read_timeout: How long (in seconds) the client will wait for a new event before disconnecting
+        sse_read_timeout: How long (in seconds) the client will wait for a new event
+            before disconnecting
         terminate_on_close: Whether to terminate the session on close
         session_kwargs: Additional keyword arguments to pass to the ClientSession
         httpx_client_factory: Custom factory for httpx.AsyncClient (optional)
@@ -293,7 +294,7 @@ async def create_session(
             "Configuration error: Missing 'transport' key in server configuration. "
             "Each server must include 'transport' with one of: "
             "'stdio', 'sse', 'websocket', 'streamable_http'. "
-            "Please refer to the langchain-mcp-adapters documentation for more details."
+            
         )
 
     transport = connection["transport"]

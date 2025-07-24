@@ -30,8 +30,8 @@ import typing
 import docstring_parser
 
 from synalinks.src.api_export import synalinks_export
-from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 from synalinks.src.saving import serialization_lib
+from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 
 JsonSchema = typing.Union[
     typing.Dict[str, typing.Any],
@@ -112,7 +112,7 @@ def get_param_schema(
     param_doc = next(descriptions, None)
     if param_doc is None:
         raise ValueError(f"Missing description for parameter '{param_name}' in docstring")
-    
+
     param_schema = {}
     param_schema["description"] = param_doc.replace("\n", " ")
     param_schema["title"] = param_name.title().replace("_", " ")
@@ -191,18 +191,12 @@ class Tool(SynalinksSaveable):
             "type": "object",
         }
         return schema
-    
+
     def get_config(self):
-        func_config = {
-            "func": serialization_lib.serialize_synalinks_object(
-                self._func
-            )
-        }
+        func_config = {"func": serialization_lib.serialize_synalinks_object(self._func)}
         return {**func_config}
-        
+
     @classmethod
     def from_config(cls, config):
-        func = serialization_lib.deserialize_synalinks_object(
-            config.pop("func")
-        )
+        func = serialization_lib.deserialize_synalinks_object(config.pop("func"))
         return cls(func)

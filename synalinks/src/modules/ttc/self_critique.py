@@ -183,7 +183,6 @@ class SelfCritique(Module):
 
     def get_config(self):
         config = {
-            "examples": self.examples,
             "static_system_prompt": self.static_system_prompt,
             "prompt_template": self.prompt_template,
             "examples": self.examples,
