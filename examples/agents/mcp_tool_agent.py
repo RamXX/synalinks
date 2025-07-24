@@ -41,6 +41,15 @@ class MCPMathAgent:
     def setup_servers(self):
         """Setup mock MathMCP servers with tools"""
         
+        # Status server setup
+        self.status_server = FastMCP(port=8182)
+
+        @self.status_server.tool()
+        def get_status() -> str:
+            """Get server status"""
+            return "Server is running"
+
+        # Math server setup
         self.math_server = FastMCP(port=8183)
         
         @self.math_server.tool()
@@ -51,8 +60,12 @@ class MCPMathAgent:
     async def start_servers(self):
         """Start the MCP servers"""
         try:
+            # Set up server contexts
+            self.status_server_context = run_streamable_server_multiprocessing(self.status_server)
             self.math_server_context = run_streamable_server_multiprocessing(self.math_server)
             
+            # Enter contexts
+            self.status_server_context.__enter__()
             self.math_server_context.__enter__()
 
         except Exception as e:
@@ -64,6 +77,11 @@ class MCPMathAgent:
     async def setup_client(self):
         """Setup MCP client with server connections"""
         
+        status_connection = {
+            "url": "http://localhost:8182/mcp/",
+            "transport": "streamable_http",
+        }
+        
         math_connection = {
             "url": "http://localhost:8183/mcp/",
             "transport": "streamable_http",
@@ -71,6 +89,7 @@ class MCPMathAgent:
             
         try:
             self.client = MultiServerMCPClient({
+                "status": status_connection,
                 "math": math_connection,
             })
 
@@ -109,7 +128,7 @@ class MCPMathAgent:
                 description="A math agent that can use an external calculator",
             )
 
-            input_query = Query(query="How much is 152648 + 485?")
+            input_query = Query(query="How much is 152648 + 485 and what is the server status?")
             response = await self.program(input_query)
 
             print(response.prettify_json())
