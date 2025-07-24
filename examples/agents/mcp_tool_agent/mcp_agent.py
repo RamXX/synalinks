@@ -12,6 +12,7 @@ class Query(synalinks.DataModel):
     )
 
 class FinalAnswer(synalinks.DataModel):
+class FinalAnswer(synalinks.DataModel):
     """Final answer data model"""
 
     answer: str = synalinks.Field(
