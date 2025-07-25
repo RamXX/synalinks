@@ -242,9 +242,9 @@ class MCPToolsTest(testing.TestCase):
 
         self.assertEqual(len(toolkit), 2)
         self.assertTrue(all(isinstance(tool, Tool) for tool in toolkit))
-        self.assertEqual(toolkit[0].name, f"{namespace}/tool1")
+        self.assertEqual(toolkit[0].name, f"{namespace}_tool1")
         self.assertStartsWith(toolkit[0].description, "Tool 1 description")
-        self.assertEqual(toolkit[1].name, f"{namespace}/tool2")
+        self.assertEqual(toolkit[1].name, f"{namespace}_tool2")
         self.assertStartsWith(toolkit[1].description, "Tool 2 description")
 
         result1 = await toolkit[0](param1="test1", param2=1)

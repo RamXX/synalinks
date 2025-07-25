@@ -8,7 +8,7 @@ from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend.common.json_schema_utils import standardize_schema
 from synalinks.src.backend.common.symbolic_data_model import SymbolicDataModel
 from synalinks.src.utils.naming import auto_name
-
+from synalinks.src.utils.async_utils import run_maybe_nested
 
 @synalinks_export("synalinks.JsonDataModel")
 class JsonDataModel:
@@ -169,7 +169,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Concat().call(self, other),
         )
 
@@ -185,7 +185,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Concat().call(other, self),
         )
 
@@ -204,7 +204,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.And().call(self, other),
         )
 
@@ -223,7 +223,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.And().call(other, self),
         )
 
@@ -243,7 +243,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Or().call(self, other),
         )
 
@@ -263,7 +263,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Or().call(other, self),
         )
 
@@ -283,7 +283,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Xor().call(self, other),
         )
 
@@ -304,7 +304,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Xor().call(other, self),
         )
 
@@ -316,7 +316,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Factorize().call(self),
         )
 
@@ -333,7 +333,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.InMask(mask=mask, recursive=recursive).call(self),
         )
 
@@ -350,7 +350,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.OutMask(mask=mask, recursive=recursive).call(self),
         )
 
@@ -365,7 +365,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Prefix(prefix=prefix).call(self),
         )
 
@@ -380,7 +380,7 @@ class JsonDataModel:
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Suffix(suffix=suffix).call(self),
         )
 
@@ -399,19 +399,6 @@ class JsonDataModel:
             kv_dict (dict): The key/json dict to update.
         """
         self._json.update(kv_dict)
-
-    # def __setattr__(self, name, value):
-    #     try:
-    #         value = value.get_json()
-    #     except Exception:
-    #         pass
-    #     self._json[name] = value
-
-    # def __getattribute__(self, name):
-    #     if name in self._json:
-    #         return self._json[name]
-    #     else:
-    #         return None
 
     def clone(self, name=None):
         """Clone a data model and give it a different name."""

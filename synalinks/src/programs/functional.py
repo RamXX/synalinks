@@ -22,6 +22,7 @@ from synalinks.src.programs.program import Program
 from synalinks.src.saving.serialization_lib import deserialize_synalinks_object
 from synalinks.src.saving.serialization_lib import serialize_synalinks_object
 from synalinks.src.utils import tracking
+from synalinks.src.utils.async_utils import run_maybe_nested
 
 
 class Functional(Function, Program):
@@ -330,7 +331,7 @@ def functional_from_config(cls, config, custom_objects=None):
         args, kwargs = deserialize_node(node_data, created_modules)
         # Call module on its inputs, thus creating the node
         # and building the module if needed.
-        asyncio.get_event_loop().run_until_complete(module(*args, **kwargs))
+        run_maybe_nested(module(*args, **kwargs))
 
     def process_module(module_data):
         """Deserializes a module and index its inbound nodes.

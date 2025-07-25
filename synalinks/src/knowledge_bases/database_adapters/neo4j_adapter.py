@@ -1,6 +1,5 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
-import asyncio
 import os
 import warnings
 from typing import Any
@@ -15,6 +14,7 @@ from synalinks.src.backend import is_triplet_search
 from synalinks.src.backend.common.json_utils import out_mask_json
 from synalinks.src.knowledge_bases.database_adapters import DatabaseAdapter
 from synalinks.src.utils.naming import to_snake_case
+from synalinks.src.utils.async_utils import run_maybe_nested
 
 
 class Neo4JAdapter(DatabaseAdapter):
@@ -42,7 +42,7 @@ class Neo4JAdapter(DatabaseAdapter):
 
     def wipe_database(self):
         """Wipe all data from the database"""
-        asyncio.get_event_loop().run_until_complete(
+        run_maybe_nested(
             self.query(
                 """
                 MATCH (n)
@@ -73,11 +73,11 @@ class Neo4JAdapter(DatabaseAdapter):
                 "dimension": self.embedding_dim,
                 "similarityFunction": self.metric,
             }
-            asyncio.get_event_loop().run_until_complete(
+            run_maybe_nested(
                 self.query(query, params=params),
             )
         if self.entity_models:
-            asyncio.get_event_loop().run_until_complete(
+            run_maybe_nested(
                 self.query("CALL db.awaitIndexes(300)"),
             )
 

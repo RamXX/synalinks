@@ -15,7 +15,7 @@ from synalinks.src.modules.core.input_module import InputModule
 from synalinks.src.programs import Functional
 from synalinks.src.programs import Program
 from synalinks.src.saving import serialization_lib
-
+from synalinks.src.utils.async_utils import run_maybe_nested
 
 @synalinks_export(["synalinks.Sequential", "synalinks.programs.Sequential"])
 class Sequential(Program):
@@ -97,7 +97,7 @@ class Sequential(Program):
         if modules:
             for module in modules:
                 self.add(module, rebuild=False)
-            asyncio.get_event_loop().run_until_complete(self._maybe_rebuild())
+            run_maybe_nested(self._maybe_rebuild())
 
     def add(self, module, rebuild=True):
         """Adds a module instance on top of the module stack.
@@ -138,7 +138,7 @@ class Sequential(Program):
 
         self._modules.append(module)
         if rebuild:
-            asyncio.get_event_loop().run_until_complete(self._maybe_rebuild())
+            run_maybe_nested(self._maybe_rebuild())
         else:
             self.built = False
             self._functional = None
@@ -153,7 +153,7 @@ class Sequential(Program):
         self.built = False
         self._functional = None
         if rebuild:
-            asyncio.get_event_loop().run_until_complete(self._maybe_rebuild())
+            run_maybe_nested(self._maybe_rebuild())
         return module
 
     async def _maybe_rebuild(self):

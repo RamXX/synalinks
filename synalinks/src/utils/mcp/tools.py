@@ -137,7 +137,7 @@ def _create_async_function_from_mcp_tool(
 
         parameters.append(param)
 
-    name = f"{namespace}/{mcp_tool.name}" if namespace else mcp_tool.name
+    name = f"{namespace}_{mcp_tool.name}" if namespace else mcp_tool.name
 
     description = mcp_tool.description or f"Execute {name} function"
     docstring = [description]

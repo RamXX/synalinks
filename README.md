@@ -64,13 +64,13 @@ Synalinks can help you simplify these tasks by leveraging decade old practices i
 
 <div align="center">
 
-| Framework | Parallel Function Calling | MCP support | Graph DB support |  JSON Operators |
-| --- | --- | --- | --- | --- |
-| Synalinks | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
-| DSPy      | ❌ No | ✅ Yes | ❌ No | ❌ No |
-| AdalFlow  | ❌ No | ✅ Yes | ❌ No | ❌ No |
-| TextGrad  | ❌ No | ❌ No | ❌ No | ❌ No |
-| Trace     | ❌ No | ❌No | ❌ No | ❌ No |
+| Framework | MCP | Graph DB | Logical Flow |
+| --- | --- | --- | --- |
+| Synalinks | ✅ Yes | ✅ Yes | ✅ Yes |
+| DSPy      | ✅ Yes | ❌ No | ❌ No |
+| AdalFlow  | ✅ Yes | ❌ No | ❌ No |
+| TextGrad  | ❌ No | ❌ No | ❌ No |
+| Trace     | ❌ No | ❌ No | ❌ No |
 
 </div>
 

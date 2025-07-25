@@ -14,6 +14,7 @@ from synalinks.src.utils.mcp.sessions import WebsocketConnection
 from synalinks.src.utils.mcp.sessions import create_session
 from synalinks.src.utils.mcp.tools import load_mcp_tools
 from synalinks.src.utils.tool_utils import Tool
+from synalinks.src.utils.async_utils import create_task
 
 ASYNC_CONTEXT_MANAGER_ERROR = (
     "MultiServerMCPClient cannot be used as a context "
@@ -145,7 +146,7 @@ class MultiServerMCPClient:
         all_tools: list[Tool] = []
         load_mcp_tool_tasks = []
         for namespace, connection in self.connections.items():
-            load_mcp_tool_task = asyncio.create_task(
+            load_mcp_tool_task = create_task(
                 load_mcp_tools(None, connection=connection, namespace=namespace)
             )
             load_mcp_tool_tasks.append(load_mcp_tool_task)

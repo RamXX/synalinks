@@ -2,8 +2,6 @@ import synalinks
 import asyncio
 import litellm
 
-litellm._turn_on_debug()
-
 class Query(synalinks.DataModel):
     """Input query data model"""
 
@@ -18,8 +16,9 @@ class FinalAnswer(synalinks.DataModel):
         description="The correct final answer",
     )
 
-async def main():
 
+async def main():
+    
     language_model = synalinks.LanguageModel(
         model="ollama/mistral",
     )
@@ -32,7 +31,7 @@ async def main():
             },
         }
     )
-    
+
     tools = await mcp_client.get_tools()
     
     inputs = synalinks.Input(data_model=Query)
@@ -51,10 +50,11 @@ async def main():
         description="A math agent that can use an external calculator",
     )
 
-    input_query = Query(query="How much is 152648 + 485 and what is the server status?")
+    input_query = Query(query="How much is 152648 + 485?")
     response = await agent(input_query)
 
     print(response.prettify_json())
+    
 
 if __name__ == "__main__":
     asyncio.run(main())

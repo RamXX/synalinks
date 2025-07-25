@@ -28,10 +28,10 @@ async def calculate(expression: str):
         return {
             "result": None,
             "log": (
-                "Error: invalid characters in expression. "
-                "The expression can only contain numbers, operators (+, -, *, /),"
-                " parentheses, and spaces NOT letters."
-            ),
+                    "Error: invalid characters in expression. "
+                    "The expression can only contain numbers, operators (+, -, *, /),"
+                    " parentheses, and spaces NOT letters."
+                ),
         }
     try:
         # Evaluate the mathematical expression safely
@@ -71,13 +71,10 @@ async def main():
         description="A math agent",
     )
 
-    agent.save("agent.json")
-
     input_query = Query(query="How much is 152648 + 485?")
     response = await agent(input_query)
 
     print(response.prettify_json())
-
 
 if __name__ == "__main__":
     asyncio.run(main())

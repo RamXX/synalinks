@@ -23,6 +23,7 @@ from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 from synalinks.src.utils import python_utils
 from synalinks.src.utils import tracking
 from synalinks.src.utils.naming import auto_name
+from synalinks.src.utils.async_utils import run_maybe_nested
 
 if backend.backend() == "pydantic":
     from synalinks.src.backend.pydantic.module import PydanticModule as BackendModule
@@ -286,14 +287,14 @@ class Module(BackendModule, Operation, SynalinksSaveable):
         """
         if config:
             if "input_schema" in config:
-                asyncio.get_event_loop().run_until_complete(
+                run_maybe_nested(
                     self.build(backend.SymbolicDataModel(schema=config["input_schema"]))
                 )
             elif "schemas_dict" in config:
                 symbolic_inputs = {}
                 for key, schema in config["schemas_dict"].items():
                     symbolic_inputs[key] = backend.SymbolicDataModel(schema=schema)
-                asyncio.get_event_loop().run_until_complete(self.build(**symbolic_inputs))
+                run_maybe_nested(self.build(**symbolic_inputs))
             self.built = True
 
     def _obj_type(self):

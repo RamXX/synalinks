@@ -34,14 +34,14 @@
 #             wipe_on_start=wipe_on_start,
 #         )
 #         try:
-#             asyncio.get_event_loop().run_until_complete(
+#             run_maybe_nested(
 #                 self.query("INSTALL vector; LOAD vector;")
 #             )
 #         except Exception:
 #             pass
 
 #     def wipe_database(self):
-#         asyncio.get_event_loop().run_until_complete(
+#         run_maybe_nested(
 #             self.query("MATCH (n) DETACH DELETE n;")
 #         )
 
@@ -51,7 +51,7 @@
 #             node_label = self.sanitize_label(entity_model.get_schema().get("title"))
 #             index_name = to_snake_case(node_label)
 #             ddl = self._json_schema_to_kuzu_node_table(entity_model.get_schema())
-#             asyncio.get_event_loop().run_until_complete(self.query(ddl))
+#             run_maybe_nested(self.query(ddl))
 #             try:
 #                 query = "\n".join(
 #                     [
@@ -59,13 +59,13 @@
 #                         f"'{node_label}', '{index_name}', 'embedding');",
 #                     ]
 #                 )
-#                 asyncio.get_event_loop().run_until_complete(self.query(query))
+#                 run_maybe_nested(self.query(query))
 #             except RuntimeError:
 #                 pass
 
 #         for relation_model in self.relation_models:
 #             ddl = self._json_schema_to_kuzu_rel_table(relation_model.get_schema())
-#             asyncio.get_event_loop().run_until_complete(self.query(ddl))
+#             run_maybe_nested(self.query(ddl))
 
 #     async def query(self, query, params=None):
 #         result_list = []

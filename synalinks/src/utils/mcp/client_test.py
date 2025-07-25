@@ -8,7 +8,7 @@ from mcp.server import FastMCP
 from mcp.types import ToolAnnotations
 
 from synalinks.src import testing
-from synalinks.src.utils.mcp._test_common import run_streamable_server_multiprocessing
+from synalinks.src.utils.mcp.test_common import run_streamable_server_multiprocessing
 from synalinks.src.utils.mcp.client import MultiServerMCPClient
 
 
@@ -183,23 +183,23 @@ class MCPClientIntegrationTest(testing.TestCase):
 
         tool_names = {tool.name for tool in all_tools}
         expected_names = {
-            "time/get_time",
-            "status/get_status",
-            "status/get_uptime",
-            "math/add_numbers",
-            "math/multiply_numbers",
+            "time_get_time",
+            "status_get_status",
+            "status_get_uptime",
+            "math_add_numbers",
+            "math_multiply_numbers",
         }
         self.assertEqual(tool_names, expected_names)
 
         # Test calling namespaced tools
         namespaced_add_tool = next(
-            tool for tool in all_tools if tool.name == "math/add_numbers"
+            tool for tool in all_tools if tool.name == "math_add_numbers"
         )
         result = await namespaced_add_tool(a=10, b=7)
         self.assertEqual(result["response"], "17")
 
         namespaced_time_tool = next(
-            tool for tool in all_tools if tool.name == "time/get_time"
+            tool for tool in all_tools if tool.name == "time_get_time"
         )
         result = await namespaced_time_tool()
         self.assertEqual(result["response"], "5:20:00 PM EST")
