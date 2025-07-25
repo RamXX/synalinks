@@ -13,7 +13,7 @@ from synalinks.src.language_models import LanguageModel
 class LanguageModelTest(testing.TestCase):
     @patch("litellm.acompletion")
     async def test_call_api_without_structured_output(self, mock_completion):
-        language_model = LanguageModel(model="ollama/deepseek-r1")
+        language_model = LanguageModel(model="ollama/mistral")
 
         messages = ChatMessages(
             messages=[ChatMessage(role=ChatRole.USER, content="Hello")]
@@ -32,7 +32,7 @@ class LanguageModelTest(testing.TestCase):
 
     @patch("litellm.acompletion")
     async def test_call_api_with_structured_output(self, mock_completion):
-        language_model = LanguageModel(model="ollama/deepseek-r1")
+        language_model = LanguageModel(model="ollama/mistral")
 
         messages = ChatMessages(
             messages=[

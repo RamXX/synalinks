@@ -52,7 +52,6 @@ if __name__ == "__main__":
 - [Not module](Core Modules/Not module.md)
 - [Generator module](Core Modules/Generator module.md)
 - [Decision module](Core Modules/Decision module.md)
-- [MultiDecision module](Core Modules/MultiDecision module.md)
 - [Action module](Core Modules/Action module.md)
 - [Branch module](Core Modules/Branch module.md)
 
@@ -85,5 +84,4 @@ if __name__ == "__main__":
 
 ### Agents Modules
 
-- [ReACT Agent module](Agents Modules/ReACT Agent module.md)
-- [Parallel ReACT Agent module](Agents Modules/Parallel ReACT Agent module.md)
+- [FunctionCallingAgent module](Agents Modules/FunctionCallingAgent module.md)

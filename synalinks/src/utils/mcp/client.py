@@ -1,30 +1,24 @@
 import asyncio
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Any, AsyncIterator
+from typing import AsyncIterator
 
-from mcp import ClientSession
-
-from synalinks import ChatMessages, GenericOutputs
 from synalinks.src.api_export import synalinks_export
-from synalinks.src.utils.mcp.prompts import load_mcp_prompt
-from synalinks.src.utils.mcp.resources import load_mcp_resources
-from synalinks.src.utils.mcp.sessions import (
-    ClientSession,
-    Connection,
-    McpHttpClientFactory,
-    SSEConnection,
-    StdioConnection,
-    StreamableHttpConnection,
-    WebsocketConnection,
-    create_session,
-)
+from synalinks.src.utils.mcp.sessions import ClientSession
+from synalinks.src.utils.mcp.sessions import Connection
+from synalinks.src.utils.mcp.sessions import McpHttpClientFactory
+from synalinks.src.utils.mcp.sessions import SSEConnection
+from synalinks.src.utils.mcp.sessions import StdioConnection
+from synalinks.src.utils.mcp.sessions import StreamableHttpConnection
+from synalinks.src.utils.mcp.sessions import WebsocketConnection
+from synalinks.src.utils.mcp.sessions import create_session
 from synalinks.src.utils.mcp.tools import load_mcp_tools
 from synalinks.src.utils.tool_utils import Tool
-
+from synalinks.src.utils.async_utils import create_task
 
 ASYNC_CONTEXT_MANAGER_ERROR = (
-    "MultiServerMCPClient cannot be used as a context manager (e.g., async with MultiServerMCPClient(...)). "
+    "MultiServerMCPClient cannot be used as a context "
+    "manager (e.g., async with MultiServerMCPClient(...)). "
     "Instead, you can do one of the following:\n"
     "1. client = MultiServerMCPClient(...)\n"
     "   tools = await client.get_tools()\n"
@@ -40,7 +34,10 @@ ASYNC_CONTEXT_MANAGER_ERROR = (
     ]
 )
 class MultiServerMCPClient:
-    """Client for connecting to multiple MCP servers and loading Synalinks-compatible tools, prompts and resources from them."""
+    """Client for connecting to multiple MCP servers and
+    loading Synalinks-compatible tools.
+
+    """
 
     def __init__(
         self,
@@ -61,7 +58,8 @@ class MultiServerMCPClient:
             {
                 "math": {
                     "command": "python",
-                    # Make sure to update to the full absolute path to your math_server.py file
+                    # Make sure to update to the full absolute path to your
+                    # math_server.py file
                     "args": ["/path/to/math_server.py"],
                     "transport": "stdio",
                 },
@@ -116,7 +114,8 @@ class MultiServerMCPClient:
         """
         if server_name not in self.connections:
             raise ValueError(
-                f"Couldn't find a server with name '{server_name}', expected one of '{list(self.connections.keys())}'"
+                f"Couldn't find a server with name '{server_name}', "
+                f"expected one of '{list(self.connections.keys())}'"
             )
 
         async with create_session(self.connections[server_name]) as session:
@@ -139,43 +138,22 @@ class MultiServerMCPClient:
         if server_name is not None:
             if server_name not in self.connections:
                 raise ValueError(
-                    f"Couldn't find a server with name '{server_name}', expected one of '{list(self.connections.keys())}'"
+                    f"Couldn't find a server with name '{server_name}', "
+                    f"expected one of '{list(self.connections.keys())}'"
                 )
             return await load_mcp_tools(None, connection=self.connections[server_name])
 
         all_tools: list[Tool] = []
         load_mcp_tool_tasks = []
         for namespace, connection in self.connections.items():
-            load_mcp_tool_task = asyncio.create_task(load_mcp_tools(None, connection=connection, namespace=namespace))
+            load_mcp_tool_task = create_task(
+                load_mcp_tools(None, connection=connection, namespace=namespace)
+            )
             load_mcp_tool_tasks.append(load_mcp_tool_task)
         tools_list = await asyncio.gather(*load_mcp_tool_tasks)
         for tools in tools_list:
             all_tools.extend(tools)
         return all_tools
-
-    async def get_prompt(
-        self, server_name: str, prompt_name: str, *, arguments: dict[str, Any] | None = None
-    ) -> ChatMessages:
-        """Get a prompt from a given MCP server."""
-        async with self.session(server_name) as session:
-            prompt = await load_mcp_prompt(session, prompt_name, arguments=arguments)
-            return prompt
-
-    async def get_resources(
-        self, server_name: str, *, uris: str | list[str] | None = None
-    ) -> list[GenericOutputs]:
-        """Get resources from a given MCP server.
-
-        Args:
-            server_name: Name of the server to get resources from
-            uris: Optional resource URI or list of URIs to load. If not provided, all resources will be loaded.
-
-        Returns:
-            A list of Synalinks GenericOutputs resources
-        """
-        async with self.session(server_name) as session:
-            resources = await load_mcp_resources(session, uris=uris)
-            return resources
 
     async def __aenter__(self) -> "MultiServerMCPClient":
         raise NotImplementedError(ASYNC_CONTEXT_MANAGER_ERROR)

@@ -73,3 +73,4 @@ from synalinks.src.utils.plot_metrics import (
 from synalinks.src.utils.progbar import Progbar as Progbar
 from synalinks.src.utils.program_visualization import plot_program as plot_program
 from synalinks.src.utils.program_visualization import program_to_dot as program_to_dot
+from synalinks.src.utils.tool_utils import Tool as Tool

@@ -298,6 +298,8 @@ class LanguageModel(SynalinksSaveable):
                     json_instance = {
                         "role": ChatRole.ASSISTANT,
                         "content": response_str,
+                        "tool_call_id": None,
+                        "tool_calls": [],
                     }
                 return json_instance
             except Exception as e:

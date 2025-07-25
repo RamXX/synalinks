@@ -5,14 +5,10 @@
 import json
 import os
 
-import nest_asyncio
 import sentry_sdk
 
 from synalinks.src.api_export import synalinks_export
 
-# Allow nested asyncio event loops
-# This avoid crashing notebooks when using `loop.run_until_complete()`
-nest_asyncio.apply()
 
 # The type of float to use throughout a session.
 _FLOATX = "float32"
@@ -43,10 +39,6 @@ if "SYNALINKS_TELEMETRY" in os.environ:
         _synalinks_telemetry_enabled = True
 else:
     _synalinks_telemetry_enabled = True
-
-# Fix litellm warning for ollama embedding
-# see: https://github.com/BerriAI/litellm/issues/11657
-os.environ["DISABLE_AIOHTTP_TRANSPORT"] = "true"
 
 
 @synalinks_export(

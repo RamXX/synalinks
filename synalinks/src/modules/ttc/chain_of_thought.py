@@ -77,7 +77,7 @@ class ChainOfThought(Module):
             If not provided use the `data_model` to infer it.
         data_model (DataModel | SymbolicDataModel | JsonDataModel): The target data model.
         language_model (LanguageModel): The language model to use.
-        static_system_prompt (str): A static system prompt that **do not** evolve 
+        static_system_prompt (str): A static system prompt that **do not** evolve
             during training. This prompt allow the user to provide additional
             information that won't be changed during training. Allowing to cache
             it and reduce inference costs (see `Generator`).

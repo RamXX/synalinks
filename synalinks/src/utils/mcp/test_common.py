@@ -12,7 +12,9 @@ def run_streamable_server(server: FastMCP, server_port: int) -> None:
     """Run a FastMCP server in a separate process exposing a streamable HTTP endpoint."""
     app = server.streamable_http_app()
     uvicorn_server = uvicorn.Server(
-        config=uvicorn.Config(app=app, host="127.0.0.1", port=server_port, log_level="error")
+        config=uvicorn.Config(
+            app=app, host="127.0.0.1", port=server_port, log_level="error"
+        )
     )
     uvicorn_server.run()
 
@@ -52,4 +54,6 @@ def run_streamable_server_multiprocessing(server: FastMCP) -> Generator[None, No
         proc.kill()
         proc.join(timeout=2)
         if proc.is_alive():
-            raise RuntimeError("Server process is still alive after attempting to terminate it")
+            raise RuntimeError(
+                "Server process is still alive after attempting to terminate it"
+            )

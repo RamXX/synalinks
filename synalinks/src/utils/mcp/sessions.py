@@ -2,14 +2,18 @@ import os
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, AsyncIterator, Literal, Protocol, TypedDict
+from typing import Any
+from typing import AsyncIterator
+from typing import Literal
+from typing import Protocol
+from typing import TypedDict
 
 import httpx
-from mcp import ClientSession, StdioServerParameters
+from mcp import ClientSession
+from mcp import StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
-
 
 EncodingErrorHandler = Literal["strict", "ignore", "replace"]
 
@@ -120,7 +124,9 @@ class WebsocketConnection(TypedDict):
     """Additional keyword arguments to pass to the ClientSession"""
 
 
-Connection = StdioConnection | SSEConnection | StreamableHttpConnection | WebsocketConnection
+Connection = (
+    StdioConnection | SSEConnection | StreamableHttpConnection | WebsocketConnection
+)
 
 
 @asynccontextmanager
@@ -131,7 +137,9 @@ async def _create_stdio_session(
     env: dict[str, str] | None = None,
     cwd: str | Path | None = None,
     encoding: str = DEFAULT_ENCODING,
-    encoding_error_handler: Literal["strict", "ignore", "replace"] = DEFAULT_ENCODING_ERROR_HANDLER,
+    encoding_error_handler: Literal[
+        "strict", "ignore", "replace"
+    ] = DEFAULT_ENCODING_ERROR_HANDLER,
     session_kwargs: dict[str, Any] | None = None,
 ) -> AsyncIterator[ClientSession]:
     """Create a new session to an MCP server using stdio.
@@ -180,8 +188,8 @@ async def _create_sse_session(
     """Create a new session to an MCP server using SSE.
 
     Args:
-        url: URL of the SSE server
-        headers: HTTP headers to send to the SSE endpoint
+        url: (str) URL of the SSE server
+        headers (dict): HTTP headers to send to the SSE endpoint
         timeout: HTTP timeout
         sse_read_timeout: SSE read timeout
         session_kwargs: Additional keyword arguments to pass to the ClientSession
@@ -192,7 +200,10 @@ async def _create_sse_session(
     if httpx_client_factory is not None:
         kwargs["httpx_client_factory"] = httpx_client_factory
 
-    async with sse_client(url, headers, timeout, sse_read_timeout, **kwargs) as (read, write):
+    async with sse_client(url, headers, timeout, sse_read_timeout, **kwargs) as (
+        read,
+        write,
+    ):
         async with ClientSession(read, write, **(session_kwargs or {})) as session:
             yield session
 
@@ -211,10 +222,11 @@ async def _create_streamable_http_session(
     """Create a new session to an MCP server using Streamable HTTP.
 
     Args:
-        url: URL of the endpoint to connect to
-        headers: HTTP headers to send to the endpoint
+        url (str): URL of the endpoint to connect to
+        headers (dict): HTTP headers to send to the endpoint
         timeout: HTTP timeout
-        sse_read_timeout: How long (in seconds) the client will wait for a new event before disconnecting
+        sse_read_timeout: How long (in seconds) the client will wait for a new event
+            before disconnecting
         terminate_on_close: Whether to terminate the session on close
         session_kwargs: Additional keyword arguments to pass to the ClientSession
         httpx_client_factory: Custom factory for httpx.AsyncClient (optional)
@@ -282,7 +294,7 @@ async def create_session(
             "Configuration error: Missing 'transport' key in server configuration. "
             "Each server must include 'transport' with one of: "
             "'stdio', 'sse', 'websocket', 'streamable_http'. "
-            "Please refer to the langchain-mcp-adapters documentation for more details."
+            
         )
 
     transport = connection["transport"]

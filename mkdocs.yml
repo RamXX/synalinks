@@ -12,23 +12,8 @@ theme:
     repo: fontawesome/brands/github
   theme:
   palette:
-    # Palette toggle for automatic mode
-    - media: "(prefers-color-scheme)"
-      toggle:
-        icon: material/brightness-auto
-        name: Switch to light mode
-    # Palette toggle for light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default 
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      toggle:
-        icon: material/brightness-4
-        name: Switch to system preference
 
 extra_css:
   - stylesheets/extra.css
@@ -95,7 +80,6 @@ nav:
         - Synalinks API/Modules API/Core Modules/Not module.md
         - Synalinks API/Modules API/Core Modules/Generator module.md
         - Synalinks API/Modules API/Core Modules/Decision module.md
-        - Synalinks API/Modules API/Core Modules/MultiDecision module.md
         - Synalinks API/Modules API/Core Modules/Action module.md
         - Synalinks API/Modules API/Core Modules/Branch module.md
       - Knowledge Modules:
@@ -116,8 +100,7 @@ nav:
         - Synalinks API/Modules API/Test Time Compute Modules/SelfCritique module.md
       - Agents Modules:
         - Synalinks API/Modules API/Agents Modules/index.md
-        - Synalinks API/Modules API/Agents Modules/ReACT Agent module.md
-        - Synalinks API/Modules API/Agents Modules/Parallel ReACT Agent module.md
+        - Synalinks API/Modules API/Agents Modules/FunctionCallingAgent module.md
     - Callbacks API:
       - Synalinks API/Callbacks API/index.md
       - Synalinks API/Callbacks API/Base Callback class.md

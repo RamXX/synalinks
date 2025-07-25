@@ -110,7 +110,7 @@ class SelfCritique(Module):
     Args:
         language_model (LanguageModel): The language model to use.
         prompt_template (str): The jinja2 prompt template (see `Generator`).
-        static_system_prompt (str): A static system prompt that **do not** evolve 
+        static_system_prompt (str): A static system prompt that **do not** evolve
             during training. This prompt allow the user to provide additional
             information that won't be changed during training. Allowing to cache
             it and reduce inference costs (see `Generator`).
@@ -183,7 +183,6 @@ class SelfCritique(Module):
 
     def get_config(self):
         config = {
-            "examples": self.examples,
             "static_system_prompt": self.static_system_prompt,
             "prompt_template": self.prompt_template,
             "examples": self.examples,

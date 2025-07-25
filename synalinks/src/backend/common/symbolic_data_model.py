@@ -11,6 +11,7 @@ from synalinks.src.backend.common.json_schema_utils import is_schema_equal
 from synalinks.src.backend.common.json_schema_utils import standardize_schema
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 from synalinks.src.utils.naming import auto_name
+from synalinks.src.utils.async_utils import run_maybe_nested
 
 
 @synalinks_export("synalinks.SymbolicDataModel")
@@ -158,7 +159,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Concat().symbolic_call(self, other)
         )
 
@@ -174,7 +175,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Concat().symbolic_call(other, self)
         )
 
@@ -194,7 +195,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.And().symbolic_call(self, other)
         )
 
@@ -214,7 +215,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.And().symbolic_call(other, self)
         )
 
@@ -234,7 +235,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Or().symbolic_call(self, other)
         )
 
@@ -255,7 +256,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Or().symbolic_call(other, self)
         )
 
@@ -275,7 +276,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Xor().symbolic_call(self, other)
         )
 
@@ -296,7 +297,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Xor().symbolic_call(other, self)
         )
 
@@ -321,7 +322,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Factorize().symbolic_call(self)
         )
 
@@ -338,7 +339,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.InMask(mask=mask, recursive=True).symbolic_call(self)
         )
 
@@ -355,7 +356,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.OutMask(mask=mask, recursive=True).symbolic_call(self)
         )
 
@@ -370,7 +371,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Prefix(prefix=prefix).symbolic_call(self)
         )
 
@@ -385,7 +386,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Suffix(suffix=suffix).symbolic_call(self)
         )
 

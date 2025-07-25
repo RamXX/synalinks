@@ -21,6 +21,7 @@ from synalinks.src.trainers.data_adapters import data_adapter_utils
 from synalinks.src.trainers.epoch_iterator import EpochIterator
 from synalinks.src.utils import python_utils
 from synalinks.src.utils import tracking
+from synalinks.src.utils.async_utils import run_maybe_nested
 
 
 class Trainer:
@@ -916,7 +917,7 @@ class Trainer:
         if hasattr(self, "optimizer") and self.built:
             # Create optimizer variables/programs.
             if not self.optimizer.built:
-                asyncio.get_event_loop().run_until_complete(
+                run_maybe_nested(
                     self.optimizer.build(self.trainable_variables)
                 )
 
@@ -1009,7 +1010,7 @@ class Trainer:
                     break
             (x, y) = data_batch
             try:
-                y_pred = asyncio.get_event_loop().run_until_complete(
+                y_pred = run_maybe_nested(
                     self.predict_on_batch(x, training=False)
                 )
             except Exception as e:
@@ -1026,7 +1027,7 @@ class Trainer:
                 )
             if compile_metrics_unbuilt:
                 # Build all metric state with `backend.compute_output_spec`.
-                asyncio.get_event_loop().run_until_complete(
+                run_maybe_nested(
                     backend.compute_output_spec(
                         self.compute_metrics,
                         x,
@@ -1036,7 +1037,7 @@ class Trainer:
                 )
             if compile_reward_unbuilt:
                 # Build `CompileReward` state with `backend.compute_output_spec`.
-                asyncio.get_event_loop().run_until_complete(
+                run_maybe_nested(
                     backend.compute_output_spec(
                         self.compute_reward,
                         x,
@@ -1047,7 +1048,7 @@ class Trainer:
                 )
         if optimizer_unbuilt:
             # Build optimizer
-            asyncio.get_event_loop().run_until_complete(
+            run_maybe_nested(
                 self.optimizer.build(self.trainable_variables)
             )
         self._post_build()

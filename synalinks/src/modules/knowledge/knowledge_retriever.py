@@ -73,6 +73,22 @@ class KnowledgeRetriever(Module):
         label: Literal["IsCityOf"]
         obj: Country
 
+    language_model = synalinks.LanguageModel(
+        model="ollama/mistral",
+    )
+
+    embedding_model = synalinks.EmbeddingModel(
+        model="ollama/mxbai-embed-large"
+    )
+
+    knowledge_base = synalinks.KnowledgeBase(
+        uri="neo4j://localhost:7687",
+        entity_models=[Country, City],
+        relation_models=[IsCapitalOf, IsCityOf],
+        embedding_model=embedding_model,
+        metric="cosine",
+    )
+
     async def main():
         inputs = synalinks.Input(data_model=Query)
         x = await synalinks.KnowledgeRetriever(
@@ -238,9 +254,9 @@ class KnowledgeRetriever(Module):
         )
         if self.return_inputs:
             if self.return_query:
-                return await ops.concat(
+                return await ops.logical_and(
                     inputs,
-                    await ops.concat(
+                    await ops.logical_and(
                         triplet_search_query,
                         await ops.triplet_search(
                             triplet_search_query,
@@ -253,7 +269,7 @@ class KnowledgeRetriever(Module):
                     ),
                 )
             else:
-                return await ops.concat(
+                return await ops.logical_and(
                     inputs,
                     await ops.triplet_search(
                         triplet_search_query,
@@ -266,7 +282,7 @@ class KnowledgeRetriever(Module):
                 )
         else:
             if self.return_query:
-                return await ops.concat(
+                return await ops.logical_and(
                     triplet_search_query,
                     await ops.triplet_search(
                         triplet_search_query,

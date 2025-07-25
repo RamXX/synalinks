@@ -11,6 +11,7 @@ from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend.common.json_data_model import JsonDataModel
 from synalinks.src.backend.common.symbolic_data_model import SymbolicDataModel
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
+from synalinks.src.utils.async_utils import run_maybe_nested
 
 IS_THREAD_SAFE = True
 
@@ -34,7 +35,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Concat().symbolic_call(cls, other)
         )
 
@@ -50,7 +51,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Concat().symbolic_call(other, cls)
         )
 
@@ -70,7 +71,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.And().symbolic_call(cls, other)
         )
 
@@ -90,7 +91,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.And().symbolic_call(other, cls)
         )
 
@@ -110,7 +111,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Or().symbolic_call(cls, other)
         )
 
@@ -131,7 +132,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Or().symbolic_call(other, cls)
         )
 
@@ -151,7 +152,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Xor().symbolic_call(cls, other)
         )
 
@@ -172,7 +173,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Xor().symbolic_call(other, cls)
         )
 
@@ -197,7 +198,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Factorize().symbolic_call(cls)
         )
 
@@ -214,7 +215,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.InMask(mask=mask, recursive=True).symbolic_call(cls)
         )
 
@@ -231,7 +232,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.OutMask(mask=mask, recursive=True).symbolic_call(cls)
         )
 
@@ -246,7 +247,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Prefix(prefix=prefix).symbolic_call(cls)
         )
 
@@ -261,7 +262,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return asyncio.get_event_loop().run_until_complete(
+        return run_maybe_nested(
             ops.Suffix(suffix=suffix).symbolic_call(cls)
         )
 
@@ -372,11 +373,11 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
         from synalinks.src import ops
 
         if any_meta_class(self, other):
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Concat().symbolic_call(self, other)
             )
         else:
-            return asyncio.get_event_loop().run_until_complete(ops.Concat()(self, other))
+            return run_maybe_nested(ops.Concat()(self, other))
 
     def __radd__(self, other):
         """Concatenates another data model with this one.
@@ -393,11 +394,11 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
         from synalinks.src import ops
 
         if any_meta_class(self, other):
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Concat().symbolic_call(other, self),
             )
         else:
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Concat()(other, self),
             )
 
@@ -420,11 +421,11 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
         from synalinks.src import ops
 
         if any_meta_class(self, other):
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Add().symbolic_call(self, other),
             )
         else:
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Add()(self, other),
             )
 
@@ -447,11 +448,11 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
         from synalinks.src import ops
 
         if any_meta_class(other, self):
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Add().symbolic_call(other, self),
             )
         else:
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Add()(other, self),
             )
 
@@ -475,11 +476,11 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
         from synalinks.src import ops
 
         if any_meta_class(self, other):
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Or().symbolic_call(self, other),
             )
         else:
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Or()(self, other),
             )
 
@@ -503,11 +504,11 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
         from synalinks.src import ops
 
         if any_meta_class(other, self):
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Or().symbolic_call(other, self),
             )
         else:
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Or()(other, self),
             )
 
@@ -528,11 +529,11 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
         from synalinks.src import ops
 
         if any_meta_class(self, other):
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Xor().symbolic_call(self, other),
             )
         else:
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Xor()(self, other),
             )
 
@@ -554,11 +555,11 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
         from synalinks.src import ops
 
         if any_meta_class(other, self):
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Xor().symbolic_call(other, self),
             )
         else:
-            return asyncio.get_event_loop().run_until_complete(
+            return run_maybe_nested(
                 ops.Xor()(other, self),
             )
 

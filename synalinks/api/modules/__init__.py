@@ -6,11 +6,9 @@ since your modifications would be overwritten.
 
 from synalinks.src.modules import deserialize as deserialize
 from synalinks.src.modules import serialize as serialize
-from synalinks.src.modules.agents.parallel_react_agent import (
-    ParallelReACTAgent as ParallelReACTAgent,
+from synalinks.src.modules.agents.function_calling_agent import (
+    FunctionCallingAgent as FunctionCallingAgent,
 )
-from synalinks.src.modules.agents.react_agent import ReACTAgent as ReACTAgent
-from synalinks.src.modules.agents.react_agent import ReACTAgent as SequentialReACTAgent
 from synalinks.src.modules.core.action import Action as Action
 from synalinks.src.modules.core.branch import Branch as Branch
 from synalinks.src.modules.core.decision import Decision as Decision
@@ -18,7 +16,6 @@ from synalinks.src.modules.core.generator import Generator as Generator
 from synalinks.src.modules.core.identity import Identity as Identity
 from synalinks.src.modules.core.input_module import Input as Input
 from synalinks.src.modules.core.input_module import InputModule as InputModule
-from synalinks.src.modules.core.multi_decision import MultiDecision as MultiDecision
 from synalinks.src.modules.core.not_module import Not as Not
 from synalinks.src.modules.knowledge.embedding import Embedding as Embedding
 from synalinks.src.modules.knowledge.entity_retriever import (

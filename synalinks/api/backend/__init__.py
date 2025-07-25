@@ -39,6 +39,7 @@ from synalinks.src.backend.pydantic.base import Prediction as Prediction
 from synalinks.src.backend.pydantic.base import Relation as Relation
 from synalinks.src.backend.pydantic.base import Relations as Relations
 from synalinks.src.backend.pydantic.base import SimilaritySearch as SimilaritySearch
+from synalinks.src.backend.pydantic.base import ToolCall as ToolCalling
 from synalinks.src.backend.pydantic.base import TripletSearch as TripletSearch
 from synalinks.src.backend.pydantic.base import is_chat_message as is_chat_message
 from synalinks.src.backend.pydantic.base import is_chat_messages as is_chat_messages
@@ -55,6 +56,7 @@ from synalinks.src.backend.pydantic.base import is_relations as is_relations
 from synalinks.src.backend.pydantic.base import (
     is_similarity_search as is_similarity_search,
 )
+from synalinks.src.backend.pydantic.base import is_tool_call as is_tool_call
 from synalinks.src.backend.pydantic.base import is_triplet_search as is_triplet_search
 from synalinks.src.backend.pydantic.core import is_meta_class as is_meta_class
 from synalinks.src.utils.naming import get_uid as get_uid

@@ -1,6 +1,5 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
-import asyncio
 import os
 import warnings
 
@@ -11,6 +10,7 @@ from synalinks.src.backend import is_triplet_search
 from synalinks.src.knowledge_bases.database_adapters import DatabaseAdapter
 from synalinks.src.knowledge_bases.database_adapters.neo4j_adapter import Neo4JAdapter
 from synalinks.src.utils.naming import to_snake_case
+from synalinks.src.utils.async_utils import run_maybe_nested
 
 
 class MemGraphAdapter(Neo4JAdapter):
@@ -38,7 +38,7 @@ class MemGraphAdapter(Neo4JAdapter):
         )
 
     def wipe_database(self):
-        asyncio.get_event_loop().run_until_complete(
+        run_maybe_nested(
             self.query("MATCH (n) DETACH DELETE n;")
         )
 
@@ -60,7 +60,7 @@ class MemGraphAdapter(Neo4JAdapter):
                     "};",
                 ]
             )
-            asyncio.get_event_loop().run_until_complete(
+            run_maybe_nested(
                 self.query(query),
             )
 

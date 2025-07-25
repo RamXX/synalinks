@@ -1,6 +1,5 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
-import asyncio
 import copy
 import re
 from typing import Any
@@ -8,7 +7,7 @@ from typing import Dict
 
 from synalinks.src.embedding_models import EmbeddingModel
 from synalinks.src.utils.naming import to_snake_case
-
+from synalinks.src.utils.async_utils import run_maybe_nested
 
 class DatabaseAdapter:
     def __init__(
@@ -31,7 +30,7 @@ class DatabaseAdapter:
 
         self.embedding_model = embedding_model
         self.embedding_dim = len(
-            asyncio.get_event_loop().run_until_complete(embedding_model(texts=["test"]))[
+            run_maybe_nested(embedding_model(texts=["test"]))[
                 "embeddings"
             ][0]
         )

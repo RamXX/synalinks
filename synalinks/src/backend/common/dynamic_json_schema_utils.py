@@ -1,19 +1,14 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 import copy
 
-from synalinks.src.utils.naming import to_snake_case
-from synalinks.src.utils.nlp_utils import to_plural_property
-from synalinks.src.utils.nlp_utils import to_singular_property
 
-
-def dynamic_enum(schema, prop_to_update, labels, parent_schema=None, description=None):
+def dynamic_enum(schema, prop_to_update, labels, description=None):
     """Update a schema with dynamic Enum string.
 
     Args:
         schema (dict): The schema to update.
         prop_to_update (str): The property to update.
         labels (list): The list of labels (strings).
-        parent_schema (dict, optional): An optional parent schema to use as the base.
         description (str, optional): An optional description for the enum.
 
     Returns:
@@ -24,9 +19,7 @@ def dynamic_enum(schema, prop_to_update, labels, parent_schema=None, description
         schema = {"$defs": schema.pop("$defs"), **schema}
     else:
         schema = {"$defs": {}, **schema}
-    if parent_schema:
-        parent_schema = copy.deepcopy(parent_schema)
-    title = prop_to_update.title().replace("_", " ")
+    title = prop_to_update.title().replace("_", "")
 
     if description:
         enum_definition = {
@@ -42,107 +35,116 @@ def dynamic_enum(schema, prop_to_update, labels, parent_schema=None, description
             "type": "string",
         }
 
-    if parent_schema:
-        parent_schema["$defs"].update({title: enum_definition})
-    else:
-        schema["$defs"].update({title: enum_definition})
+    schema["$defs"].update({title: enum_definition})
 
     schema.setdefault("properties", {}).update(
         {prop_to_update: {"$ref": f"#/$defs/{title}"}}
     )
 
-    return parent_schema if parent_schema else schema
+    return schema
 
 
-def dynamic_enum_array(
-    schema, prop_to_update, labels, parent_schema=None, description=None
-):
-    """Update a schema with dynamic Enum list for array properties.
+def dynamic_tool_calls(tools):
+    """
+    Generates a dynamic schema for tool calls based on a list of tools.
 
-    This function takes a schema with an array property and constrains the items
-    in that array to be from a specific enum of labels.
+    This function takes a list of tool objects and constructs a schema that includes
+    definitions for each tool's properties, ensuring that each tool call includes a
+    "tool_name" field to identify the tool being called.
 
     Args:
-        schema (dict): The schema to update (should contain an array property).
-        prop_to_update (str): The array property to update with enum constraints.
-        labels (list): The list of labels (strings) for the enum.
-        parent_schema (dict, optional): An optional parent schema to use as the base.
-        description (str, optional): An optional description for the enum.
+        tools (list): A list of tool objects, each with a name() method and an obj_schema()
+            method that returns the schema of the tool.
 
     Returns:
-        dict: The updated schema with the enum applied to the array items.
+        (dict): A schema dictionary that defines the structure for tool calls. The schema
+            includes definitions for each tool and specifies that tool calls should
+            be an array of items, each adhering to one of the tool schemas. The schema
+            enforces that the "tool_name" field is required for each tool call.
     """
-    schema = copy.deepcopy(schema)
+    tools_schemas_with_tool_names = {}
 
-    # Ensure $defs is at the beginning of the schema
-    if schema.get("$defs"):
-        schema = {"$defs": schema.pop("$defs"), **schema}
-    else:
-        schema = {"$defs": {}, **schema}
-
-    if parent_schema:
-        parent_schema = copy.deepcopy(parent_schema)
-
-    enum_title = to_singular_property(prop_to_update.title()).replace("_", "")
-
-    # Create the enum definition
-    if description:
-        enum_definition = {
-            "enum": labels,
-            "description": description,
-            "title": enum_title,
-            "type": "string",
-        }
-    else:
-        enum_definition = {
-            "enum": labels,
-            "title": enum_title,
-            "type": "string",
-        }
-
-    if parent_schema:
-        parent_schema["$defs"].update({enum_title: enum_definition})
-    else:
-        schema["$defs"].update({enum_title: enum_definition})
-
-    schema.setdefault("properties", {}).update(
-        {
-            prop_to_update: {
-                "items": {"$ref": f"#/$defs/{enum_title}"},
-                "minItems": 1,
-                "title": prop_to_update.title().replace("_", ""),
-                "type": "array",
-                "uniqueItems": True,
+    for tool in tools:
+        tool_name = tool.name
+        schema = copy.deepcopy(tool.get_tool_schema())
+        if "properties" in schema:
+            tool_name_property = {
+                "const": tool_name,
+                "title": "Tool Name",
+                "type": "string",
             }
-        }
-    )
-    return parent_schema if parent_schema else schema
+            new_properties = {"tool_name": tool_name_property, **schema["properties"]}
+            schema["properties"] = new_properties
 
+        if "required" in schema:
+            required_fields = ["tool_name"]
+            required_fields.extend([req for req in schema["required"]])
+            schema["required"] = required_fields
+        else:
+            schema["required"] = ["tool_name"]
+        tools_schemas_with_tool_names[schema["title"]] = schema
 
-def dynamic_list(schema):
-    """Update a schema to convert it to a nested list"""
-    schema = copy.deepcopy(schema)
-    if schema.get("$defs"):
-        defs = schema.pop("$defs")
-    else:
-        defs = {}
-    title = schema.get("title")
-    property_list = to_plural_property(to_snake_case(title))
-    title_list = "".join([word.capitalize() for word in property_list.split("_")])
-    new_schema = {
-        "$defs": {title: schema, **defs},
+    tool_calls_schema = {
+        "$defs": tools_schemas_with_tool_names,
         "additionalProperties": False,
         "properties": {
-            property_list: {
+            "tool_calls": {
                 "items": {
-                    "$ref": f"#/$defs/{title}",
+                    "anyOf": [
+                        {"$ref": "#/$defs/" + schema_key}
+                        for schema_key in tools_schemas_with_tool_names.keys()
+                    ]
                 },
-                "title": title_list,
+                "title": "Tool Calls",
                 "type": "array",
             }
         },
-        "required": [property_list],
-        "title": title_list,
+        "required": ["tool_calls"],
+        "title": "ToolCalls",
         "type": "object",
     }
-    return new_schema
+
+    return tool_calls_schema
+
+
+def dynamic_tool_choice(tools):
+    tools_schemas_with_tool_names = {}
+
+    for tool in tools:
+        tool_name = tool.name
+        schema = copy.deepcopy(tool.get_tool_schema())
+        if "properties" in schema:
+            tool_name_property = {
+                "const": tool_name,
+                "title": "Tool Name",
+                "type": "string",
+            }
+            new_properties = {"tool_name": tool_name_property, **schema["properties"]}
+            schema["properties"] = new_properties
+
+        if "required" in schema:
+            required_fields = ["tool_name"]
+            required_fields.extend([req for req in schema["required"]])
+            schema["required"] = required_fields
+        else:
+            schema["required"] = ["tool_name"]
+        tools_schemas_with_tool_names[schema["title"]] = schema
+
+    tool_choice_schema = {
+        "$defs": tools_schemas_with_tool_names,
+        "additionalProperties": False,
+        "properties": {
+            "tool_choice": {
+                "anyOf": [
+                    {"$ref": "#/$defs/" + schema_key}
+                    for schema_key in tools_schemas_with_tool_names.keys()
+                ],
+                "title": "Tool Choice",
+            }
+        },
+        "required": ["tool_choice"],
+        "title": "ToolChoice",
+        "type": "object",
+    }
+
+    return tool_choice_schema

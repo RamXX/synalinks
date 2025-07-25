@@ -17,7 +17,7 @@ from synalinks.src.modules import Module
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 from synalinks.src.utils import tracking
 from synalinks.src.utils.naming import auto_name
-
+from synalinks.src.utils.async_utils import run_maybe_nested
 
 class Iteration(DataModel):
     iteration: int = 0
@@ -178,7 +178,7 @@ class Optimizer(SynalinksSaveable):
         that match the optimizer schema.
         """
         if not self.built:
-            asyncio.get_event_loop().run_until_complete(self.build(trainable_variables))
+            run_maybe_nested(self.build(trainable_variables))
         iteration = self._iteration.get("iteration")
         self._iteration.update({"iteration": iteration + 1})
         for variable in trainable_variables:

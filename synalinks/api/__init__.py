@@ -48,6 +48,7 @@ from synalinks.src.backend.pydantic.base import Prediction as Prediction
 from synalinks.src.backend.pydantic.base import Relation as Relation
 from synalinks.src.backend.pydantic.base import Relations as Relations
 from synalinks.src.backend.pydantic.base import SimilaritySearch as SimilaritySearch
+from synalinks.src.backend.pydantic.base import ToolCall as ToolCalling
 from synalinks.src.backend.pydantic.base import TripletSearch as TripletSearch
 from synalinks.src.backend.pydantic.base import is_chat_message as is_chat_message
 from synalinks.src.backend.pydantic.base import is_chat_messages as is_chat_messages
@@ -64,6 +65,7 @@ from synalinks.src.backend.pydantic.base import is_relations as is_relations
 from synalinks.src.backend.pydantic.base import (
     is_similarity_search as is_similarity_search,
 )
+from synalinks.src.backend.pydantic.base import is_tool_call as is_tool_call
 from synalinks.src.backend.pydantic.base import is_triplet_search as is_triplet_search
 from synalinks.src.embedding_models.embedding_model import (
     EmbeddingModel as EmbeddingModel,
@@ -72,11 +74,9 @@ from synalinks.src.initializers.initializer import Initializer as Initializer
 from synalinks.src.knowledge_bases.knowledge_base import KnowledgeBase as KnowledgeBase
 from synalinks.src.language_models.language_model import LanguageModel as LanguageModel
 from synalinks.src.metrics.metric import Metric as Metric
-from synalinks.src.modules.agents.parallel_react_agent import (
-    ParallelReACTAgent as ParallelReACTAgent,
+from synalinks.src.modules.agents.function_calling_agent import (
+    FunctionCallingAgent as FunctionCallingAgent,
 )
-from synalinks.src.modules.agents.react_agent import ReACTAgent as ReACTAgent
-from synalinks.src.modules.agents.react_agent import ReACTAgent as SequentialReACTAgent
 from synalinks.src.modules.core.action import Action as Action
 from synalinks.src.modules.core.branch import Branch as Branch
 from synalinks.src.modules.core.decision import Decision as Decision
@@ -89,7 +89,6 @@ from synalinks.src.modules.core.generator import (
 )
 from synalinks.src.modules.core.identity import Identity as Identity
 from synalinks.src.modules.core.input_module import Input as Input
-from synalinks.src.modules.core.multi_decision import MultiDecision as MultiDecision
 from synalinks.src.modules.core.not_module import Not as Not
 from synalinks.src.modules.knowledge.embedding import Embedding as Embedding
 from synalinks.src.modules.knowledge.entity_retriever import (
@@ -114,5 +113,7 @@ from synalinks.src.ops.operation import Operation as Operation
 from synalinks.src.programs.program import Program as Program
 from synalinks.src.programs.sequential import Sequential as Sequential
 from synalinks.src.rewards.reward import Reward as Reward
+from synalinks.src.utils.mcp.client import MultiServerMCPClient as MultiServerMCPClient
+from synalinks.src.utils.tool_utils import Tool as Tool
 from synalinks.src.version import __version__
 from synalinks.src.version import version as version

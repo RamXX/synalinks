@@ -2,15 +2,55 @@
 
 from enum import Enum
 from typing import List
-from typing import Set
+from typing import Literal
+from typing import Union
 
 from synalinks.src import testing
 from synalinks.src.backend import DataModel
 from synalinks.src.backend import Field
 from synalinks.src.backend import is_schema_equal
 from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_enum
-from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_enum_array
-from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_list
+from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_tool_calls
+from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_tool_choice
+from synalinks.src.utils.tool_utils import Tool
+
+
+async def calculate(expression: str):
+    """Calculate the result of a mathematical expression.
+
+    Args:
+        expression (str): The mathematical expression to calculate, such as
+            '2 + 2'. The expression can contain numbers, operators (+, -, *, /),
+            parentheses, and spaces.
+    """
+    if not all(char in "0123456789+-*/(). " for char in expression):
+        return {
+            "result": None,
+            "log": "Error: invalid characters in expression",
+        }
+    try:
+        # Evaluate the mathematical expression safely
+        result = round(float(eval(expression, {"__builtins__": None}, {})), 2)
+        return {
+            "result": result,
+            "log": "Successfully executed",
+        }
+    except Exception as e:
+        return {
+            "result": None,
+            "log": f"Error: {e}",
+        }
+
+
+async def thinking(thinking: str):
+    """Think about something.
+
+    Args:
+        thinking (str): Your step by step thinking.
+    """
+    return {
+        "thinking": thinking,
+    }
 
 
 class DynamicEnumTest(testing.TestCase):
@@ -34,33 +74,85 @@ class DynamicEnumTest(testing.TestCase):
 
         self.assertTrue(is_schema_equal(Decision.get_schema(), schema))
 
-    def test_basic_dynamic_list(self):
-        class Document(DataModel):
-            text: str
 
-        class Documents(DataModel):
-            documents: List[Document]
+class DynamicToolCallsSchemaTest(testing.TestCase):
+    def test_dynamic_tool_call_schema(self):
+        class Calculate(DataModel):
+            """Calculate the result of a mathematical expression."""
 
-        schema = dynamic_list(Document.get_schema())
-        self.assertEqual(Documents.get_schema(), schema)
-
-    def test_dynamic_enum_array(self):
-        class MultiDecisionAnswer(DataModel):
-            thinking: str
-            choices: str
-
-        class Choice(str, Enum):
-            easy = "easy"
-            difficult = "difficult"
-            unknown = "unknown"
-
-        class MultiDecision(DataModel):
-            thinking: str
-            choices: Set[Choice] = Field(
-                min_items=1,
+            tool_name: Literal["calculate"]
+            expression: str = Field(
+                description=(
+                    "The mathematical expression to calculate, such as "
+                    "'2 + 2'. The expression can contain numbers, operators (+, -, *, /),"
+                    " parentheses, and spaces."
+                )
             )
 
-        labels = ["easy", "difficult", "unkown"]
+        class Thinking(DataModel):
+            """Think about something."""
 
-        schema = dynamic_enum_array(MultiDecisionAnswer.get_schema(), "choices", labels)
-        self.assertTrue(is_schema_equal(MultiDecision.get_schema(), schema))
+            tool_name: Literal["thinking"]
+            thinking: str = Field(description="Your step by step thinking.")
+
+        class ToolCalls(DataModel):
+            tool_calls: List[Union[Calculate, Thinking]]
+
+        expected_schema = ToolCalls.get_schema()
+
+        tools = [
+            Tool(calculate),
+            Tool(thinking),
+        ]
+
+        dynamic_schema = dynamic_tool_calls(tools=tools)
+
+        print("Expected:")
+        print(ToolCalls.prettify_schema())
+        print("Generated:")
+        import json
+
+        print(json.dumps(dynamic_schema, indent=2))
+
+        self.assertEqual(expected_schema, dynamic_schema)
+
+
+class DynamicToolChoiceSchemaTest(testing.TestCase):
+    def test_dynamic_tool_call_schema(self):
+        class Calculate(DataModel):
+            """Calculate the result of a mathematical expression."""
+
+            tool_name: Literal["calculate"]
+            expression: str = Field(
+                description=(
+                    "The mathematical expression to calculate, such as "
+                    "'2 + 2'. The expression can contain numbers, operators (+, -, *, /),"
+                    " parentheses, and spaces."
+                )
+            )
+
+        class Thinking(DataModel):
+            """Think about something."""
+
+            tool_name: Literal["thinking"]
+            thinking: str = Field(description="Your step by step thinking.")
+
+        class ToolChoice(DataModel):
+            tool_choice: Union[Calculate, Thinking]
+
+        expected_schema = ToolChoice.get_schema()
+
+        tools = [
+            Tool(calculate),
+            Tool(thinking),
+        ]
+
+        dynamic_schema = dynamic_tool_choice(tools=tools)
+        print("Expected:")
+        print(ToolChoice.prettify_schema())
+        print("Generated:")
+        import json
+
+        print(json.dumps(dynamic_schema, indent=2))
+
+        self.assertEqual(expected_schema, dynamic_schema)

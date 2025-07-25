@@ -3,17 +3,15 @@ import typing
 from typing import cast
 
 from mcp import ClientSession
-from mcp.types import (
-    CallToolResult,
-    EmbeddedResource,
-    ImageContent,
-    TextContent,
-)
+from mcp.types import CallToolResult
+from mcp.types import EmbeddedResource
+from mcp.types import ImageContent
+from mcp.types import TextContent
 from mcp.types import Tool as MCPTool
 
+from synalinks.src.utils.mcp.sessions import Connection
+from synalinks.src.utils.mcp.sessions import create_session
 from synalinks.src.utils.tool_utils import Tool
-from synalinks.src.utils.mcp.sessions import Connection, create_session
-
 
 NonTextContent = ImageContent | EmbeddedResource
 MAX_ITERATIONS = 1000
@@ -28,6 +26,7 @@ class ToolException(Exception):  # noqa: N818
 
 class ToolMessage(typing.TypedDict):
     """The tool response JSON schema"""
+
     response: str | list[str]
 
 
@@ -52,7 +51,7 @@ def _convert_call_tool_result(
 
     if call_tool_result.isError:
         raise ToolException(tool_content)
-    
+
     tool_message = {
         "response": tool_content,
         # "artifact": non_text_contents,
@@ -88,7 +87,7 @@ def _has_docstring_section(docstring: str, section: str) -> bool:
     """Check if a docstring already contains a specific section (Args, Returns, etc.)."""
     if not docstring:
         return False
-    
+
     # Look for common docstring section patterns
     section_patterns = [
         f"\n{section}:",
@@ -96,7 +95,7 @@ def _has_docstring_section(docstring: str, section: str) -> bool:
         f"\n{section.upper()}:",
         f"\n{section.capitalize()}:",
     ]
-    
+
     return any(pattern in docstring for pattern in section_patterns)
 
 
@@ -106,43 +105,57 @@ def _create_async_function_from_mcp_tool(
     connection: Connection | None = None,
     namespace: str | None = None,
 ) -> typing.Coroutine:
-    """Create a dynamic async function from an MCP tool that can be wrapped by Synalinks tool."""
-    properties = mcp_tool.inputSchema.get("properties", {}) if mcp_tool.inputSchema else {}
-    required_params = set(mcp_tool.inputSchema.get("required", [])) if mcp_tool.inputSchema else set()
-    
+    """Create a dynamic async function from an MCP tool
+    that can be wrapped by Synalinks tool.
+
+    """
+    properties = (
+        mcp_tool.inputSchema.get("properties", {}) if mcp_tool.inputSchema else {}
+    )
+    required_params = (
+        set(mcp_tool.inputSchema.get("required", [])) if mcp_tool.inputSchema else set()
+    )
+
     parameters = []
     annotations = {}
-    
+
     for param_name, param_schema in properties.items():
         param_type = _json_schema_to_python_type(param_schema)
         annotations[param_name] = param_type
-        
+
         if param_name in required_params:
-            param = inspect.Parameter(param_name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=param_type)
+            param = inspect.Parameter(
+                param_name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=param_type
+            )
         else:
-            param = inspect.Parameter(param_name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=param_type, default=None)
-        
+            param = inspect.Parameter(
+                param_name,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=param_type,
+                default=None,
+            )
+
         parameters.append(param)
 
-    name = f"{namespace}/{mcp_tool.name}" if namespace else mcp_tool.name
-    
+    name = f"{namespace}_{mcp_tool.name}" if namespace else mcp_tool.name
+
     description = mcp_tool.description or f"Execute {name} function"
     docstring = [description]
-    
+
     if properties and not _has_docstring_section(description, "Args"):
         docstring.append("\nArgs:")
 
         for param_name, param_schema in properties.items():
             param_desc = param_schema.get("description", f"{param_name} parameter")
             docstring.append(f"    {param_name}: {param_desc}")
-    
+
     docstring = "\n".join(docstring)
 
     signature = inspect.Signature(parameters)
-    
+
     async def dynamic_function(**kwargs):
         filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
-        
+
         if session is None:
             # will create a session one on the fly
             async with create_session(connection) as tool_session:
@@ -152,22 +165,22 @@ def _create_async_function_from_mcp_tool(
                 )
         else:
             call_tool_result = await session.call_tool(mcp_tool.name, filtered_kwargs)
-        
+
         tool_message = _convert_call_tool_result(call_tool_result)
         return tool_message
-    
+
     dynamic_function.__name__ = name
     dynamic_function.__doc__ = docstring
     dynamic_function.__signature__ = signature
     dynamic_function.__annotations__ = annotations
-    
+
     return dynamic_function
 
 
 def _json_schema_to_python_type(schema: dict) -> type:
     """Convert JSON schema type to Python type."""
     schema_type = schema.get("type", "string")
-    
+
     type_mapping = {
         "string": str,
         "integer": int,
@@ -176,7 +189,7 @@ def _json_schema_to_python_type(schema: dict) -> type:
         "array": list,
         "object": dict,
     }
-    
+
     return type_mapping.get(schema_type, str)
 
 
@@ -204,7 +217,9 @@ def convert_mcp_tool_to_synalinks_tool(
     if session is None and connection is None:
         raise ValueError("Either a session or a connection config must be provided")
 
-    function = _create_async_function_from_mcp_tool(tool, session, connection, namespace=namespace)
+    function = _create_async_function_from_mcp_tool(
+        tool, session, connection, namespace=namespace
+    )
     return Tool(function)
 
 
@@ -231,6 +246,9 @@ async def load_mcp_tools(
         tools = await _list_all_tools(session)
 
     converted_tools = [
-        convert_mcp_tool_to_synalinks_tool(session, tool, connection=connection, namespace=namespace) for tool in tools
+        convert_mcp_tool_to_synalinks_tool(
+            session, tool, connection=connection, namespace=namespace
+        )
+        for tool in tools
     ]
     return converted_tools

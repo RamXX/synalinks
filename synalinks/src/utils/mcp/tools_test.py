@@ -1,23 +1,20 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
 
-from mcp.types import (
-    CallToolResult,
-    EmbeddedResource,
-    ImageContent,
-    TextContent,
-    TextResourceContents,
-    Tool as MCPTool,
-)
+from mcp.types import CallToolResult
+from mcp.types import EmbeddedResource
+from mcp.types import ImageContent
+from mcp.types import TextContent
+from mcp.types import TextResourceContents
+from mcp.types import Tool as MCPTool
 
 from synalinks.src import testing
-from synalinks.src.utils.mcp.tools import (
-    _convert_call_tool_result,
-    convert_mcp_tool_to_synalinks_tool,
-    load_mcp_tools,
-    ToolException,
-)
+from synalinks.src.utils.mcp.tools import ToolException
+from synalinks.src.utils.mcp.tools import _convert_call_tool_result
+from synalinks.src.utils.mcp.tools import convert_mcp_tool_to_synalinks_tool
+from synalinks.src.utils.mcp.tools import load_mcp_tools
 from synalinks.src.utils.tool_utils import Tool
 
 
@@ -56,10 +53,14 @@ class MCPToolsTest(testing.TestCase):
         self.assertEqual(tool_message["response"], ["result 1", "result 2"])
 
     def test_convert_with_non_text_content(self):
-        image_content = ImageContent(type="image", mimeType="image/png", data="base64data")
+        image_content = ImageContent(
+            type="image", mimeType="image/png", data="base64data"
+        )
         resource_content = EmbeddedResource(
             type="resource",
-            resource=TextResourceContents(uri="resource://test", mimeType="text/plain", text="hi"),
+            resource=TextResourceContents(
+                uri="resource://test", mimeType="text/plain", text="hi"
+            ),
         )
 
         result = CallToolResult(
@@ -113,12 +114,14 @@ class MCPToolsTest(testing.TestCase):
         synalinks_tool = convert_mcp_tool_to_synalinks_tool(session, mcp_tool)
 
         self.assertIsInstance(synalinks_tool, Tool)
-        self.assertEqual(synalinks_tool.name(), "test_tool")
-        self.assertStartsWith(synalinks_tool.description(), "Test tool description")
+        self.assertEqual(synalinks_tool.name, "test_tool")
+        self.assertStartsWith(synalinks_tool.description, "Test tool description")
 
-        result = await synalinks_tool.async__call__(param1="test", param2=42)
+        result = await synalinks_tool(param1="test", param2=42)
 
-        session.call_tool.assert_called_once_with("test_tool", {"param1": "test", "param2": 42})
+        session.call_tool.assert_called_once_with(
+            "test_tool", {"param1": "test", "param2": 42}
+        )
 
         self.assertEqual(result["response"], "tool result")
 
@@ -151,12 +154,16 @@ class MCPToolsTest(testing.TestCase):
         async def mock_call_tool(tool_name, arguments):
             if tool_name == "tool1":
                 return CallToolResult(
-                    content=[TextContent(type="text", text=f"tool1 result with {arguments}")],
+                    content=[
+                        TextContent(type="text", text=f"tool1 result with {arguments}")
+                    ],
                     isError=False,
                 )
             elif tool_name == "tool2":
                 return CallToolResult(
-                    content=[TextContent(type="text", text=f"tool2 result with {arguments}")],
+                    content=[
+                        TextContent(type="text", text=f"tool2 result with {arguments}")
+                    ],
                     isError=False,
                 )
             else:
@@ -168,16 +175,20 @@ class MCPToolsTest(testing.TestCase):
 
         self.assertEqual(len(toolkit), 2)
         self.assertTrue(all(isinstance(tool, Tool) for tool in toolkit))
-        self.assertEqual(toolkit[0].name(), "tool1")
-        self.assertStartsWith(toolkit[0].description(), "Tool 1 description")
-        self.assertEqual(toolkit[1].name(), "tool2")
-        self.assertStartsWith(toolkit[1].description(), "Tool 2 description")
+        self.assertEqual(toolkit[0].name, "tool1")
+        self.assertStartsWith(toolkit[0].description, "Tool 1 description")
+        self.assertEqual(toolkit[1].name, "tool2")
+        self.assertStartsWith(toolkit[1].description, "Tool 2 description")
 
-        result1 = await toolkit[0].async__call__(param1="test1", param2=1)
-        self.assertEqual(result1["response"], "tool1 result with {'param1': 'test1', 'param2': 1}")
+        result1 = await toolkit[0](param1="test1", param2=1)
+        self.assertEqual(
+            result1["response"], "tool1 result with {'param1': 'test1', 'param2': 1}"
+        )
 
-        result2 = await toolkit[1].async__call__(param1="test2", param2=2)
-        self.assertEqual(result2["response"], "tool2 result with {'param1': 'test2', 'param2': 2}")
+        result2 = await toolkit[1](param1="test2", param2=2)
+        self.assertEqual(
+            result2["response"], "tool2 result with {'param1': 'test2', 'param2': 2}"
+        )
 
     async def test_load_mcp_tools_with_namespace(self):
         tool_input_schema = {
@@ -210,12 +221,16 @@ class MCPToolsTest(testing.TestCase):
         async def mock_call_tool(tool_name, arguments):
             if tool_name == "tool1":
                 return CallToolResult(
-                    content=[TextContent(type="text", text=f"tool1 result with {arguments}")],
+                    content=[
+                        TextContent(type="text", text=f"tool1 result with {arguments}")
+                    ],
                     isError=False,
                 )
             elif tool_name == "tool2":
                 return CallToolResult(
-                    content=[TextContent(type="text", text=f"tool2 result with {arguments}")],
+                    content=[
+                        TextContent(type="text", text=f"tool2 result with {arguments}")
+                    ],
                     isError=False,
                 )
             else:
@@ -227,13 +242,17 @@ class MCPToolsTest(testing.TestCase):
 
         self.assertEqual(len(toolkit), 2)
         self.assertTrue(all(isinstance(tool, Tool) for tool in toolkit))
-        self.assertEqual(toolkit[0].name(), f"{namespace}/tool1")
-        self.assertStartsWith(toolkit[0].description(), "Tool 1 description")
-        self.assertEqual(toolkit[1].name(), f"{namespace}/tool2")
-        self.assertStartsWith(toolkit[1].description(), "Tool 2 description")
+        self.assertEqual(toolkit[0].name, f"{namespace}_tool1")
+        self.assertStartsWith(toolkit[0].description, "Tool 1 description")
+        self.assertEqual(toolkit[1].name, f"{namespace}_tool2")
+        self.assertStartsWith(toolkit[1].description, "Tool 2 description")
 
-        result1 = await toolkit[0].async__call__(param1="test1", param2=1)
-        self.assertEqual(result1["response"], "tool1 result with {'param1': 'test1', 'param2': 1}")
+        result1 = await toolkit[0](param1="test1", param2=1)
+        self.assertEqual(
+            result1["response"], "tool1 result with {'param1': 'test1', 'param2': 1}"
+        )
 
-        result2 = await toolkit[1].async__call__(param1="test2", param2=2)
-        self.assertEqual(result2["response"], "tool2 result with {'param1': 'test2', 'param2': 2}")
+        result2 = await toolkit[1](param1="test2", param2=2)
+        self.assertEqual(
+            result2["response"], "tool2 result with {'param1': 'test2', 'param2': 2}"
+        )
