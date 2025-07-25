@@ -265,7 +265,7 @@ class FunctionCallingAgent(Module):
         asyncio.run(main())
     ```
     
-    The Agent is compatible with MCP tools, here is an example on how to use it:
+    The FunctionCallingAgent is compatible with MCP tools, here is an example on how to use it:
     
     ```python
     import synalinks

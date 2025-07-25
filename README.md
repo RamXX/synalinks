@@ -64,13 +64,13 @@ Synalinks can help you simplify these tasks by leveraging decade old practices i
 
 <div align="center">
 
-| Framework | MCP | Graph DB | Logical Flow |
-| --- | --- | --- | --- |
-| Synalinks | ✅ Yes | ✅ Yes | ✅ Yes |
-| DSPy      | ✅ Yes | ❌ No | ❌ No |
-| AdalFlow  | ✅ Yes | ❌ No | ❌ No |
-| TextGrad  | ❌ No | ❌ No | ❌ No |
-| Trace     | ❌ No | ❌ No | ❌ No |
+| Framework | MCP | Graph DB | Logical Flow | Robust Branching | Parallel Function Calling | Ease of Use |
+| --- | --- | --- | --- | --- | --- | --- |
+| Synalinks | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | 😀 |
+| DSPy      | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No | 😢 |
+| AdalFlow  | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No | 😢 |
+| TextGrad  | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | 😭 |
+| Trace     | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | 😭 |
 
 </div>
 
