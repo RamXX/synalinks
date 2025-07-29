@@ -31,7 +31,7 @@ dependencies = [
     "graphviz",
     "inquirer",
     "jinja2",
-    "kuzu",
+    "kuzu>=0.11.1",
     "litellm",
     "matplotlib",
     "mcp",
@@ -117,11 +117,13 @@ omit = [
     "*/plot_*.py",
     "*/*_visualization.py",
     "*/cli/*",
+    "*/async_utils.py",
 ]
 
 [tool.coverage.run]
 branch = true
 omit = [
     "*/__init__.py",
-    "*/cli/*"
+    "*/cli/*",
+    "*/async_utils.py",
 ]

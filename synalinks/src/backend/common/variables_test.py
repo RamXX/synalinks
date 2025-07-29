@@ -102,7 +102,9 @@ class VariablesTest(testing.TestCase):
             foo: str = ""
             bar: str = ""
 
-        variable = Variable(initializer={"foo": "value", "bar": "value2"}, data_model=FooBar)
+        variable = Variable(
+            initializer={"foo": "value", "bar": "value2"}, data_model=FooBar
+        )
 
         self.assertTrue(Foo in variable)
         self.assertFalse(FooBar in Foo)

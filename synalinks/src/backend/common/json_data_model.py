@@ -1,14 +1,14 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
-import asyncio
 import copy
 import inspect
 
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend.common.json_schema_utils import standardize_schema
 from synalinks.src.backend.common.symbolic_data_model import SymbolicDataModel
-from synalinks.src.utils.naming import auto_name
 from synalinks.src.utils.async_utils import run_maybe_nested
+from synalinks.src.utils.naming import auto_name
+
 
 @synalinks_export("synalinks.JsonDataModel")
 class JsonDataModel:

@@ -28,9 +28,9 @@ def get_default_static_prompt():
 def get_default_instructions() -> List[str]:
     """The default parallel agent instructions."""
     return [
-        "Think step by step: Use the thinking field to elaborate what you observe and what do you need to accomplish next",
-        "Reflect on prior steps: Review your previous actions and their outcomes to avoid unnecessary repetition.",
-        "Avoid unnecessary actions: If you already have enough information to complete the user task, return an empty tool calls array.",
+        "Think step by step: Use the thinking field to elaborate what you observe and what do you need to accomplish next",  # noqa: E501
+        "Reflect on prior steps: Review your previous actions and their outcomes to avoid unnecessary repetition.",  # noqa: E501
+        "Avoid unnecessary actions: If you already have enough information to complete the user task, return an empty tool calls array.",  # noqa: E501
     ]
 
 
@@ -264,9 +264,10 @@ class FunctionCallingAgent(Module):
     if __name__ == "__main__":
         asyncio.run(main())
     ```
-    
-    The FunctionCallingAgent is compatible with MCP tools, here is an example on how to use it:
-    
+
+    The FunctionCallingAgent is compatible with MCP tools,
+    here is an example on how to use it:
+
     ```python
     import synalinks
     import asyncio
@@ -288,7 +289,7 @@ class FunctionCallingAgent(Module):
 
 
     async def main():
-        
+
         language_model = synalinks.LanguageModel(
             model="ollama/mistral",
         )
@@ -303,7 +304,7 @@ class FunctionCallingAgent(Module):
         )
 
         tools = await mcp_client.get_tools()
-        
+
         inputs = synalinks.Input(data_model=Query)
         outputs = await synalinks.FunctionCallingAgent(
             data_model=FinalAnswer,
@@ -324,7 +325,7 @@ class FunctionCallingAgent(Module):
         response = await agent(input_query)
 
         print(response.prettify_json())
-        
+
 
     if __name__ == "__main__":
         asyncio.run(main())

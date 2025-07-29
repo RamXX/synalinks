@@ -6,8 +6,9 @@ from typing import Any
 from typing import Dict
 
 from synalinks.src.embedding_models import EmbeddingModel
-from synalinks.src.utils.naming import to_snake_case
 from synalinks.src.utils.async_utils import run_maybe_nested
+from synalinks.src.utils.naming import to_snake_case
+
 
 class DatabaseAdapter:
     def __init__(
@@ -30,9 +31,7 @@ class DatabaseAdapter:
 
         self.embedding_model = embedding_model
         self.embedding_dim = len(
-            run_maybe_nested(embedding_model(texts=["test"]))[
-                "embeddings"
-            ][0]
+            run_maybe_nested(embedding_model(texts=["test"]))["embeddings"][0]
         )
 
         if metric not in ("cosine", "euclidean"):

@@ -1,15 +1,21 @@
 # import asyncio
 # import warnings
+# import os
 # from itertools import product
 # from typing import Any
 # from typing import Dict
+# import json
 
 # import kuzu
 
 # from synalinks.src.backend import is_entity
 # from synalinks.src.backend import is_relation
+# from synalinks.src.backend import is_similarity_search
+# from synalinks.src.backend import is_triplet_search
+# from synalinks.src.backend.common.json_utils import out_mask_json
 # from synalinks.src.knowledge_bases.database_adapters import DatabaseAdapter
 # from synalinks.src.utils.naming import to_snake_case
+# from synalinks.src.utils.async_utils import run_maybe_nested
 
 
 # class KuzuAdapter(DatabaseAdapter):
@@ -24,7 +30,12 @@
 #     ):
 #         self.db_name = uri.replace("kuzu://", "")
 #         self.db = kuzu.Database(self.db_name)
-
+#         try:
+#             run_maybe_nested(
+#                 self.query("INSTALL vector; LOAD vector;")
+#             )
+#         except Exception:
+#             pass
 #         super().__init__(
 #             uri=uri,
 #             entity_models=entity_models,
@@ -33,17 +44,11 @@
 #             metric=metric,
 #             wipe_on_start=wipe_on_start,
 #         )
-#         try:
-#             run_maybe_nested(
-#                 self.query("INSTALL vector; LOAD vector;")
-#             )
-#         except Exception:
-#             pass
 
 #     def wipe_database(self):
-#         run_maybe_nested(
-#             self.query("MATCH (n) DETACH DELETE n;")
-#         )
+#         # if os.path.exists(self.db_name):
+#         #     os.remove(self.db_name)
+#         pass
 
 #     def create_vector_index(self):
 #         """Create vector indexes"""
@@ -56,7 +61,8 @@
 #                 query = "\n".join(
 #                     [
 #                         "CALL CREATE_VECTOR_INDEX(",
-#                         f"'{node_label}', '{index_name}', 'embedding');",
+#                         f"'{node_label}', '{index_name}', 'embedding'",
+#                         ");",
 #                     ]
 #                 )
 #                 run_maybe_nested(self.query(query))
@@ -68,123 +74,130 @@
 #             run_maybe_nested(self.query(ddl))
 
 #     async def query(self, query, params=None):
-#         result_list = []
+#         result = []
 #         with kuzu.AsyncConnection(self.db) as conn:
-#             result = await conn.execute(query, parameters=params)
-#             result_list.append(result.get_as_df().to_json(orient="records"))
-#         return result_list
+#             query_result = await conn.execute(query, parameters=params)
+#             query_result = json.loads(query_result.get_as_df().to_json(orient='records'))
+#             for i, _ in enumerate(query_result):
+#                 if isinstance(query_result[i], dict):
+#                     result.append(
+#                         out_mask_json(
+#                             query_result[i],
+#                             mask=["embedding", "_id", "id", "_label"]
+#                         ),
+#                     )
+#         return result
 
-# def _json_schema_to_kuzu_node_table(self, schema: Dict[str, Any]) -> str:
-#     """Convert JSON schema to Kuzu CREATE NODE TABLE statement"""
-#     table_name = self.sanitize_label(schema.get("title", "Entity"))
-#     properties = schema.get("properties", {})
+#     def _json_schema_to_kuzu_node_table(self, schema: Dict[str, Any]) -> str:
+#         """Convert JSON schema to Kuzu CREATE NODE TABLE statement"""
+#         table_name = self.sanitize_label(schema.get("title", "Entity"))
+#         properties = schema.get("properties", {})
 
-#     columns = []
-#     primary_key = None
+#         columns = []
+#         primary_key = None
 
-#     # Add embedding column
-#     columns.append(f"embedding FLOAT[{self.embedding_dim}]")
+#         # Add embedding column
+#         columns.append(f"embedding FLOAT[{self.embedding_dim}]")
 
-#     for prop_name, prop_def in properties.items():
-#         prop_name = self.sanitize_property_name(prop_name)
-#         kuzu_type = self._json_type_to_kuzu_type(prop_def)
-#         if prop_name not in ["embedding"]:
-#             # Check if this should be the primary key
-#             if prop_name == "name":
-#                 if not primary_key:
-#                     primary_key = prop_name
-#                     columns.append(f"{prop_name} {kuzu_type} PRIMARY KEY")
-#                 else:
-#                     columns.append(f"{prop_name} {kuzu_type}")
-#             else:
-#                 columns.append(f"{prop_name} {kuzu_type}")
-
-#     if not primary_key:
-#         columns.insert(0, "id SERIAL PRIMARY KEY")
-
-#     columns_str = ", ".join(columns)
-#     ddl = f"CREATE NODE TABLE IF NOT EXISTS {table_name} ({columns_str})"
-#     return ddl
-
-# def _json_schema_to_kuzu_rel_table(self, schema: Dict[str, Any]) -> str:
-#     """Convert JSON schema to Kuzu CREATE REL TABLE statement"""
-#     table_name = self.sanitize_label(schema.get("title", "Relation"))
-#     properties = schema.get("properties", {})
-
-#     columns = []
-#     subj_labels = []
-#     obj_labels = []
-
-#     # Extract FROM and TO table information from schema if available
-#     if "subj" in properties:
-#         if "anyOf" in properties["subj"]:
-#             for union_type in properties["subj"]["anyOf"]:
-#                 subj_labels.append(union_type["$ref"].replace("#/$defs/", ""))
-#         else:
-#             subj_labels.append(properties["subj"]["$ref"].replace("#/$defs/", ""))
-
-#     if "obj" in properties:
-#         if "anyOf" in properties["obj"]:
-#             for union_type in properties["obj"]["anyOf"]:
-#                 obj_labels.append(union_type["$ref"].replace("#/$defs/", ""))
-#         else:
-#             obj_labels.append(properties["subj"]["$ref"].replace("#/$defs/", ""))
-
-#     # Add other properties (excluding subj, obj)
-#     for prop_name, prop_def in properties.items():
-#         if prop_name not in ["subj", "obj"]:
+#         for prop_name, prop_def in properties.items():
 #             prop_name = self.sanitize_property_name(prop_name)
 #             kuzu_type = self._json_type_to_kuzu_type(prop_def)
-
-#             default_val = prop_def.get("default")
-#             if default_val is not None:
-#                 if isinstance(default_val, str):
-#                     columns.append(f"{prop_name} {kuzu_type} DEFAULT '{default_val}'")
+#             if prop_name not in ["embedding"]:
+#                 # Check if this should be the primary key
+#                 if prop_name == "name":
+#                     if not primary_key:
+#                         primary_key = prop_name
+#                         columns.append(f"{prop_name} {kuzu_type} PRIMARY KEY")
+#                     else:
+#                         columns.append(f"{prop_name} {kuzu_type}")
 #                 else:
-#                     columns.append(f"{prop_name} {kuzu_type} DEFAULT {default_val}")
+#                     columns.append(f"{prop_name} {kuzu_type}")
+
+#         if not primary_key:
+#             columns.insert(0, "id SERIAL PRIMARY KEY")
+
+#         columns_str = ", ".join(columns)
+#         ddl = f"CREATE NODE TABLE IF NOT EXISTS {table_name} ({columns_str})"
+#         return ddl
+
+#     def _json_schema_to_kuzu_rel_table(self, schema: Dict[str, Any]) -> str:
+#         """Convert JSON schema to Kuzu CREATE REL TABLE statement"""
+#         table_name = self.sanitize_label(schema.get("title", "Relation"))
+#         properties = schema.get("properties", {})
+
+#         columns = []
+#         subj_labels = []
+#         obj_labels = []
+
+#         # Extract FROM and TO table information from schema if available
+#         if "subj" in properties:
+#             if "anyOf" in properties["subj"]:
+#                 for union_type in properties["subj"]["anyOf"]:
+#                     subj_labels.append(union_type["$ref"].replace("#/$defs/", ""))
 #             else:
-#                 columns.append(f"{prop_name} {kuzu_type}")
+#                 subj_labels.append(properties["subj"]["$ref"].replace("#/$defs/", ""))
 
-#     # Build the DDL
-#     if columns:
-#         columns_str = ", " + ", ".join(columns)
-#     else:
-#         columns_str = ""
+#         if "obj" in properties:
+#             if "anyOf" in properties["obj"]:
+#                 for union_type in properties["obj"]["anyOf"]:
+#                     obj_labels.append(union_type["$ref"].replace("#/$defs/", ""))
+#             else:
+#                 obj_labels.append(properties["subj"]["$ref"].replace("#/$defs/", ""))
 
-#     from_to_clauses = []
-#     for from_table, to_table in product(subj_labels, obj_labels):
-#         from_to_clauses.append(f"FROM {from_table} TO {to_table}")
-#     from_to_clauses = ", ".join(from_to_clauses)
+#         # Add other properties (excluding subj, obj)
+#         for prop_name, prop_def in properties.items():
+#             if prop_name not in ["subj", "obj"]:
+#                 prop_name = self.sanitize_property_name(prop_name)
+#                 kuzu_type = self._json_type_to_kuzu_type(prop_def)
 
-#     ddl = (
-#         f"CREATE REL TABLE IF NOT EXISTS {table_name}({from_to_clauses}{columns_str})"
-#     )
+#                 default_val = prop_def.get("default")
+#                 if default_val is not None:
+#                     if isinstance(default_val, str):
+#                         columns.append(f"{prop_name} {kuzu_type} DEFAULT '{default_val}'") # noqa: E501
+#                     else:
+#                         columns.append(f"{prop_name} {kuzu_type} DEFAULT {default_val}") # noqa: E501
+#                 else:
+#                     columns.append(f"{prop_name} {kuzu_type}")
 
-#     return ddl
+#         # Build the DDL
+#         if columns:
+#             columns_str = ", " + ", ".join(columns)
+#         else:
+#             columns_str = ""
 
-# def _json_type_to_kuzu_type(self, prop_def: Dict[str, Any]) -> str:
-#     """Convert JSON schema type to Kuzu data type"""
-#     json_type = prop_def.get("type", "string")
+#         from_to_clauses = []
+#         for from_table, to_table in product(subj_labels, obj_labels):
+#             from_to_clauses.append(f"FROM {from_table} TO {to_table}")
+#         from_to_clauses = ", ".join(from_to_clauses)
 
-#     type_mapping = {
-#         "string": "STRING",
-#         "integer": "INT64",
-#         "number": "DOUBLE",
-#         "boolean": "BOOLEAN",
-#         "array": "STRING",  # Store as JSON string for simplicity
-#         "object": "STRING",  # Store as JSON string
-#     }
-#     # Handle format specifications
-#     if json_type == "string":
-#         format_type = prop_def.get("format")
-#         if format_type == "date":
-#             return "DATE"
-#         elif format_type == "date-time":
-#             return "TIMESTAMP"
-#         elif format_type == "time":
-#             return "TIME"
+#         ddl = (
+#             f"CREATE REL TABLE IF NOT EXISTS {table_name}({from_to_clauses}{columns_str})" # noqa: E501
+#         )
+#         return ddl
 
-#     return type_mapping.get(json_type, "STRING")
+#     def _json_type_to_kuzu_type(self, prop_def: Dict[str, Any]) -> str:
+#         """Convert JSON schema type to Kuzu data type"""
+#         json_type = prop_def.get("type", "string")
+
+#         type_mapping = {
+#             "string": "STRING",
+#             "integer": "INT64",
+#             "number": "DOUBLE",
+#             "boolean": "BOOLEAN",
+#             "array": "STRING",  # Store as JSON string for simplicity
+#             "object": "STRING",  # Store as JSON string
+#         }
+#         # Handle format specifications
+#         if json_type == "string":
+#             format_type = prop_def.get("format")
+#             if format_type == "date":
+#                 return "DATE"
+#             elif format_type == "date-time":
+#                 return "TIMESTAMP"
+#             elif format_type == "time":
+#                 return "TIME"
+
+#         return type_mapping.get(json_type, "STRING")
 
 #     async def update(
 #         self,
@@ -221,12 +234,12 @@
 #                     f"CALL QUERY_VECTOR_INDEX('{subj_label}', '{to_snake_case(subj_label)}', $subjVector, 1)",
 #                     "YIELD node AS s, distance AS subj_score",
 #                     "WITH s, subj_score",
-#                     "WHERE subj_score >= $threshold",
+#                     "WHERE subj_score <= 1 - $threshold",
 #                     "",
 #                     f"CALL QUERY_VECTOR_INDEX('{obj_label}', '{to_snake_case(obj_label)}', $objVector, 1)",
 #                     "YIELD node AS o, distance AS obj_score",
 #                     "WITH o, obj_score",
-#                     "WHERE obj_score >= $threshold",
+#                     "WHERE obj_score <= 1 - $threshold",
 #                     "",
 #                     f"MERGE (s)-[r:{relation_label}]->(o)",
 #                     (
@@ -263,12 +276,11 @@
 #                 [
 #                     f"CALL QUERY_VECTOR_INDEX('{node_label}', '{to_snake_case(node_label)}', $vector, 1)",
 #                     "YIELD node, distance AS score",
-#                     "WITH node, score",
+#                     "WITH node, 1 - score AS score",
 #                     "WHERE score >= $threshold",
 #                     "WITH count(node) as existing_count",
 #                     "WHERE existing_count = 0",
-#                     f"CREATE (n:{node_label})",
-#                     f"SET {', '.join([f'n.{key} = ${key}' for key in properties.keys()])}",  # noqa E501
+#                     f"CREATE (n:{node_label} {{{', '.join([f'{key}: ${key}' for key in properties.keys()])}}})", # noqa E501
 #                 ]
 #             )
 #             params = {
@@ -302,20 +314,173 @@
 #         query = "\n".join(
 #             [
 #                 "CALL QUERY_VECTOR_INDEX(",
-#                 " $indexName,",
-#                 " $numberOfNearestNeighbours,",
-#                 " $vector) YIELD node AS node, distance AS score",
-#                 "WITH node, score",
+#                 f" '{entity_label}',",
+#                 f" '{to_snake_case(entity_label)}',",
+#                 " $vector,",
+#                 " $numberOfNearestNeighbours)",
+#                 "YIELD node AS node, distance AS score",
+#                 "WITH node, 1 - score AS score",
 #                 "WHERE score >= $threshold",
-#                 "RETURN {name: node.name, label: node.label} AS node, score",
-#                 "LIMIT $numberOfNearestNeighbours",
+#                 "RETURN node AS node, score AS score",
+#                 f"LIMIT $numberOfNearestNeighbours",
 #             ]
 #         )
 #         params = {
-#             "indexName": index_name,
 #             "numberOfNearestNeighbours": k,
 #             "threshold": threshold,
 #             "vector": vector,
 #         }
+#         result = []
 #         result = await self.query(query, params=params)
 #         return result
+
+#     async def triplet_search(
+#         self,
+#         triplet_search,
+#         k=10,
+#         threshold=0.7,
+#     ):
+#         if not is_triplet_search(triplet_search):
+#             raise ValueError(
+#                 "The `triplet_search` argument should be a `TripletSearch` data model"
+#             )
+#         subject_label = triplet_search.get("subject_label")
+#         subject_label = self.sanitize_label(subject_label)
+#         subject_similarity_search = triplet_search.get("subject_similarity_search")
+#         relation_label = triplet_search.get("relation_label")
+#         relation_label = self.sanitize_label(relation_label)
+#         object_label = triplet_search.get("object_label")
+#         object_label = self.sanitize_label(object_label)
+#         object_similarity_search = triplet_search.get("object_similarity_search")
+
+#         params = {
+#             "numberOfNearestNeighbours": k,
+#         }
+#         query_lines = []
+
+#         has_subject_similarity = (
+#             subject_similarity_search and subject_similarity_search != "?"
+#         )
+#         has_object_similarity = (
+#             object_similarity_search and object_similarity_search != "?"
+#         )
+
+#         if has_subject_similarity and has_object_similarity:
+#             subject_vector = (
+#                 await self.embedding_model(texts=[subject_similarity_search])
+#             )["embeddings"][0]
+#             object_vector = (
+#                 await self.embedding_model(texts=[object_similarity_search])
+#             )["embeddings"][0]
+#             params["subjVector"] = subject_vector
+#             params["objVector"] = object_vector
+#             params["threshold"] = threshold
+
+#             query_lines.append(
+#                 (
+#                     "CALL QUERY_VECTOR_INDEX("
+#                     f"'{subject_label}',"
+#                     f" '{to_snake_case(subject_label)}',"
+#                     " $subjVector,"
+#                     " $numberOfNearestNeighbours)"
+#                 )
+#             )
+#             query_lines.extend(
+#                 [
+#                     "YIELD node AS subj, distance AS subj_score",
+#                     "WITH subj, 1 - subj_score AS subj_score",
+#                     "WHERE subj_score >= $threshold",
+#                 ]
+#             )
+#             query_lines.append(
+#                 (
+#                     "CALL QUERY_VECTOR_INDEX("
+#                     f"'{object_label}',"
+#                     f" '{to_snake_case(object_label)}',"
+#                     " $objVector,"
+#                     " $numberOfNearestNeighbours)"
+#                 )
+#             )
+#             query_lines.extend(
+#                 [
+#                     "YIELD node AS obj, distance AS obj_score",
+#                     "WITH obj, 1 - obj_score AS obj_score",
+#                     "WHERE obj_score >= $threshold",
+#                     "WITH subj, subj_score, obj, obj_score",
+#                 ]
+#             )
+#             query_lines.append(f"MATCH (subj)-[relation:{relation_label}]->(obj)")
+#             query_lines.append("WITH subj, subj_score, relation, obj, obj_score")
+#         elif has_subject_similarity:
+#             subject_vector = (
+#                 await self.embedding_model(texts=[subject_similarity_search])
+#             )["embeddings"][0]
+#             params["subjVector"] = subject_vector
+#             params["threshold"] = threshold
+
+#             query_lines.append(
+#                 (
+#                     "CALL QUERY_VECTOR_INDEX("
+#                     f" '{subject_label}',"
+#                     f" '{to_snake_case(subject_label)}',"
+#                     " $subjVector,"
+#                     " $numberOfNearestNeighbours)"
+#                 )
+#             )
+#             query_lines.extend(
+#                 [
+#                     "YIELD node AS subj, distance AS subj_score",
+#                     "WITH subj, 1 - subj_score AS subj_score",
+#                     "WHERE subj_score >= $threshold",
+#                 ]
+#             )
+#             query_lines.append(f"MATCH (subj)-[relation:{relation_label}]->(obj)")
+#             query_lines.append("WITH subj, subj_score, relation, obj, 1.0 AS obj_score")
+
+#         elif has_object_similarity:
+#             object_vector = (
+#                 await self.embedding_model(texts=[object_similarity_search])
+#             )["embeddings"][0]
+#             params["objVector"] = object_vector
+#             params["threshold"] = threshold
+
+#             query_lines.append(
+#                 (
+#                     "CALL QUERY_VECTOR_INDEX("
+#                     f" '{object_label}',"
+#                     f" '{to_snake_case(object_label)}',"
+#                     " $objVector,"
+#                     " $numberOfNearestNeighbours)"
+#                 )
+#             )
+#             query_lines.extend(
+#                 [
+#                     "YIELD node AS obj, distance AS obj_score",
+#                     "WITH obj, 1 - obj_score AS obj_score",
+#                     "WHERE obj_score >= $threshold",
+#                 ]
+#             )
+#             query_lines.append(f"MATCH (subj)-[relation:{relation_label}]->(obj)")
+#             query_lines.append("WITH subj, 1.0 AS subj_score, relation, obj, obj_score")
+#         else:
+#             query_lines.append(
+#                 (
+#                     f"MATCH (subj:{subject_label})"
+#                     f"-[relation:{relation_label}]->"
+#                     f"(obj:{object_label})"
+#                 )
+#             )
+#             query_lines.append(
+#                 "WITH subj, 1.0 AS subj_score, relation, obj, 1.0 AS obj_score"
+#             )
+#         query_lines.append(
+#             (
+#                 "RETURN subj, relation AS relation, obj, "
+#                 "sqrt(subj_score * obj_score) AS score"
+#             )
+#         )
+#         query_lines.append("LIMIT $numberOfNearestNeighbours")
+#         query = "\n".join(query_lines)
+#         print(query)
+#         return []
+#         # return await self.query(query, params)

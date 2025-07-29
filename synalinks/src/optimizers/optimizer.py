@@ -2,7 +2,6 @@
 # Original authors: François Chollet et al. (Keras Team)
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
-import asyncio
 import warnings
 
 import docstring_parser
@@ -16,8 +15,9 @@ from synalinks.src.metrics import Metric
 from synalinks.src.modules import Module
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 from synalinks.src.utils import tracking
-from synalinks.src.utils.naming import auto_name
 from synalinks.src.utils.async_utils import run_maybe_nested
+from synalinks.src.utils.naming import auto_name
+
 
 class Iteration(DataModel):
     iteration: int = 0

@@ -74,7 +74,12 @@ class RewardFunctionWrapper(Reward):
         return f"<RewardFunctionWrapper({self.fn}, kwargs={self._fn_kwargs})>"
 
 
-@synalinks_export("synalinks.rewards.ProgramAsJudge")
+@synalinks_export(
+    [
+        "synalinks.ProgramAsJudge",
+        "synalinks.rewards.ProgramAsJudge",
+    ]
+)
 class ProgramAsJudge(Reward):
     """Wrap a `Program` into a `Reward`.
 

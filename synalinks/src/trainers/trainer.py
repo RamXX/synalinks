@@ -917,9 +917,7 @@ class Trainer:
         if hasattr(self, "optimizer") and self.built:
             # Create optimizer variables/programs.
             if not self.optimizer.built:
-                run_maybe_nested(
-                    self.optimizer.build(self.trainable_variables)
-                )
+                run_maybe_nested(self.optimizer.build(self.trainable_variables))
 
     def _should_reward(self, epoch, validation_freq):
         epoch = epoch + 1  # one-index the user-facing epoch.
@@ -1010,9 +1008,7 @@ class Trainer:
                     break
             (x, y) = data_batch
             try:
-                y_pred = run_maybe_nested(
-                    self.predict_on_batch(x, training=False)
-                )
+                y_pred = run_maybe_nested(self.predict_on_batch(x, training=False))
             except Exception as e:
                 raise RuntimeError(
                     "Unable to automatically build the program. "
@@ -1048,9 +1044,7 @@ class Trainer:
                 )
         if optimizer_unbuilt:
             # Build optimizer
-            run_maybe_nested(
-                self.optimizer.build(self.trainable_variables)
-            )
+            run_maybe_nested(self.optimizer.build(self.trainable_variables))
         self._post_build()
 
     def _assert_compile_called(self, method_name=None):

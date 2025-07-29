@@ -9,8 +9,8 @@ from synalinks.src.backend import is_similarity_search
 from synalinks.src.backend import is_triplet_search
 from synalinks.src.knowledge_bases.database_adapters import DatabaseAdapter
 from synalinks.src.knowledge_bases.database_adapters.neo4j_adapter import Neo4JAdapter
-from synalinks.src.utils.naming import to_snake_case
 from synalinks.src.utils.async_utils import run_maybe_nested
+from synalinks.src.utils.naming import to_snake_case
 
 
 class MemGraphAdapter(Neo4JAdapter):
@@ -38,9 +38,7 @@ class MemGraphAdapter(Neo4JAdapter):
         )
 
     def wipe_database(self):
-        run_maybe_nested(
-            self.query("MATCH (n) DETACH DELETE n;")
-        )
+        run_maybe_nested(self.query("MATCH (n) DETACH DELETE n;"))
 
     def create_vector_index(self):
         metric_mapping = {"cosine": "cos", "euclidean": "l2sq"}
@@ -192,7 +190,7 @@ class MemGraphAdapter(Neo4JAdapter):
                 " $vector) YIELD node AS node, similarity AS score",
                 "WITH node, score",
                 "WHERE score >= $threshold",
-                "RETURN {name: node.name, label: node.label} AS node, score",
+                "RETURN node AS node, score",
                 "LIMIT $numberOfNearestNeighbours",
             ]
         )
@@ -228,7 +226,6 @@ class MemGraphAdapter(Neo4JAdapter):
         params = {
             "numberOfNearestNeighbours": k,
             "threshold": threshold,
-            "k": k,
         }
         query_lines = []
 
@@ -342,6 +339,6 @@ class MemGraphAdapter(Neo4JAdapter):
                 "sqrt(subj_score * obj_score) AS score"
             )
         )
-        query_lines.append("LIMIT $k")
+        query_lines.append("LIMIT $numberOfNearestNeighbours")
         query = "\n".join(query_lines)
         return await self.query(query, params)

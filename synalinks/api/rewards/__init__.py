@@ -11,6 +11,7 @@ from synalinks.src.rewards.cosine_similarity import CosineSimilarity as CosineSi
 from synalinks.src.rewards.cosine_similarity import cosine_similarity as cosine_similarity
 from synalinks.src.rewards.exact_match import ExactMatch as ExactMatch
 from synalinks.src.rewards.exact_match import exact_match as exact_match
+from synalinks.src.rewards.lm_as_judge import LMAsJudge as LMAsJudge
 from synalinks.src.rewards.reward import Reward as Reward
 from synalinks.src.rewards.reward_wrappers import ProgramAsJudge as ProgramAsJudge
 from synalinks.src.rewards.reward_wrappers import (

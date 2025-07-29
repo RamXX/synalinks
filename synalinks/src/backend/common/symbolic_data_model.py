@@ -2,7 +2,6 @@
 # Original authors: François Chollet et al. (Keras Team)
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
-import asyncio
 import json
 
 from synalinks.src import tree
@@ -10,8 +9,8 @@ from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend.common.json_schema_utils import is_schema_equal
 from synalinks.src.backend.common.json_schema_utils import standardize_schema
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
-from synalinks.src.utils.naming import auto_name
 from synalinks.src.utils.async_utils import run_maybe_nested
+from synalinks.src.utils.naming import auto_name
 
 
 @synalinks_export("synalinks.SymbolicDataModel")
@@ -159,9 +158,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Concat().symbolic_call(self, other)
-        )
+        return run_maybe_nested(ops.Concat().symbolic_call(self, other))
 
     def __radd__(self, other):
         """Concatenates (reverse) another data model with this one.
@@ -175,9 +172,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Concat().symbolic_call(other, self)
-        )
+        return run_maybe_nested(ops.Concat().symbolic_call(other, self))
 
     def __and__(self, other):
         """Perform a `logical_and` with another data model.
@@ -195,9 +190,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.And().symbolic_call(self, other)
-        )
+        return run_maybe_nested(ops.And().symbolic_call(self, other))
 
     def __rand__(self, other):
         """Perform a `logical_and` (reverse) with another data model.
@@ -215,9 +208,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.And().symbolic_call(other, self)
-        )
+        return run_maybe_nested(ops.And().symbolic_call(other, self))
 
     def __or__(self, other):
         """Perform a `logical_or` with another data model
@@ -235,9 +226,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Or().symbolic_call(self, other)
-        )
+        return run_maybe_nested(ops.Or().symbolic_call(self, other))
 
     def __ror__(self, other):
         """Perform a `logical_or` (reverse) with another data model
@@ -256,9 +245,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Or().symbolic_call(other, self)
-        )
+        return run_maybe_nested(ops.Or().symbolic_call(other, self))
 
     def __xor__(self, other):
         """Perform a `logical_xor` with another data model.
@@ -276,9 +263,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Xor().symbolic_call(self, other)
-        )
+        return run_maybe_nested(ops.Xor().symbolic_call(self, other))
 
     def __rxor__(self, other):
         """Perform a `logical_xor` (reverse) with another data model.
@@ -297,9 +282,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Xor().symbolic_call(other, self)
-        )
+        return run_maybe_nested(ops.Xor().symbolic_call(other, self))
 
     def __contains__(self, other):
         """Check if the schema of `other` is contained in this one.
@@ -322,9 +305,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Factorize().symbolic_call(self)
-        )
+        return run_maybe_nested(ops.Factorize().symbolic_call(self))
 
     def in_mask(self, mask=None, recursive=True):
         """Applies a mask to **keep only** specified keys of the data model.
@@ -339,9 +320,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.InMask(mask=mask, recursive=True).symbolic_call(self)
-        )
+        return run_maybe_nested(ops.InMask(mask=mask, recursive=True).symbolic_call(self))
 
     def out_mask(self, mask=None, recursive=True):
         """Applies an mask to **remove** specified keys of the data model.
@@ -371,9 +350,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Prefix(prefix=prefix).symbolic_call(self)
-        )
+        return run_maybe_nested(ops.Prefix(prefix=prefix).symbolic_call(self))
 
     def suffix(self, suffix=None):
         """Add a suffix to **all** the data model fields (non-recursive).
@@ -386,9 +363,7 @@ class SymbolicDataModel(SynalinksSaveable):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Suffix(suffix=suffix).symbolic_call(self)
-        )
+        return run_maybe_nested(ops.Suffix(suffix=suffix).symbolic_call(self))
 
     def get(self, key, default_value=None):
         """Get wrapper to make easier to access fields.

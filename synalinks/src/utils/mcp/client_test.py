@@ -8,8 +8,8 @@ from mcp.server import FastMCP
 from mcp.types import ToolAnnotations
 
 from synalinks.src import testing
-from synalinks.src.utils.mcp.test_common import run_streamable_server_multiprocessing
 from synalinks.src.utils.mcp.client import MultiServerMCPClient
+from synalinks.src.utils.mcp.test_common import run_streamable_server_multiprocessing
 
 
 @unittest.skipUnless(

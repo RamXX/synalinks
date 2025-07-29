@@ -13,8 +13,8 @@ from synalinks.src.backend import is_similarity_search
 from synalinks.src.backend import is_triplet_search
 from synalinks.src.backend.common.json_utils import out_mask_json
 from synalinks.src.knowledge_bases.database_adapters import DatabaseAdapter
-from synalinks.src.utils.naming import to_snake_case
 from synalinks.src.utils.async_utils import run_maybe_nested
+from synalinks.src.utils.naming import to_snake_case
 
 
 class Neo4JAdapter(DatabaseAdapter):
@@ -223,7 +223,7 @@ class Neo4JAdapter(DatabaseAdapter):
                 " $vector) YIELD node AS node, score",
                 "WITH node, score",
                 "WHERE score >= $threshold",
-                "RETURN {name: node.name, label: node.label} AS node, score",
+                "RETURN node AS node, score",
                 "LIMIT $numberOfNearestNeighbours",
             ]
         )
@@ -258,7 +258,6 @@ class Neo4JAdapter(DatabaseAdapter):
         params = {
             "numberOfNearestNeighbours": k,
             "threshold": threshold,
-            "k": k,
         }
         query_lines = []
 
@@ -367,6 +366,6 @@ class Neo4JAdapter(DatabaseAdapter):
                 "sqrt(subj_score * obj_score) AS score"
             )
         )
-        query_lines.append("LIMIT $k")
+        query_lines.append("LIMIT $numberOfNearestNeighbours")
         query = "\n".join(query_lines)
         return await self.query(query, params)

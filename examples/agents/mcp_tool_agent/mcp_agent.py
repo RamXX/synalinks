@@ -1,6 +1,6 @@
 import synalinks
 import asyncio
-import litellm
+
 
 class Query(synalinks.DataModel):
     """Input query data model"""
@@ -8,6 +8,7 @@ class Query(synalinks.DataModel):
     query: str = synalinks.Field(
         description="The user query",
     )
+
 
 class FinalAnswer(synalinks.DataModel):
     """Final answer data model"""
@@ -18,7 +19,6 @@ class FinalAnswer(synalinks.DataModel):
 
 
 async def main():
-    
     language_model = synalinks.LanguageModel(
         model="ollama/mistral",
     )
@@ -33,7 +33,7 @@ async def main():
     )
 
     tools = await mcp_client.get_tools()
-    
+
     inputs = synalinks.Input(data_model=Query)
     outputs = await synalinks.FunctionCallingAgent(
         data_model=FinalAnswer,
@@ -54,7 +54,7 @@ async def main():
     response = await agent(input_query)
 
     print(response.prettify_json())
-    
+
 
 if __name__ == "__main__":
     asyncio.run(main())

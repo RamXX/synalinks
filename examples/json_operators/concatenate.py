@@ -2,19 +2,21 @@ import synalinks
 
 # Concatenation with Synalinks
 
+
 class Query(synalinks.DataModel):
     query: str
-    
-    
+
+
 class Answer(synalinks.DataModel):
     answer: str
-    
+
+
 # Synalinks operators works at a metaclass level
 # In that case, the result is a `SymbolicDataModel`
-# A `SymbolicDataModel` can be understand as a data 
+# A `SymbolicDataModel` can be understand as a data
 # specification/contract. It only contains a JSON schema
-# and cannot be used for computation. It allow Synalinks 
-# to build directed acyclic graph (DAG) of computation 
+# and cannot be used for computation. It allow Synalinks
+# to build directed acyclic graph (DAG) of computation
 # from inputs and outputs, like the tensor shape
 # in deep learning frameworks.
 
@@ -47,9 +49,9 @@ print(qa_pair.prettify_schema())
 # is a JsonDataModel, a data model containing both a JSON schema and
 # a JSON object containing the actual data.
 
-qa_pair = \
-    Query(query="What is the French city of aeronautics and robotics?") + \
-        Answer(answer="Toulouse")
+qa_pair = Query(query="What is the French city of aeronautics and robotics?") + Answer(
+    answer="Toulouse"
+)
 
 assert isinstance(qa_pair, synalinks.JsonDataModel)
 

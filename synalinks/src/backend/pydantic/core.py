@@ -1,6 +1,5 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
-import asyncio
 import inspect
 
 import pydantic
@@ -35,9 +34,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Concat().symbolic_call(cls, other)
-        )
+        return run_maybe_nested(ops.Concat().symbolic_call(cls, other))
 
     def __radd__(cls, other):
         """Concatenates (reverse) another data model with this one.
@@ -51,9 +48,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Concat().symbolic_call(other, cls)
-        )
+        return run_maybe_nested(ops.Concat().symbolic_call(other, cls))
 
     def __and__(cls, other):
         """Perform a `logical_and` with another data model.
@@ -71,9 +66,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.And().symbolic_call(cls, other)
-        )
+        return run_maybe_nested(ops.And().symbolic_call(cls, other))
 
     def __rand__(cls, other):
         """Perform a `logical_and` (reverse) with another data model.
@@ -91,9 +84,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.And().symbolic_call(other, cls)
-        )
+        return run_maybe_nested(ops.And().symbolic_call(other, cls))
 
     def __or__(cls, other):
         """Perform a `logical_or` with another data model.
@@ -111,9 +102,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Or().symbolic_call(cls, other)
-        )
+        return run_maybe_nested(ops.Or().symbolic_call(cls, other))
 
     def __ror__(cls, other):
         """Perform a `logical_or` (reverse) with another data model.
@@ -132,9 +121,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Or().symbolic_call(other, cls)
-        )
+        return run_maybe_nested(ops.Or().symbolic_call(other, cls))
 
     def __xor__(cls, other):
         """Perform a `logical_xor` with another data model.
@@ -152,9 +139,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Xor().symbolic_call(cls, other)
-        )
+        return run_maybe_nested(ops.Xor().symbolic_call(cls, other))
 
     def __rxor__(cls, other):
         """Perform a `logical_xor` (reverse) with another data model.
@@ -173,9 +158,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Xor().symbolic_call(other, cls)
-        )
+        return run_maybe_nested(ops.Xor().symbolic_call(other, cls))
 
     def __contains__(cls, other):
         """Check if the schema of `other` is contained in this one.
@@ -198,9 +181,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Factorize().symbolic_call(cls)
-        )
+        return run_maybe_nested(ops.Factorize().symbolic_call(cls))
 
     def in_mask(cls, mask=None, recursive=True):
         """Applies a mask to **keep only** specified keys of the data model.
@@ -215,9 +196,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.InMask(mask=mask, recursive=True).symbolic_call(cls)
-        )
+        return run_maybe_nested(ops.InMask(mask=mask, recursive=True).symbolic_call(cls))
 
     def out_mask(cls, mask=None, recursive=True):
         """Applies an mask to **remove** specified keys of the data model.
@@ -232,9 +211,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.OutMask(mask=mask, recursive=True).symbolic_call(cls)
-        )
+        return run_maybe_nested(ops.OutMask(mask=mask, recursive=True).symbolic_call(cls))
 
     def prefix(cls, prefix=None):
         """Add a prefix to **all** the data model fields (non-recursive).
@@ -247,9 +224,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Prefix(prefix=prefix).symbolic_call(cls)
-        )
+        return run_maybe_nested(ops.Prefix(prefix=prefix).symbolic_call(cls))
 
     def suffix(cls, suffix=None):
         """Add a suffix to **all** the data model fields (non-recursive).
@@ -262,9 +237,7 @@ class MetaDataModel(type(pydantic.BaseModel)):
         """
         from synalinks.src import ops
 
-        return run_maybe_nested(
-            ops.Suffix(suffix=suffix).symbolic_call(cls)
-        )
+        return run_maybe_nested(ops.Suffix(suffix=suffix).symbolic_call(cls))
 
 
 class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
@@ -373,9 +346,7 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
         from synalinks.src import ops
 
         if any_meta_class(self, other):
-            return run_maybe_nested(
-                ops.Concat().symbolic_call(self, other)
-            )
+            return run_maybe_nested(ops.Concat().symbolic_call(self, other))
         else:
             return run_maybe_nested(ops.Concat()(self, other))
 

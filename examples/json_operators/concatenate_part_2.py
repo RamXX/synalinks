@@ -1,13 +1,15 @@
 import synalinks
 
+
 class Query(synalinks.DataModel):
     query: str
 
+
 # Concatenation with Synalinks (Part 2)
 
-# What happen if you concatenate two data 
+# What happen if you concatenate two data
 # models with the same fields?
-# When property names conflict, numerical suffixes are 
+# When property names conflict, numerical suffixes are
 # added to ensure uniqueness.
 
 two_queries = Query + Query
@@ -34,9 +36,9 @@ print(two_queries.prettify_schema())
 #   "type": "object"
 # }
 
-two_queries = \
-    Query(query="Why is neuro-symbolic systems powering the next AI wave?") + \
-        Query(query="Can you give a multiple of 5?")
+two_queries = Query(
+    query="Why is neuro-symbolic systems powering the next AI wave?"
+) + Query(query="Can you give a multiple of 5?")
 
 
 print(two_queries.prettify_json())
@@ -48,9 +50,7 @@ print(two_queries.prettify_json())
 # Now, what happen when you concatenate with `None`?
 # An exception is raised!
 
-failing_query = \
-    Query(query="Why is neuro-symbolic AI powering the next wave?") + \
-        None
+failing_query = Query(query="Why is neuro-symbolic AI powering the next wave?") + None
 # ValueError: Received x1=query='Why is neuro-symbolic AI powering the next wave?' and x2=None
 
 # This behavior can be summarized with the following truth table:

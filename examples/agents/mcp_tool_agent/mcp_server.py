@@ -3,6 +3,7 @@ from fastmcp import FastMCP
 
 mcp = FastMCP("Demo 🚀")
 
+
 @mcp.tool
 async def calculate(expression: str) -> Dict[str, Any]:
     """Calculate the result of a mathematical expression.
@@ -33,6 +34,7 @@ async def calculate(expression: str) -> Dict[str, Any]:
             "result": None,
             "log": f"Error: {e}",
         }
+
 
 if __name__ == "__main__":
     mcp.run(

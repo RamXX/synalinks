@@ -1,6 +1,7 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
 from synalinks.src import ops
+from synalinks.src.api_export import synalinks_export
 from synalinks.src.modules import SelfCritique
 from synalinks.src.programs import Program
 from synalinks.src.rewards.reward_wrappers import ProgramAsJudge
@@ -14,6 +15,10 @@ class LMAsJudgeProgram(Program):
         language_model (LanguageModel): The language model to use.
         prompt_template (str): The default jinja2 prompt template
             to use (see `Generator`).
+        static_system_prompt (str): A static system prompt that **do not** evolve
+            during training. This prompt allow the user to provide additional
+            information that won't be changed during training. Allowing to cache
+            it and reduce inference costs during training.
         examples (list): The default examples to use in the prompt
             (see `Generator`).
         instructions (list): The default instructions to use (see `Generator`).
@@ -26,6 +31,7 @@ class LMAsJudgeProgram(Program):
         self,
         language_model=None,
         prompt_template=None,
+        static_system_prompt=None,
         examples=None,
         instructions=None,
         name=None,
@@ -40,12 +46,14 @@ class LMAsJudgeProgram(Program):
         self.critique = SelfCritique(
             language_model=language_model,
             prompt_template=prompt_template,
+            static_system_prompt=static_system_prompt,
             examples=examples,
             instructions=instructions,
             name=self.name + "_self_critique",
         )
         self.language_model = language_model
         self.prompt_template = prompt_template
+        self.static_system_prompt = static_system_prompt
         self.examples = examples
         self.instructions = instructions
 
@@ -75,6 +83,7 @@ class LMAsJudgeProgram(Program):
     def get_config(self):
         config = {
             "prompt_template": self.prompt_template,
+            "static_system_prompt": self.static_system_prompt,
             "examples": self.examples,
             "instructions": self.instructions,
             "name": self.name,
@@ -96,22 +105,41 @@ class LMAsJudgeProgram(Program):
         return cls(language_model=language_model, **config)
 
 
+@synalinks_export(
+    [
+        "synalinks.LMAsJudge",
+        "synalinks.rewards.LMAsJudge",
+    ]
+)
 class LMAsJudge(ProgramAsJudge):
     """Evaluate the output of a program using a `LanguageModel`.
 
     Example:
 
     ```python
-    program.compile(
-        reward=synalinks.rewards.LMAsJudge()
-        optimizer=synalinks.optimizers.RandomFewShot(),
-    )
+
+    async def main():
+        # ... program definition
+
+        program.compile(
+            reward=synalinks.rewards.LMAsJudge(
+                language_model=language_model,
+            )
+            optimizer=synalinks.optimizers.RandomFewShot(),
+        )
+
+        history = await program.fit(...)
+
     ```
 
     Args:
         language_model (LanguageModel): The language model to use.
         prompt_template (str): The default jinja2 prompt template
             to use (see `Generator`).
+        static_system_prompt (str): A static system prompt that **do not** evolve
+            during training. This prompt allow the user to provide additional
+            information that won't be changed during training. Allowing to cache
+            it and reduce inference costs during training.
         examples (list): The default examples to use in the prompt
             (see `Generator`).
         instructions (list): The default instructions to use (see `Generator`).
@@ -124,6 +152,7 @@ class LMAsJudge(ProgramAsJudge):
         self,
         language_model=None,
         prompt_template=None,
+        static_system_prompt=None,
         examples=None,
         instructions=None,
         name="lm_as_judge",
@@ -133,6 +162,7 @@ class LMAsJudge(ProgramAsJudge):
         program = LMAsJudgeProgram(
             language_model=language_model,
             prompt_template=prompt_template,
+            static_system_prompt=static_system_prompt,
             examples=examples,
             instructions=instructions,
         )

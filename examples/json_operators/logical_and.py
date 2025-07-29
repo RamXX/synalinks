@@ -2,14 +2,15 @@ import synalinks
 
 # Logical AND with Synalinks
 
+
 class Query(synalinks.DataModel):
     query: str
-    
-    
+
+
 class Answer(synalinks.DataModel):
     answer: str
-    
-    
+
+
 qa_pair = Query & Answer
 
 assert isinstance(qa_pair, synalinks.SymbolicDataModel)

@@ -19,18 +19,18 @@ Async-related utilities
 
 import abc
 import asyncio
+import contextlib
 import contextvars
 import functools
+import inspect
 import itertools
-import contextlib
+import os.path
 import pathlib
 import queue
-import os.path
-import inspect
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from weakref import WeakSet, WeakKeyDictionary
+from weakref import WeakSet
 
 from greenlet import greenlet
 
@@ -45,7 +45,7 @@ def create_task(awaitable, name=None):
     else:
         task = asyncio.create_task(awaitable)
     if name is None:
-        name = getattr(awaitable, '__qualname__', None)
+        name = getattr(awaitable, "__qualname__", None)
     task.name = name
     return task
 
@@ -115,10 +115,7 @@ class AsyncManager:
             is_root_task = False
         task_tree[current_task] = node
 
-        task_tree.update({
-            child: set()
-            for child in tasks
-        })
+        task_tree.update({child: set() for child in tasks})
         node.update(tasks)
 
         try:
@@ -137,7 +134,7 @@ class AsyncManager:
                         immediate_children,
                         itertools.chain.from_iterable(
                             map(get_children, immediate_children)
-                        )
+                        ),
                     )
                 )
 
@@ -146,17 +143,24 @@ class AsyncManager:
             resources = {
                 task: frozenset(
                     itertools.chain.from_iterable(
-                        self.resources.get(child, [])
-                        for child in get_children(task)
+                        self.resources.get(child, []) for child in get_children(task)
                     )
                 )
                 for task in tasks
             }
-            for (task1, resources1), (task2, resources2) in itertools.combinations(resources.items(), 2):
+            for (task1, resources1), (task2, resources2) in itertools.combinations(
+                resources.items(), 2
+            ):
                 for res1, res2 in itertools.product(resources1, resources2):
-                    if issubclass(res2.__class__, res1.__class__) and res1.overlap_with(res2):
+                    if issubclass(res2.__class__, res1.__class__) and res1.overlap_with(
+                        res2
+                    ):
                         raise RuntimeError(
-                            'Overlapping resources manipulated in concurrent async tasks: {} (task {}) and {} (task {})'.format(res1, task1.name, res2, task2.name)
+                            "Overlapping resources manipulated "
+                            "in concurrent async tasks: "
+                            "{} (task {}) and {} (task {})".format(
+                                res1, task1.name, res2, task2.name
+                            )
                         )
 
             if is_root_task:
@@ -172,10 +176,7 @@ class AsyncManager:
             values.
         """
         keys = list(keys)
-        return dict(zip(
-            keys,
-            await self.concurrently(map(f, keys))
-        ))
+        return dict(zip(keys, await self.concurrently(map(f, keys))))
 
 
 def compose(*coros):
@@ -187,6 +188,7 @@ def compose(*coros):
 
     .. note:: In Haskell, ``compose f g h`` would be equivalent to ``f <=< g <=< h``
     """
+
     async def f(*args, **kwargs):
         empty_dict = {}
         for coro in reversed(coros):
@@ -198,6 +200,7 @@ def compose(*coros):
             kwargs = empty_dict
 
         return x
+
     return f
 
 
@@ -209,6 +212,7 @@ class _AsyncPolymorphicFunction:
     attribute gives access to the asynchronous version of the function, and all
     the other attribute access will be redirected to the async function.
     """
+
     def __init__(self, asyn, blocking):
         self.asyn = asyn
         self.blocking = blocking
@@ -241,6 +245,7 @@ class memoized_method:
         first (e.g. converting a list to a tuple), or the code of
         :func:`devlib.asyn.memoized_method` will have to be updated to do so.
     """
+
     def __init__(self, f):
         memo = self
 
@@ -261,8 +266,8 @@ class memoized_method:
                 self.__dict__[memo.name] = cache
             return cache
 
-
         if inspect.iscoroutinefunction(f):
+
             @functools.wraps(f)
             async def wrapper(self, *args, **kwargs):
                 cache = get_cache(self)
@@ -273,7 +278,9 @@ class memoized_method:
                     x = await f(*args, **kwargs)
                     cache[key] = x
                     return x
+
         else:
+
             @functools.wraps(f)
             def wrapper(self, *args, **kwargs):
                 cache = get_cache(self)
@@ -285,13 +292,12 @@ class memoized_method:
                     cache[key] = x
                     return x
 
-
         self.f = wrapper
         self._name = f.__name__
 
     @property
     def name(self):
-        return '__memoization_cache_of_' + self._name
+        return "__memoization_cache_of_" + self._name
 
     def __call__(self, *args, **kwargs):
         return self.f(*args, **kwargs)
@@ -312,6 +318,7 @@ class _Genlet(greenlet):
     to make their parent yield on their behalf, as if callees could decide to
     be annotated ``yield from`` without modifying the caller.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -510,21 +517,28 @@ def _check_executor_alive(executor):
 
 _PATCHED_LOOP_LOCK = threading.Lock()
 _PATCHED_LOOP = WeakSet()
+
+
 def _install_task_factory(loop):
     """
     Install a task factory on the given event ``loop`` so that top-level
     coroutines are wrapped using :func:`allow_nested_run`. This ensures that
     the nested :func:`run` infrastructure will be available.
     """
+
     def install(loop):
         if sys.version_info >= (3, 11):
+
             def default_factory(loop, coro, context=None):
                 return asyncio.Task(coro, loop=loop, context=context)
+
         else:
+
             def default_factory(loop, coro, context=None):
                 return asyncio.Task(coro, loop=loop)
 
         make_task = loop.get_task_factory() or default_factory
+
         def factory(loop, coro, context=None):
             # Make sure each Task will be able to yield on behalf of its nested
             # await beneath blocking layers
@@ -559,6 +573,7 @@ class _CoroRunner(abc.ABC):
     the awaitables yielded by an async generator that are all attached to a
     single event loop.
     """
+
     @abc.abstractmethod
     def _run(self, coro):
         pass
@@ -585,6 +600,7 @@ class _ThreadCoroRunner(_CoroRunner):
     Critically, this allows running multiple coroutines out of the same thread,
     which will be reserved until the runner ``__exit__`` method is called.
     """
+
     def __init__(self, future, jobq, resq):
         self._future = future
         self._jobq = jobq
@@ -623,7 +639,10 @@ class _ThreadCoroRunner(_CoroRunner):
             if _check_executor_alive(executor):
                 raise e
             else:
-                raise RuntimeError('Devlib relies on nested asyncio implementation requiring threads. These threads are not available while shutting down the interpreter.')
+                raise RuntimeError(
+                    "Devlib relies on nested asyncio implementation requiring threads. "
+                    "These threads are not available while shutting down the interpreter."
+                )
 
         return cls(
             jobq=jobq,
@@ -656,6 +675,7 @@ class _LoopCoroRunner(_CoroRunner):
     a new event loop will be created in ``__enter__`` and closed in
     ``__exit__``.
     """
+
     def __init__(self, loop):
         self.loop = loop
         self._owned = False
@@ -668,6 +688,7 @@ class _LoopCoroRunner(_CoroRunner):
         # context=...) or loop.create_task(..., context=...) but these APIs are
         # only available since Python 3.11
         ctx = None
+
         async def capture_ctx():
             nonlocal ctx
             try:
@@ -705,6 +726,7 @@ class _GenletCoroRunner(_CoroRunner):
     Run a coroutine assuming one of the parent coroutines was wrapped with
     :func:`allow_nested_run`.
     """
+
     def __init__(self, g):
         self._g = g
 
@@ -784,6 +806,7 @@ def asyncf(f):
     use and backward compatibility, or exposed as a corountine for callers that
     can deal with awaitables.
     """
+
     @functools.wraps(f)
     def blocking(*args, **kwargs):
         # Since run() needs a corountine, make sure we provide one
@@ -804,6 +827,7 @@ def asyncf(f):
                 return genf()
             else:
                 return await x
+
         return run(wrapper())
 
     return _AsyncPolymorphicFunction(
@@ -932,6 +956,7 @@ class ConcurrentAccessBase(abc.ABC):
     """
     Abstract Base Class for resources tracked by :func:`concurrently`.
     """
+
     @abc.abstractmethod
     def overlap_with(self, other):
         """
@@ -943,6 +968,7 @@ class ConcurrentAccessBase(abc.ABC):
         .. note:: It is guaranteed that ``other`` will be a subclass of our
             class.
         """
+
 
 class PathAccess(ConcurrentAccessBase):
     """
@@ -958,29 +984,28 @@ class PathAccess(ConcurrentAccessBase):
         for writing.
     :type mode: str
     """
+
     def __init__(self, namespace, path, mode):
-        assert namespace in ('host', 'target')
+        assert namespace in ("host", "target")
         self.namespace = namespace
-        assert mode in ('r', 'w')
+        assert mode in ("r", "w")
         self.mode = mode
-        self.path = os.path.abspath(path) if namespace == 'host' else os.path.normpath(path)
+        self.path = (
+            os.path.abspath(path) if namespace == "host" else os.path.normpath(path)
+        )
 
     def overlap_with(self, other):
         path1 = pathlib.Path(self.path).resolve()
         path2 = pathlib.Path(other.path).resolve()
         return (
-            self.namespace == other.namespace and
-            'w' in (self.mode, other.mode) and
-            (
-                path1 == path2 or
-                path1 in path2.parents or
-                path2 in path1.parents
-            )
+            self.namespace == other.namespace
+            and "w" in (self.mode, other.mode)
+            and (path1 == path2 or path1 in path2.parents or path2 in path1.parents)
         )
 
     def __str__(self):
         mode = {
-            'r': 'read',
-            'w': 'write',
+            "r": "read",
+            "w": "write",
         }[self.mode]
-        return '{} ({})'.format(self.path, mode)
+        return "{} ({})".format(self.path, mode)

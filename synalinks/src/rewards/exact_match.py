@@ -26,7 +26,12 @@ async def exact_match(y_true, y_pred):
     return reward
 
 
-@synalinks_export("synalinks.rewards.ExactMatch")
+@synalinks_export(
+    [
+        "synalinks.ExactMatch",
+        "synalinks.rewards.ExactMatch",
+    ]
+)
 class ExactMatch(RewardFunctionWrapper):
     """Computes the exact match between `y_true` and `y_pred`.
 

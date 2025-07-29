@@ -2,7 +2,6 @@
 # Original authors: François Chollet et al. (Keras Team)
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
-import asyncio
 import copy
 import inspect
 import typing
@@ -16,6 +15,7 @@ from synalinks.src.programs import Functional
 from synalinks.src.programs import Program
 from synalinks.src.saving import serialization_lib
 from synalinks.src.utils.async_utils import run_maybe_nested
+
 
 @synalinks_export(["synalinks.Sequential", "synalinks.programs.Sequential"])
 class Sequential(Program):

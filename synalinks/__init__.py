@@ -8,6 +8,7 @@ from synalinks.api import ChatMessages
 from synalinks.api import ChatRole
 from synalinks.api import Concat
 from synalinks.api import Concatenate
+from synalinks.api import CosineSimilarity
 from synalinks.api import DataModel
 from synalinks.api import Decision
 from synalinks.api import EmbeddedEntity
@@ -17,6 +18,7 @@ from synalinks.api import Embeddings
 from synalinks.api import Entities
 from synalinks.api import Entity
 from synalinks.api import EntityRetriever
+from synalinks.api import ExactMatch
 from synalinks.api import Function
 from synalinks.api import FunctionCallingAgent
 from synalinks.api import Generator
@@ -33,6 +35,7 @@ from synalinks.api import KnowledgeBase
 from synalinks.api import KnowledgeGraph
 from synalinks.api import KnowledgeRetriever
 from synalinks.api import LanguageModel
+from synalinks.api import LMAsJudge
 from synalinks.api import Metric
 from synalinks.api import Module
 from synalinks.api import MultiServerMCPClient
@@ -41,6 +44,7 @@ from synalinks.api import Operation
 from synalinks.api import Or
 from synalinks.api import Prediction
 from synalinks.api import Program
+from synalinks.api import ProgramAsJudge
 from synalinks.api import Relation
 from synalinks.api import Relations
 from synalinks.api import Reward

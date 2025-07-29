@@ -50,7 +50,12 @@ async def cosine_similarity(y_true, y_pred, embedding_model=None, axis=-1):
     return reward
 
 
-@synalinks_export("synalinks.rewards.CosineSimilarity")
+@synalinks_export(
+    [
+        "synalinks.CosineSimilarity",
+        "synalinks.rewards.CosineSimilarity",
+    ]
+)
 class CosineSimilarity(RewardFunctionWrapper):
     """
     Computes the cosine similarity between `y_true` and `y_pred`.

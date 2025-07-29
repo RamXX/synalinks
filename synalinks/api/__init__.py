@@ -112,7 +112,11 @@ from synalinks.src.ops.function import Function as Function
 from synalinks.src.ops.operation import Operation as Operation
 from synalinks.src.programs.program import Program as Program
 from synalinks.src.programs.sequential import Sequential as Sequential
+from synalinks.src.rewards.cosine_similarity import CosineSimilarity as CosineSimilarity
+from synalinks.src.rewards.exact_match import ExactMatch as ExactMatch
+from synalinks.src.rewards.lm_as_judge import LMAsJudge as LMAsJudge
 from synalinks.src.rewards.reward import Reward as Reward
+from synalinks.src.rewards.reward_wrappers import ProgramAsJudge as ProgramAsJudge
 from synalinks.src.utils.mcp.client import MultiServerMCPClient as MultiServerMCPClient
 from synalinks.src.utils.tool_utils import Tool as Tool
 from synalinks.src.version import __version__

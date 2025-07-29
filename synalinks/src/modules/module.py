@@ -2,7 +2,6 @@
 # Original authors: François Chollet et al. (Keras Team)
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
-import asyncio
 import collections
 import inspect
 import warnings
@@ -22,8 +21,8 @@ from synalinks.src.ops.operation import Operation
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 from synalinks.src.utils import python_utils
 from synalinks.src.utils import tracking
-from synalinks.src.utils.naming import auto_name
 from synalinks.src.utils.async_utils import run_maybe_nested
+from synalinks.src.utils.naming import auto_name
 
 if backend.backend() == "pydantic":
     from synalinks.src.backend.pydantic.module import PydanticModule as BackendModule
