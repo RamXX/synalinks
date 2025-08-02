@@ -9,13 +9,11 @@ from synalinks.cli.utils.setup_utils import models_setup_config
 from synalinks.cli.utils.setup_utils import secrets_setup_config
 from synalinks.cli.utils.setup_utils import setup_project
 from synalinks.src.version import version as get_version
-from synalinks.src.backend.config import maybe_initialize_telemetry
 
 
 @click.group()
 def magic_cli():
     """Synalinks AI powered command-line interface."""
-    maybe_initialize_telemetry()
 
 
 @magic_cli.command()

@@ -29,7 +29,6 @@ from synalinks.src.backend.common.symbolic_data_model import (
     SymbolicDataModel as SymbolicDataModel,
 )
 from synalinks.src.backend.common.symbolic_scope import SymbolicScope as SymbolicScope
-from synalinks.src.backend.config import disable_telemetry as disable_telemetry
 from synalinks.src.backend.config import synalinks_home as synalinks_home
 from synalinks.src.backend.pydantic.base import ChatMessage as ChatMessage
 from synalinks.src.backend.pydantic.base import ChatMessages as ChatMessages

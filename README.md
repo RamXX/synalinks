@@ -8,6 +8,8 @@
 
 <em>The first neuro-symbolic LM framework to leverage decades-old best practices in Deep Learning frameworks from the most user-friendly framework ever built - Keras</em>
 
+<b>Build RAGs, autonomous agents, multi-agents systems and more in just few lines</b>
+
 <p align="center">
   <a href="https://synalinks.github.io/synalinks" target="_blank"><strong>Documentation</strong></a> ·
   <a href="https://synalinks.github.io/synalinks/FAQ/" target="_blank"><strong>FAQ</strong></a> ·
@@ -36,7 +38,7 @@ Too busy to read the documentation? Give **[LLM.md](https://raw.githubuserconten
 
 ## What is Synalinks?
 
-Synalinks is an open-source framework that makes it easy to create, evaluate, train, and deploy industry-standard Language Models (LMs) applications. Synalinks follows the principle of *progressive disclosure of complexity*: meaning that simple workflows should be quick and easy, while arbitrarily advanced ones should be possible via a clear path that builds upon what you've already learned.
+Synalinks is an open-source framework that makes it easy to create, evaluate, train, and deploy industry-standard Language Models (LMs) applications like **graph RAGs, autonomous agents and multi-agent systems**. Synalinks follows the principle of *progressive disclosure of complexity*: meaning that simple workflows should be quick and easy, while arbitrarily advanced ones should be possible via a clear path that builds upon what you've already learned.
 
 Synalinks is an *adaptation of Keras 3* focused on neuro-symbolic systems and in-context reinforcement learning, an ensemble of techniques that enhance the LMs predictions and accuracy without changing the weights of the model. The goal of Synalinks is to facilitate the rapid setup of simple applications while providing the flexibility for researchers and advanced users to develop sophisticated systems.
 
@@ -454,10 +456,6 @@ If you have specific feedbacks or features request we invite you to open an [iss
 <a href="https://github.com/SynaLinks/synalinks/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=SynaLinks/synalinks"/>
 </a>
-
-### Telemetry
-
-We collect usage and software performance information to enhance and catch errors as fast as possible in order to make the best experience for you. No private, personal or confidential information is recorded. To get the complete list of what we collect, and how to disable it, please read the following [document](TELEMETRY.md).
 
 ### Community
 

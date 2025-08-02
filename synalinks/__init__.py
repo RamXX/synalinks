@@ -67,7 +67,6 @@ from synalinks.api import clear_session
 from synalinks.api import config
 from synalinks.api import datasets
 from synalinks.api import default_prompt_template
-from synalinks.api import disable_telemetry
 from synalinks.api import embedding_models
 from synalinks.api import initializers
 from synalinks.api import is_chat_message

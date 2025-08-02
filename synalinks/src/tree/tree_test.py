@@ -20,12 +20,6 @@ from synalinks.src.utils.tracking import TrackedSet
 
 TEST_CASES = []
 
-# TEST_CASES = [
-#     {
-#         "testcase_name": "python",
-#         "t": python_impl,
-#     }
-# ]
 if optree.available:
     from synalinks.src.tree import optree_impl
 

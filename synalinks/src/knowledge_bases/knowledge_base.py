@@ -5,7 +5,6 @@ from typing import Dict
 
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import is_symbolic_data_model
-from synalinks.src.backend.config import maybe_initialize_telemetry
 from synalinks.src.knowledge_bases import database_adapters
 from synalinks.src.saving import serialization_lib
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
@@ -129,7 +128,6 @@ class KnowledgeBase(SynalinksSaveable):
                 Entities with similarity above this threshold will be merged.
                 Should be between 0.0 and 1.0 (Defaults to 0.8).
         """
-        maybe_initialize_telemetry()
         return await self.adapter.update(data_model)
 
     async def query(self, query: str, params: Dict[str, Any] = None, **kwargs):
@@ -142,7 +140,6 @@ class KnowledgeBase(SynalinksSaveable):
         Returns:
             (GenericResult): the query results
         """
-        maybe_initialize_telemetry()
         return await self.adapter.query(query, params=params, **kwargs)
 
     async def similarity_search(
@@ -164,7 +161,6 @@ class KnowledgeBase(SynalinksSaveable):
                 Entities with similarity below this threshold are excluded.
                 Should be between 0.0 and 1.0 (Defaults to 0.8).
         """
-        maybe_initialize_telemetry()
         return await self.adapter.similarity_search(
             similarity_search,
             k=k,
@@ -190,7 +186,6 @@ class KnowledgeBase(SynalinksSaveable):
                 Triplets with similarity below this threshold are excluded.
                 Should be between 0.0 and 1.0. (Defaults to 0.8).
         """
-        maybe_initialize_telemetry()
         return await self.adapter.triplet_search(
             triplet_search,
             k=k,

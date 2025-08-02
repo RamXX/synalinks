@@ -14,8 +14,6 @@ from synalinks.src import utils
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend.common import global_state
 from synalinks.src.backend.common.name_scope import current_path
-from synalinks.src.backend.config import capture_exception
-from synalinks.src.backend.config import maybe_initialize_telemetry
 from synalinks.src.metrics import Metric
 from synalinks.src.ops.operation import Operation
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
@@ -497,7 +495,6 @@ class Module(BackendModule, Operation, SynalinksSaveable):
         )
 
     async def __call__(self, *args, **kwargs):
-        maybe_initialize_telemetry()
 
         self._check_super_called()
         self._called = True
@@ -578,7 +575,6 @@ class Module(BackendModule, Operation, SynalinksSaveable):
             if not self.built:
                 self.built = True
         except Exception as e:
-            capture_exception(e)
             raise e
         finally:
             # Destroy call context if we created it

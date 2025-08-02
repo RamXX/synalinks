@@ -16,7 +16,6 @@ from synalinks.src.backend.config import api_key as api_key
 from synalinks.src.backend.config import backend as backend
 from synalinks.src.backend.config import epsilon as epsilon
 from synalinks.src.backend.config import floatx as floatx
-from synalinks.src.backend.config import is_telemetry_enabled as is_telemetry_enabled
 from synalinks.src.backend.config import set_api_key as set_api_key
 from synalinks.src.backend.config import set_backend as set_backend
 from synalinks.src.backend.config import set_epsilon as set_epsilon
