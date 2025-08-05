@@ -5,8 +5,6 @@
 import json
 import os
 
-import sentry_sdk
-
 from synalinks.src.api_export import synalinks_export
 
 # The type of float to use throughout a session.
