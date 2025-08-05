@@ -122,8 +122,8 @@ class FBetaScore(Metric):
         intermediate_weights = []
         # For each field of y_true and y_pred
         for yt, yp in zip(y_true, y_pred):
-            y_true_tokens = nlp_utils.normalize_and_tokenize(yt)
-            y_pred_tokens = nlp_utils.normalize_and_tokenize(yp)
+            y_true_tokens = nlp_utils.normalize_and_tokenize(str(yt))
+            y_pred_tokens = nlp_utils.normalize_and_tokenize(str(yp))
             common_tokens = set(y_true_tokens) & set(y_pred_tokens)
             true_positives.append(len(common_tokens))
             false_positives.append(len(y_pred_tokens) - len(common_tokens))

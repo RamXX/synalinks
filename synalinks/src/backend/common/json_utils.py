@@ -12,17 +12,19 @@ from synalinks.src.utils.nlp_utils import to_singular_without_numerical_suffix
 def prefix_json(json, prefix):
     """Add a prefix to the json object keys"""
     json = copy.deepcopy(json)
-    for prop_key, _ in json.items():
-        prop_key = f"{prefix}_{prop_key}"
-    return json
+    prefixed_json = {}
+    for prop_key, prop_value in json.items():
+        prefixed_json[f"{prefix}_{prop_key}"] = prop_value
+    return prefixed_json
 
 
 def suffix_json(json, suffix):
     """Add a suffix to the json object keys"""
     json = copy.deepcopy(json)
-    for prop_key, _ in json.items():
-        prop_key = f"{prop_key}_{suffix}"
-    return json
+    suffixed_json = {}
+    for prop_key, prop_value in json.items():
+        suffixed_json[f"{prop_key}_{suffix}"] = prop_value
+    return suffixed_json
 
 
 def concatenate_json(json1, json2):

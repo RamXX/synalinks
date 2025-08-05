@@ -42,8 +42,8 @@ dependencies = [
     "pydantic",
     "pydotplus",
     "rich",
-    "sentry-sdk",
     "greenlet",
+    "fastmcp",
 ]
 
 [project.urls]

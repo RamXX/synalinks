@@ -1,6 +1,5 @@
 import synalinks
 import asyncio
-import litellm
 
 
 class Query(synalinks.DataModel):
@@ -48,8 +47,9 @@ async def calculate(expression: str):
 
 
 async def main():
-    litellm._turn_on_debug()
-    language_model = synalinks.LanguageModel(model="ollama/mistral")
+    language_model = synalinks.LanguageModel(
+        model="ollama/mistral",
+    )
 
     tools = [
         synalinks.Tool(calculate),

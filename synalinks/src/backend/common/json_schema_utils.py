@@ -22,16 +22,24 @@ def contains_schema(schema1, schema2):
 def prefix_schema(schema, prefix):
     """Add a prefix to the schema properties"""
     schema = copy.deepcopy(schema)
-    for prop_key, _ in schema.get("properties").items():
-        prop_key = f"{prefix}_{prop_key}"
+    new_properties = {}
+    for prop_key, prop_value in schema.get("properties").items():
+        title = prop_value["title"]
+        prop_value["title"] = f"{prefix.title()} {title}"
+        new_properties[f"{prefix}_{prop_key}"] = prop_value
+    schema["properties"] = new_properties
     return schema
 
 
 def suffix_schema(schema, suffix):
     """Add a suffix to the schema properties"""
     schema = copy.deepcopy(schema)
-    for prop_key, _ in schema.get("properties").items():
-        prop_key = f"{prop_key}_{suffix}"
+    new_properties = {}
+    for prop_key, prop_value in schema.get("properties").items():
+        title = prop_value["title"]
+        prop_value["title"] = f"{title} {suffix.title()}"
+        new_properties[f"{prop_key}_{suffix}"] = prop_value
+    schema["properties"] = new_properties
     return schema
 
 

@@ -49,7 +49,8 @@ class Neo4JAdapter(DatabaseAdapter):
                 CALL (n) {
                     DETACH DELETE n
                 } IN TRANSACTIONS OF 10000 ROWS
-                """
+                """,
+                read_only=False,
             )
         )
 
@@ -81,9 +82,13 @@ class Neo4JAdapter(DatabaseAdapter):
                 self.query("CALL db.awaitIndexes(300)"),
             )
 
-    async def query(self, query: str, params: Dict[str, Any] = None, **kwargs):
+    async def query(self, query: str, params: Dict[str, Any] = None, read_only=True, **kwargs):
         driver = neo4j.GraphDatabase.driver(self.uri, auth=(self.username, self.password))
         result_list = []
+        if read_only:
+            if not params:
+                params = {}
+            params["routing_"] = neo4j.RoutingControl.READ
         try:
             with driver.session(database=self.db_name) as session:
                 if params:
@@ -154,7 +159,7 @@ class Neo4JAdapter(DatabaseAdapter):
                 "objVector": obj_vector,
                 **relation_properties,
             }
-            await self.query(query, params=params)
+            await self.query(query, params=params, read_only=False)
         elif is_entity(data_model):
             node_label = self.sanitize_label(data_model.get("label"))
             vector = data_model.get("embedding")
@@ -194,7 +199,7 @@ class Neo4JAdapter(DatabaseAdapter):
                 "vector": vector,
                 **node_properties,
             }
-            await self.query(query, params=params)
+            await self.query(query, params=params, read_only=False)
         else:
             raise ValueError(
                 "The parameter `data_model` must be an `Entity` or `Relation` instance"

@@ -450,7 +450,12 @@ class FunctionCallingAgent(Module):
                 tool_calls = await self.tool_calls_generators[i](trajectory)
 
                 if not tool_calls:
-                    continue
+                    assistant_message = ChatMessage(
+                        role=ChatRole.ASSISTANT,
+                        content="An error happened while trying to infer the tool call arguments.",
+                    )
+                    agent_messages.append(assistant_message.get_json())
+                    break
 
                 assistant_message = ChatMessage(
                     role=ChatRole.ASSISTANT,
