@@ -8,10 +8,10 @@ from synalinks.src.backend import Field
 from synalinks.src.language_models import LanguageModel
 from synalinks.src.rewards.lm_as_judge import LMAsJudge
 
+
 class LMAsJudgeTest(testing.TestCase):
     @patch("litellm.acompletion")
     async def test_lm_as_judge(self, mock_completion):
-        
         class Query(DataModel):
             query: str = Field(description="The user query")
 

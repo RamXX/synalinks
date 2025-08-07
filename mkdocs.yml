@@ -45,12 +45,15 @@ nav:
       - Code Examples/Basics/Conversational Applications.md
       - Code Examples/Basics/Reward Metrics And Optimizers.md
       - Code Examples/Basics/Training Programs.md
-    - Advanced:
-      - Code Examples/Advanced/Implementing Custom Modules And Programs Via Subclassing.md
-      - Code Examples/Advanced/First Knowledge Graph Schema.md
-      - Code Examples/Advanced/Knowledge Extraction.md
-      - Code Examples/Advanced/Retrieval Augmented Generation.md
-      - Code Examples/Advanced/Knowledge Augmented Generation.md
+      - Code Examples/Basics/Implementing Custom Modules Via Subclassing.md
+    - RAGs:
+      - Code Examples/RAGs/First Knowledge Graph Schema.md
+      - Code Examples/RAGs/Knowledge Extraction.md
+      - Code Examples/RAGs/Retrieval Augmented Generation.md
+      - Code Examples/RAGs/Knowledge Augmented Generation.md
+    - Agents:
+      - Code Examples/Agents/Autonomous Agent.md
+      - Code Examples/Agents/Interactive Agent.md
   - Synalinks API:
     - Synalinks API/Language Models API.md
     - Synalinks API/Embedding Models API.md

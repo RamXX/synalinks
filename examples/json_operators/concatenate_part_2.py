@@ -1,5 +1,7 @@
 import synalinks
 
+synalinks.enable_logging()
+
 
 class Query(synalinks.DataModel):
     query: str

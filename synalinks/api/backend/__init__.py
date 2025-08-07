@@ -14,6 +14,7 @@ from synalinks.src.backend.common.symbolic_data_model import (
 )
 from synalinks.src.backend.config import api_key as api_key
 from synalinks.src.backend.config import backend as backend
+from synalinks.src.backend.config import enable_logging as enable_logging
 from synalinks.src.backend.config import epsilon as epsilon
 from synalinks.src.backend.config import floatx as floatx
 from synalinks.src.backend.config import set_api_key as set_api_key

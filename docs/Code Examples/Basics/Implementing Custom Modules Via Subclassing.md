@@ -1,4 +1,4 @@
-# Implementing custom modules & programs via subclassing
+# Implementing Custom Modules Via Subclassing
 
 This tutorial, is for more advanced users, it will cover how to 
 create custom modules/programs via subclassing.

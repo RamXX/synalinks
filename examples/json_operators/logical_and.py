@@ -1,5 +1,7 @@
 import synalinks
 
+synalinks.enable_logging()
+
 # Logical AND with Synalinks
 
 

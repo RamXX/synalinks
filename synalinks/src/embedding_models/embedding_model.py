@@ -5,7 +5,6 @@ import warnings
 import litellm
 
 from synalinks.src.api_export import synalinks_export
-
 from synalinks.src.saving import serialization_lib
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
 

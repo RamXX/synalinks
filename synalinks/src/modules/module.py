@@ -4,6 +4,7 @@
 
 import collections
 import inspect
+import uuid
 import warnings
 from functools import wraps
 
@@ -14,6 +15,7 @@ from synalinks.src import utils
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend.common import global_state
 from synalinks.src.backend.common.name_scope import current_path
+from synalinks.src.hooks.hook_list import HookList
 from synalinks.src.metrics import Metric
 from synalinks.src.ops.operation import Operation
 from synalinks.src.saving.synalinks_saveable import SynalinksSaveable
@@ -108,6 +110,7 @@ class Module(BackendModule, Operation, SynalinksSaveable):
         trainable=True,
         name=None,
         description=None,
+        hooks=None,
         **kwargs,
     ):
         BackendModule.__init__(self)
@@ -141,6 +144,10 @@ class Module(BackendModule, Operation, SynalinksSaveable):
         self._build_schemas_dict = None
         # Parent path
         self._parent_path = None
+        self._hooks = HookList(
+            hooks=hooks,
+            module=self,
+        )
         self._initialize_tracker()
 
     @tracking.no_automatic_dependency_tracking
@@ -495,7 +502,12 @@ class Module(BackendModule, Operation, SynalinksSaveable):
         )
 
     async def __call__(self, *args, **kwargs):
-
+        call_id = str(uuid.uuid4())
+        if self._hooks:
+            self._hooks.on_call_begin(
+                call_id=call_id,
+                inputs=args,
+            )
         self._check_super_called()
         self._called = True
 
@@ -575,10 +587,20 @@ class Module(BackendModule, Operation, SynalinksSaveable):
             if not self.built:
                 self.built = True
         except Exception as e:
+            if self._hooks:
+                self._hooks.on_call_end(
+                    call_id=call_id,
+                    exception=str(e),
+                )
             raise e
         finally:
             # Destroy call context if we created it
             self._maybe_reset_call_context()
+        if self._hooks:
+            self._hooks.on_call_end(
+                call_id=call_id,
+                outputs=outputs,
+            )
         return outputs
 
     async def call(self, *args, **kwargs):

@@ -3,12 +3,14 @@ import asyncio
 
 from synalinks.backend import ChatMessages
 
-language_model = synalinks.LanguageModel(
-    model="ollama/mistral",
-)
+synalinks.enable_logging()
 
 
 async def main():
+    language_model = synalinks.LanguageModel(
+        model="ollama/mistral",
+    )
+
     inputs = synalinks.Input(data_model=ChatMessages)
     outputs = await synalinks.Generator(
         language_model=language_model,

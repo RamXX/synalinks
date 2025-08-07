@@ -135,6 +135,43 @@ def set_epsilon(value):
 
 @synalinks_export(
     [
+        "synalinks.config.enable_logging",
+        "synalinks.backend.enable_logging",
+        "synalinks.enable_logging",
+    ]
+)
+def enable_logging(filename=None, debug=False):
+    """
+    Configures and enables logging for the application.
+
+    This function sets up the logging configuration for the application, allowing logs to be output
+    either to a specified file or to the console. The logging level can be set to DEBUG for more
+    verbose logging or INFO for standard logging.
+
+    Args:
+        filename (str): The name of the file where logs should be written. If not provided,
+            logs will be output to the console.
+        debug (bool): If True, sets the logging level to DEBUG. If False, the logging level
+            is set to INFO. Defaults to False.
+
+    The log message format includes the timestamp, log level, and the log message itself.
+    """
+    level = logging.DEBUG if debug else logging.INFO
+    if filename:
+        logging.basicConfig(
+            filename=filename,
+            level=level,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+        )
+    else:
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+        )
+
+
+@synalinks_export(
+    [
         "synalinks.config.api_key",
         "synalinks.backend.api_key",
     ]

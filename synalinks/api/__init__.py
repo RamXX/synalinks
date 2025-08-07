@@ -9,6 +9,7 @@ from synalinks.api import callbacks as callbacks
 from synalinks.api import config as config
 from synalinks.api import datasets as datasets
 from synalinks.api import embedding_models as embedding_models
+from synalinks.api import hooks as hooks
 from synalinks.api import initializers as initializers
 from synalinks.api import language_models as language_models
 from synalinks.api import metrics as metrics
@@ -29,6 +30,7 @@ from synalinks.src.backend.common.symbolic_data_model import (
     SymbolicDataModel as SymbolicDataModel,
 )
 from synalinks.src.backend.common.symbolic_scope import SymbolicScope as SymbolicScope
+from synalinks.src.backend.config import enable_logging as enable_logging
 from synalinks.src.backend.config import synalinks_home as synalinks_home
 from synalinks.src.backend.pydantic.base import ChatMessage as ChatMessage
 from synalinks.src.backend.pydantic.base import ChatMessages as ChatMessages

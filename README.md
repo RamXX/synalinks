@@ -438,6 +438,14 @@ To load its variables (needs a program with the same architecture), do:
 program.load_variables("my_program.variables.json")
 ```
 
+## Logging
+
+To enable logging, use the following at the beginning of your script:
+
+```python
+synalinks.enable_logging()
+```
+
 ### Learn more
 
 You can learn more by reading our [documentation](https://synalinks.github.io/synalinks/). If you have questions, the [FAQ](https://synalinks.github.io/synalinks/FAQ/) might help you.

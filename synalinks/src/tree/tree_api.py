@@ -11,6 +11,7 @@ if optree.available:
     from synalinks.src.tree import optree_impl as tree_impl
 else:
     from synalinks.src.tree import python_impl as tree_impl
+
     raise ImportError(
         "To use synalinks, you need to have `optree` installed. "
         "Install it via `pip install optree`"

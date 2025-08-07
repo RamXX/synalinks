@@ -82,7 +82,9 @@ class Neo4JAdapter(DatabaseAdapter):
                 self.query("CALL db.awaitIndexes(300)"),
             )
 
-    async def query(self, query: str, params: Dict[str, Any] = None, read_only=True, **kwargs):
+    async def query(
+        self, query: str, params: Dict[str, Any] = None, read_only=True, **kwargs
+    ):
         driver = neo4j.GraphDatabase.driver(self.uri, auth=(self.username, self.password))
         result_list = []
         if read_only:

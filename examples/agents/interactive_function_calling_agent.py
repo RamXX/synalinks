@@ -3,6 +3,8 @@ import asyncio
 
 MAX_ITERATIONS = 5
 
+synalinks.enable_logging()
+
 
 @synalinks.utils.register_synalinks_serializable()
 async def calculate(expression: str):
