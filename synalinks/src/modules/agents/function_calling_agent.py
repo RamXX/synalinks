@@ -452,7 +452,7 @@ class FunctionCallingAgent(Module):
                 if not tool_calls:
                     assistant_message = ChatMessage(
                         role=ChatRole.ASSISTANT,
-                        content="An error happened while trying to infer the tool call arguments.",
+                        content="Something went wrong while trying to decide the next action.",
                     )
                     agent_messages.append(assistant_message.get_json())
                     break
@@ -485,12 +485,21 @@ class FunctionCallingAgent(Module):
 
                 agent_messages.append(assistant_message.get_json())
 
-                tool_results = await asyncio.gather(*tasks)
+                tool_results = await asyncio.gather(*tasks, return_exceptions=True)
                 for j, tool_result in enumerate(tool_results):
                     tool_call_id = tool_calls_ids[j]
-                    agent_messages.append(
-                        ChatMessage(
-                            role=ChatRole.TOOL,
+                    if isinstance(tool_result, Exception):
+                        agent_messages.append(
+                            ChatMessage(
+                                role=ChatRole.TOOL,
+                                tool_call_id=tool_call_id,
+                                content="error: %s" % str(tool_result),
+                            ).get_json()
+                        )
+                    else:
+                        agent_messages.append(
+                            ChatMessage(
+                                role=ChatRole.TOOL,
                             tool_call_id=tool_call_id,
                             content=tool_result,
                         ).get_json()
@@ -515,16 +524,25 @@ class FunctionCallingAgent(Module):
                         tool_calls_ids.append(tool_call_id)
                         tasks.append(self.tools[tool_name](**tools_arguments))
 
-                    tool_results = await asyncio.gather(*tasks)
+                    tool_results = await asyncio.gather(*tasks, return_exceptions=True)
                     for j, tool_result in enumerate(tool_results):
                         tool_call_id = tool_calls_ids[j]
-                        agent_messages.append(
-                            ChatMessage(
-                                role=ChatRole.TOOL,
-                                tool_call_id=tool_call_id,
-                                content=tool_result,
-                            ).get_json()
-                        )
+                        if isinstance(tool_result, Exception):
+                            agent_messages.append(
+                                ChatMessage(
+                                    role=ChatRole.TOOL,
+                                    tool_call_id=tool_call_id,
+                                    content="error: %s" % str(tool_result),
+                                ).get_json()
+                            )
+                        else:
+                            agent_messages.append(
+                                ChatMessage(
+                                    role=ChatRole.TOOL,
+                                    tool_call_id=tool_call_id,
+                                    content=tool_result,
+                                ).get_json()
+                            )
 
             trajectory.update({"messages": agent_messages})
 

@@ -5,45 +5,46 @@ readme = "README.md"
 requires-python = ">=3.10"
 dynamic = ["version"]
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3 :: Only",
-    "Operating System :: Unix",
-    "Operating System :: MacOS",
-    "Intended Audience :: Science/Research",
-    "Topic :: Scientific/Engineering",
-    "Topic :: Software Development",
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3 :: Only",
+  "Operating System :: Unix",
+  "Operating System :: MacOS",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Software Development",
 ]
 dependencies = [
-    "absl-py",
-    "asyncio",
-    "click",
-    "datasets",
-    "docstring-parser",
-    "graphviz",
-    "inquirer",
-    "docstring-parser",
-    "graphviz",
-    "inquirer",
-    "jinja2",
-    "kuzu>=0.11.1",
-    "litellm",
-    "matplotlib",
-    "mcp",
-    "namex",
-    "neo4j",
-    "numpy",
-    "optree",
-    "pydantic",
-    "pydotplus",
-    "rich",
-    "greenlet",
-    "fastmcp",
+  "absl-py",
+  "asyncio",
+  "click",
+  "datasets",
+  "docstring-parser",
+  "docstring-parser",
+  "fastmcp",
+  "graphviz",
+  "graphviz",
+  "greenlet",
+  "inquirer",
+  "inquirer",
+  "jinja2",
+  "kuzu>0.11.0",
+  "litellm",
+  "matplotlib",
+  "mcp",
+  "namex",
+  "neo4j",
+  "numpy",
+  "optree",
+  "pydantic",
+  "pydotplus",
+  "rich",
+  "tenacity<10",
 ]
 
 [project.urls]
@@ -70,14 +71,14 @@ line-length = 90
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle error
-    "F",  # Pyflakes
-    "I",  # isort
+  "E",  # pycodestyle error
+  "F",  # Pyflakes
+  "I",  # isort
 ]
 ignore = [
-    "E722",  # do not use bare 'except'
-    "E741",  # ambiguous variable name
-    "E731",  # do not assign a `lambda` expression, use a `def`
+  "E722",  # do not use bare 'except'
+  "E741",  # ambiguous variable name
+  "E731",  # do not assign a `lambda` expression, use a `def`
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -93,13 +94,13 @@ known-first-party = ["synalinks"]
 
 [tool.pytest.ini_options]
 filterwarnings = [
-    "error",
-    "ignore::DeprecationWarning",
-    "ignore::ImportWarning",
-    "ignore::RuntimeWarning",
-    "ignore::PendingDeprecationWarning",
-    "ignore::FutureWarning",
-    "ignore::UserWarning",
+  "error",
+  "ignore::DeprecationWarning",
+  "ignore::ImportWarning",
+  "ignore::RuntimeWarning",
+  "ignore::PendingDeprecationWarning",
+  "ignore::FutureWarning",
+  "ignore::UserWarning",
 ]
 addopts = "--cov-report xml --cov=synalinks -v"
 
@@ -108,22 +109,22 @@ norecursedirs = ["build"]
 
 [tool.coverage.report]
 exclude_lines = [
-    "pragma: no cover",
-    "@abstract",
-    "raise NotImplementedError",
+  "pragma: no cover",
+  "@abstract",
+  "raise NotImplementedError",
 ]
 omit = [
-    "*/__init__.py",
-    "*/plot_*.py",
-    "*/*_visualization.py",
-    "*/cli/*",
-    "*/async_utils.py",
+  "*/__init__.py",
+  "*/plot_*.py",
+  "*/*_visualization.py",
+  "*/cli/*",
+  "*/async_utils.py",
 ]
 
 [tool.coverage.run]
 branch = true
 omit = [
-    "*/__init__.py",
-    "*/cli/*",
-    "*/async_utils.py",
+  "*/__init__.py",
+  "*/cli/*",
+  "*/async_utils.py",
 ]
