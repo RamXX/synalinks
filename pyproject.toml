@@ -25,12 +25,9 @@ dependencies = [
   "click",
   "datasets",
   "docstring-parser",
-  "docstring-parser",
   "fastmcp",
   "graphviz",
-  "graphviz",
   "greenlet",
-  "inquirer",
   "inquirer",
   "jinja2",
   "kuzu>0.11.0",
@@ -44,7 +41,7 @@ dependencies = [
   "pydantic",
   "pydotplus",
   "rich",
-  "tenacity<10",
+  "tenacity",
 ]
 
 [project.urls]
