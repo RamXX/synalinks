@@ -97,6 +97,7 @@ class EmbeddingModel(SynalinksSaveable):
         api_base=None,
         retry=5,
         fallback=None,
+        caching=True,
     ):
         if model is None:
             raise ValueError(
@@ -109,6 +110,7 @@ class EmbeddingModel(SynalinksSaveable):
             self.api_base = api_base
         self.retry = retry
         self.fallback = fallback
+        self.caching = caching
 
     async def __call__(self, texts, **kwargs):
         """
@@ -128,12 +130,14 @@ class EmbeddingModel(SynalinksSaveable):
                         model=self.model,
                         input=texts,
                         api_base=self.api_base,
+                        caching=self.caching,
                         **kwargs,
                     )
                 else:
                     response = await litellm.aembedding(
                         model=self.model,
                         input=texts,
+                        caching=self.caching,
                         **kwargs,
                     )
                 vectors = []

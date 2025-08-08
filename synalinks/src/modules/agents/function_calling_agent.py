@@ -15,7 +15,6 @@ from synalinks.src.backend import ToolCall
 from synalinks.src.backend import is_chat_messages
 from synalinks.src.backend.common.dynamic_json_schema_utils import dynamic_tool_calls
 from synalinks.src.backend.common.json_utils import out_mask_json
-from synalinks.src.modules.core.generator import Generator
 from synalinks.src.modules.module import Module
 from synalinks.src.modules.ttc.chain_of_thought import ChainOfThought
 from synalinks.src.saving import serialization_lib
@@ -46,7 +45,7 @@ class FunctionCallingAgent(Module):
     The agent has 2 different modes:
 
     - Autonomous: It will execute tools as soon as called.
-    - Non-autonomous: It will return the tool arguments as an ChatMessage.
+    - Non-autonomous: It will return the tool arguments as a ChatMessage.
 
     In *autonomous* mode, the agent accept **any kind of data model input** and perform a final inference to
     eventually format its final answer if a `data_model` or `schema` is provided.
@@ -257,7 +256,7 @@ class FunctionCallingAgent(Module):
             # Validate the tool calls arguments (with an UI or CLI)
             # Then re-inject the validated assistant response in the input_messages
             # The corresponding tools will be called by the agent
-            # Here we assume everything is okay for the purpose of the demo ^^
+            # Here we assume everything is okay for the purpose of the demo.
 
             input_messages.messages.append(assistant_message)
 
@@ -397,7 +396,7 @@ class FunctionCallingAgent(Module):
         )
 
         if self.schema and self.autonomous:
-            self.final_generator = Generator(
+            self.final_generator = ChainOfThought(
                 schema=self.schema,
                 language_model=self.language_model,
                 static_system_prompt=self.static_system_prompt,
@@ -422,7 +421,7 @@ class FunctionCallingAgent(Module):
             if not is_chat_messages(inputs):
                 raise ValueError(
                     "In interactive mode, the FunctionCallingAgent "
-                    "needs an ChatMessages as inputs"
+                    "needs an ChatMessages-like data model as inputs"
                 )
             trajectory = inputs
 
@@ -568,8 +567,7 @@ class FunctionCallingAgent(Module):
 
     async def compute_output_spec(self, inputs, training=False):
         if self.autonomous:
-            for i in range(self.max_iterations):
-                _ = await self.tool_calls_generator(inputs)
+            _ = await self.tool_calls_generator(inputs)
             if self.schema:
                 return await self.final_generator(inputs)
             else:
@@ -581,7 +579,7 @@ class FunctionCallingAgent(Module):
             if not is_chat_messages(inputs):
                 raise ValueError(
                     "In interactive mode, the FunctionCallingAgent "
-                    "needs an ChatMessages as inputs"
+                    "needs an ChatMessages-like data model as inputs"
                 )
 
             _ = await self.tool_calls_generator(inputs)

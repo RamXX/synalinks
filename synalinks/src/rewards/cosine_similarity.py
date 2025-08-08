@@ -11,7 +11,7 @@ from synalinks.src.rewards.reward_wrappers import RewardFunctionWrapper
 
 
 @synalinks_export("synalinks.rewards.cosine_similarity")
-async def cosine_similarity(y_true, y_pred, embedding_model=None, axis=-1, caching_true=False):
+async def cosine_similarity(y_true, y_pred, embedding_model=None, axis=-1):
     """
     Computes the cosine similarity between `y_true` and `y_pred`.
 
@@ -32,7 +32,7 @@ async def cosine_similarity(y_true, y_pred, embedding_model=None, axis=-1, cachi
             cosine similarity.
         axis (int): (Optional) Defaults to `-1`. The dimension along which the cosine
             similarity is computed.
-        caching_true (bool): (Optional) Defaults to `False`. Whether to cache the
+        caching (bool): (Optional) Defaults to `False`. Whether to cache the
             embeddings of `y_true` not to waste computation on ground truth.
 
     Returns:
@@ -41,7 +41,7 @@ async def cosine_similarity(y_true, y_pred, embedding_model=None, axis=-1, cachi
     """
     reward = 0.0
     if y_pred is not None:
-        y_true = await ops.embedding(y_true, embedding_model=embedding_model, caching=caching_true)
+        y_true = await ops.embedding(y_true, embedding_model=embedding_model)
         y_pred = await ops.embedding(y_pred, embedding_model=embedding_model)
         y_true = np.convert_to_tensor(y_true.get("embeddings"))
         y_pred = np.convert_to_tensor(y_pred.get("embeddings"))
