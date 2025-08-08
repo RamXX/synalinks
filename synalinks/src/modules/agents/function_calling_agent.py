@@ -384,34 +384,17 @@ class FunctionCallingAgent(Module):
         self.return_inputs_with_trajectory = return_inputs_with_trajectory
         self.max_iterations = max_iterations
 
-        if self.autonomous:
-            self.tool_calls_generators = []
-            for i in range(self.max_iterations):
-                self.tool_calls_generators.append(
-                    ChainOfThought(
-                        schema=tool_calls_schema,
-                        prompt_template=self.prompt_template,
-                        static_system_prompt=self.static_system_prompt,
-                        examples=self.examples,
-                        instructions=self.instructions,
-                        use_inputs_schema=self.use_inputs_schema,
-                        use_outputs_schema=self.use_outputs_schema,
-                        language_model=self.language_model,
-                        name=self.name + f"_tool_calls_generator_{i}",
-                    )
-                )
-        else:
-            self.tool_calls_generator = ChainOfThought(
-                schema=tool_calls_schema,
-                prompt_template=self.prompt_template,
-                static_system_prompt=self.static_system_prompt,
-                examples=self.examples,
-                instructions=self.instructions,
-                use_inputs_schema=self.use_inputs_schema,
-                use_outputs_schema=self.use_outputs_schema,
-                language_model=self.language_model,
-                name=self.name + "_tool_calls_generator",
-            )
+        self.tool_calls_generator = ChainOfThought(
+            schema=tool_calls_schema,
+            prompt_template=self.prompt_template,
+            static_system_prompt=self.static_system_prompt,
+            examples=self.examples,
+            instructions=self.instructions,
+            use_inputs_schema=self.use_inputs_schema,
+            use_outputs_schema=self.use_outputs_schema,
+            language_model=self.language_model,
+            name=self.name + "_tool_calls_generator",
+        )
 
         if self.schema and self.autonomous:
             self.final_generator = Generator(
@@ -447,7 +430,7 @@ class FunctionCallingAgent(Module):
 
         if self.autonomous:
             for i in range(self.max_iterations):
-                tool_calls = await self.tool_calls_generators[i](trajectory)
+                tool_calls = await self.tool_calls_generator(trajectory)
 
                 if not tool_calls:
                     assistant_message = ChatMessage(
@@ -586,7 +569,7 @@ class FunctionCallingAgent(Module):
     async def compute_output_spec(self, inputs, training=False):
         if self.autonomous:
             for i in range(self.max_iterations):
-                _ = await self.tool_calls_generators[i](inputs)
+                _ = await self.tool_calls_generator(inputs)
             if self.schema:
                 return await self.final_generator(inputs)
             else:
