@@ -3,6 +3,7 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
 import json
+import logging
 import os
 
 from synalinks.src.api_export import synalinks_export

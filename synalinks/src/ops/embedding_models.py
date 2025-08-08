@@ -37,7 +37,7 @@ class Embedding(Operation):
 
     async def call(self, x):
         texts = tree.flatten(tree.map_structure(lambda field: str(field), x.get_json()))
-        embeddings = await self.embedding_model(texts)
+        embeddings = await self.embedding_model(texts, **self.em_kwargs)
         return JsonDataModel(data_model=Embeddings(**embeddings), name=self.name)
 
     async def compute_output_spec(self, x):
