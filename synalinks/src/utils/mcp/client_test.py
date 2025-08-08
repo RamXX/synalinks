@@ -126,6 +126,7 @@ class MCPClientIntegrationTest(testing.TestCase):
                 headers=headers,
                 timeout=timeout or httpx.Timeout(30.0),
                 auth=auth,
+                follow_redirects=True,
                 limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
             )
 
