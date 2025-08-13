@@ -294,13 +294,17 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
         return json.dumps(cls.get_schema(), indent=2)
 
     @classmethod
-    def to_symbolic_data_model(cls):
+    def to_symbolic_data_model(cls, name=None):
         """Converts the data model to a symbolic data model.
+        
+        Args:
+            name (str): Optional. The name of the symbolic data model.
+                If None, a name will be given automatically.
 
         Returns:
             (SymbolicDataModel): The symbolic data model.
         """
-        return SymbolicDataModel(schema=cls.get_schema())
+        return SymbolicDataModel(schema=cls.get_schema(), name=name)
 
     def get_json(self):
         """Gets the JSON value of the data model.
@@ -323,13 +327,21 @@ class DataModel(pydantic.BaseModel, SynalinksSaveable, metaclass=MetaDataModel):
     def __repr__(self):
         return f"<DataModel json={self.get_json()}, schema={self.get_schema()}>"
 
-    def to_json_data_model(self):
+    def to_json_data_model(self, name=None):
         """Converts the data model to a backend-independent data model.
+        
+        Args:
+            name (str): Optional. The name of the json data model.
+                If None, a name will be given automatically.
 
         Returns:
             (JsonDataModel): The backend-independent data model.
         """
-        return JsonDataModel(schema=self.get_schema(), json=self.get_json())
+        return JsonDataModel(
+            schema=self.get_schema(),
+            json=self.get_json(),
+            name=name,
+        )
 
     def __add__(self, other):
         """Concatenates this data model with another.

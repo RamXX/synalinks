@@ -651,8 +651,18 @@ class Module(BackendModule, Operation, SynalinksSaveable):
         pass
 
     def _maybe_convert_inputs(self, inputs):
+        counter = {'i': 0}
+        def convert_fn(x):
+            if backend.is_data_model(x):
+                result = x.to_json_data_model(
+                    name=f"{self.name}_inputs_{counter['i']}"
+                )
+                counter['i'] += 1
+                return result
+            return x
+
         return tree.map_structure(
-            lambda x: x.to_json_data_model() if backend.is_data_model(x) else x,
+            convert_fn,
             inputs,
         )
         return inputs

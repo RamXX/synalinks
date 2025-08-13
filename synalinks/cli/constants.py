@@ -115,6 +115,7 @@ wheels/
 MAIN_TEMPLATE = """import os
 import synalinks
 import psutil
+import asyncio
 from dotenv import load_dotenv
 from fastapi import FastAPI
 # Uncomment for streaming apps

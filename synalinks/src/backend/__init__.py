@@ -101,13 +101,13 @@ class name_scope(backend_name_scope):
 
 
 @synalinks_export("synalinks.ops.convert_to_json_data_model")
-def convert_to_json_data_model(x):
-    return JsonDataModel(schema=x.get_schema(), json=x.get_json()) if x else x
+def convert_to_json_data_model(x, name=None):
+    return JsonDataModel(schema=x.get_schema(), json=x.get_json(), name=name) if x else x
 
 
 @synalinks_export("synalinks.ops.convert_to_symbolic_data_model")
-def convert_to_symbolic_data_model(x):
-    return SymbolicDataModel(schema=x.get_schema()) if x else x
+def convert_to_symbolic_data_model(x, name=None):
+    return SymbolicDataModel(schema=x.get_schema(), name=name) if x else x
 
 
 async def compute_output_spec(fn, *args, **kwargs):
