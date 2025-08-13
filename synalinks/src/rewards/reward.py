@@ -46,26 +46,30 @@ class Reward(SynalinksSaveable):
                 lambda x: ops.convert_to_json_data_model(x), y_true
             )
 
-            if self.in_mask:
+            if self.in_mask and y_pred:
                 y_pred = tree.map_structure(
                     lambda x: x.in_mask(mask=self.in_mask), y_pred
                 )
+            if self.in_mask and y_true:
                 y_true = tree.map_structure(
                     lambda x: x.in_mask(mask=self.in_mask), y_true
                 )
-            if self.out_mask:
+            if self.out_mask and y_pred:
                 y_pred = tree.map_structure(
                     lambda x: x.out_mask(mask=self.out_mask), y_pred
                 )
+            if self.out_mask and y_true:
                 y_true = tree.map_structure(
                     lambda x: x.out_mask(mask=self.out_mask), y_true
                 )
-
-            rewards = await self.call(y_true, y_pred)
-            return reduce_values(
-                rewards,
-                reduction=self.reduction,
-            )
+            if y_pred:
+                rewards = await self.call(y_true, y_pred)
+                return reduce_values(
+                    rewards,
+                    reduction=self.reduction,
+                )
+            else:
+                return 0.0
 
     async def call(self, y_true, y_pred):
         raise NotImplementedError
