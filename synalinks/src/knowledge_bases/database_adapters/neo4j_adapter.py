@@ -53,6 +53,16 @@ class Neo4JAdapter(DatabaseAdapter):
                 read_only=False,
             )
         )
+        result = run_maybe_nested(self.query("SHOW VECTOR INDEXES"))
+        for indexes in result:
+            index_name = indexes["name"]
+            query = "DROP INDEX $index"
+            params = {
+                "index": index_name,
+            }
+            run_maybe_nested(
+                self.query(query, params)
+            )
 
     def create_vector_index(self):
         """Create vector indexes"""

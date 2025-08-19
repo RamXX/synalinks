@@ -37,6 +37,7 @@ dependencies = [
   "namex",
   "neo4j",
   "numpy",
+  "openai<1.100.0",
   "optree",
   "pydantic",
   "pydotplus",
