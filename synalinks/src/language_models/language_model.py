@@ -136,7 +136,7 @@ class LanguageModel(SynalinksSaveable):
     Args:
         model (str): The model to use.
         api_base (str): Optional. The endpoint to use.
-        timeout (int): Optional. The timeout value in seconds (Default to 100).
+        timeout (int): Optional. The timeout value in seconds (Default to 600).
         retry (int): Optional. The number of retry (default to 5).
         fallback (LanguageModel): Optional. The language model to fallback
             if anything is wrong.
@@ -146,7 +146,7 @@ class LanguageModel(SynalinksSaveable):
         self,
         model=None,
         api_base=None,
-        timeout=100,
+        timeout=600,
         retry=5,
         fallback=None,
     ):

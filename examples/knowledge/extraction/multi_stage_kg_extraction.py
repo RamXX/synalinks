@@ -108,11 +108,11 @@ async def main():
         language_model=language_model,
     )(inputs)
 
-    entities = await synalinks.And()([cities, countries, places, events])
+    entities = await synalinks.Or()([cities, countries, places, events])
 
     entities = entities.factorize()
 
-    relations = await synalinks.And()(
+    relations = await synalinks.Or()(
         [
             is_capital_of_relations,
             is_located_in_relations,
@@ -122,7 +122,7 @@ async def main():
     )
     relations = relations.factorize()
 
-    knowledge_graph = entities & relations
+    knowledge_graph = entities | relations
 
     embedded_knowledge_graph = await synalinks.Embedding(
         embedding_model=embedding_model,

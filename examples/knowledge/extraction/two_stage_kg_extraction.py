@@ -52,15 +52,15 @@ async def main():
         language_model=language_model,
     )(inputs)
 
-    # inputs_with_entities = inputs AND entities (See Control Flow tutorial)
-    inputs_with_entities = inputs & entities
+    # inputs_with_entities = inputs OR entities (See Control Flow tutorial)
+    inputs_with_entities = inputs | entities
     relations = await synalinks.Generator(
         data_model=KnowledgeRelations,
         language_model=language_model,
     )(inputs_with_entities)
 
-    # knowledge_graph = entities AND relations
-    knowledge_graph = entities & relations
+    # knowledge_graph = entities OR relations
+    knowledge_graph = entities | relations
 
     embedded_knowledge_graph = await synalinks.Embedding(
         embedding_model=embedding_model,

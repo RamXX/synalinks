@@ -72,7 +72,7 @@ async def main():
         language_model=language_model,
     )(inputs)
 
-    relations = await synalinks.And()(
+    relations = await synalinks.Or()(
         [
             is_capital_of_relations,
             is_located_in_relations,

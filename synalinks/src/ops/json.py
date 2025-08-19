@@ -336,6 +336,8 @@ class Factorize(Operation):
         )
 
     async def call(self, x):
+        if not x:
+            return None
         json = factorize_json(x.get_json())
         schema = factorize_schema(x.get_schema())
         return JsonDataModel(json=json, schema=schema, name=self.name)
@@ -395,6 +397,8 @@ class OutMask(Operation):
         self.recursive = recursive
 
     async def call(self, x):
+        if not x:
+            return None
         json = out_mask_json(x.get_json(), mask=self.mask, recursive=self.recursive)
         schema = out_mask_schema(x.get_schema(), mask=self.mask, recursive=self.recursive)
         return JsonDataModel(json=json, schema=schema, name=self.name)
@@ -426,8 +430,6 @@ async def out_mask(x, mask=None, recursive=True, name=None, description=None):
     Returns:
         (JsonDataModel | SymbolicDataModel): The resulting data model.
     """
-    if x is None:
-        return x
     if mask is None:
         raise ValueError("You should specify the `mask` argument")
     if any_symbolic_data_models(x):
@@ -463,6 +465,8 @@ class InMask(Operation):
         self.recursive = recursive
 
     async def call(self, x):
+        if not x:
+            return None
         json = in_mask_json(x.get_json(), mask=self.mask, recursive=self.recursive)
         schema = in_mask_schema(x.get_schema(), mask=self.mask, recursive=self.recursive)
         return JsonDataModel(json=json, schema=schema, name=self.name)
@@ -494,8 +498,6 @@ async def in_mask(x, mask=None, recursive=True, name=None, description=None):
     Returns:
         (JsonDataModel | SymbolicDataModel): The resulting data model.
     """
-    if x is None:
-        return x
     if mask is None:
         raise ValueError("You should specify the `mask` argument")
     if any_symbolic_data_models(x):
@@ -529,6 +531,8 @@ class Prefix(Operation):
         self.prefix = prefix
 
     async def call(self, x):
+        if not x:
+            return None
         json = prefix_json(x.get_json(), self.prefix)
         schema = prefix_schema(x.get_schema(), self.prefix)
         return JsonDataModel(json=json, schema=schema, name=self.name)
@@ -554,8 +558,6 @@ async def prefix(x, prefix=None, name=None, description=None):
     Returns:
         (JsonDataModel | SymbolicDataModel): The resulting data model.
     """
-    if x is None:
-        return x
     if prefix is None:
         raise ValueError("You should specify the `prefix` argument")
     if any_symbolic_data_models(x):
@@ -587,6 +589,8 @@ class Suffix(Operation):
         self.suffix = suffix
 
     async def call(self, x):
+        if not x:
+            return None
         json = suffix_json(x.get_json(), self.suffix)
         schema = suffix_schema(x.get_schema(), self.suffix)
         return JsonDataModel(json=json, schema=schema, name=self.name)
@@ -612,8 +616,6 @@ async def suffix(x, suffix=None, name=None, description=None):
     Returns:
         (JsonDataModel | SymbolicDataModel): The resulting data model
     """
-    if x is None:
-        return x
     if suffix is None:
         raise ValueError("You should specify the `suffix` argument")
     if any_symbolic_data_models(x):
