@@ -137,4 +137,7 @@ nosetests.xml
 *.mo
 *.pot
 
+# Claude Code
+.claude/
+AGENTS.md
 */AGENTS.md
