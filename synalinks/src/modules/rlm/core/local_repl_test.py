@@ -1,5 +1,7 @@
 """Tests for LocalREPL."""
 
+import json
+import os
 import time
 
 from synalinks.src import testing
@@ -320,3 +322,40 @@ FINAL_VAR(data)
         self.assertEqual(result.locals["results"], ["explicit", "explicit"])
         self.assertEqual(explicit_called, ["Q1", "Q2"])
         self.assertEqual(auto_called, [])  # Auto version not used
+
+    def test_load_context_with_dict(self):
+        """load_context loads dict into namespace."""
+        repl = LocalREPL()
+        repl.load_context({"x": 42, "y": "hello", "z": [1, 2, 3]})
+
+        self.assertEqual(repl.get_variable("x"), 42)
+        self.assertEqual(repl.get_variable("y"), "hello")
+        self.assertEqual(repl.get_variable("z"), [1, 2, 3])
+
+    def test_load_context_with_json_string(self):
+        """load_context parses JSON string into namespace."""
+        repl = LocalREPL()
+        json_str = json.dumps({"a": 100, "b": "world", "c": {"nested": True}})
+        repl.load_context(json_str)
+
+        self.assertEqual(repl.get_variable("a"), 100)
+        self.assertEqual(repl.get_variable("b"), "world")
+        self.assertEqual(repl.get_variable("c"), {"nested": True})
+
+    def test_temp_dir_created_on_init(self):
+        """Temp directory is created on initialization."""
+        repl = LocalREPL()
+        self.assertTrue(hasattr(repl, "temp_dir"))
+        self.assertTrue(os.path.exists(repl.temp_dir))
+        self.assertTrue(os.path.isdir(repl.temp_dir))
+        # Cleanup
+        repl.cleanup()
+
+    def test_temp_dir_cleanup(self):
+        """Temp directory is cleaned up properly."""
+        repl = LocalREPL()
+        temp_dir = repl.temp_dir
+        self.assertTrue(os.path.exists(temp_dir))
+
+        repl.cleanup()
+        self.assertFalse(os.path.exists(temp_dir))

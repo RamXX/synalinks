@@ -2,7 +2,11 @@
 
 import asyncio
 import io
+import json
+import os
+import shutil
 import signal
+import tempfile
 from contextlib import redirect_stderr
 from contextlib import redirect_stdout
 from typing import Any
@@ -63,6 +67,7 @@ class LocalREPL:
         self.default_sub_model = default_sub_model
         self.timeout = timeout
         self._final_answer: Optional[Any] = None
+        self.temp_dir = tempfile.mkdtemp()
         self._init_builtins(llm_query_fn, llm_query_batched_fn)
 
     def _create_final_var_fn(self):
@@ -280,3 +285,31 @@ class LocalREPL:
         if timeout is not None:
             self.timeout = timeout
         self._init_builtins(llm_query_fn, llm_query_batched_fn)
+
+    def load_context(self, context: str | dict) -> None:
+        """Load context into the REPL namespace.
+
+        Args:
+            context: Either a JSON string or dict to load into namespace
+
+        Example:
+            >>> repl = LocalREPL()
+            >>> repl.load_context({"x": 42, "y": "hello"})
+            >>> repl.get_variable("x")
+            42
+            >>> repl.load_context('{"z": [1, 2, 3]}')
+            >>> repl.get_variable("z")
+            [1, 2, 3]
+        """
+        if isinstance(context, str):
+            context = json.loads(context)
+        self._locals.update(context)
+
+    def cleanup(self) -> None:
+        """Clean up temp directory."""
+        if hasattr(self, "temp_dir") and os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+
+    def __del__(self):
+        """Clean up resources on deletion."""
+        self.cleanup()
