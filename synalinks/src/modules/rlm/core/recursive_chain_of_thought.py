@@ -76,8 +76,10 @@ class RecursiveChainOfThought(RecursiveGenerator):
         max_depth (int): Maximum recursion depth (default 1).
         k (int): Number of thinking fields to prepend (default 1).
         temperature (float): LLM temperature (default 0.0).
-        chunking_strategy (ChunkingStrategy | str): Optional chunking for large inputs.
-        enable_trajectory_logging (bool): Enable detailed trajectory logging (default False).
+        chunking_strategy (ChunkingStrategy | str): Optional chunking for
+            large inputs.
+        enable_trajectory_logging (bool): Enable detailed trajectory logging
+            (default False).
         name (str): Module name.
         description (str): Module description.
         trainable (bool): Whether module variables are trainable.
