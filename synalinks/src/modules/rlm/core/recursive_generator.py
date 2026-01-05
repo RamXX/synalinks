@@ -63,6 +63,13 @@ class RecursiveGenerator(Module):
     for cost optimization. Paper shows this as 'GPT-5 with medium reasoning
     (using GPT-5-mini for recursive calls)'.
 
+    **Training Integration**:
+    RecursiveGenerator fully integrates with Synalinks training system:
+    - Trainable Variables: instructions and examples are optimized via in-context RL
+    - Seed Instructions: Enable OMEGA-style prompt evolution across model families
+    - Optimizers: Compatible with GRPO, SIMBA, GEPA for prompt optimization
+    - Example: See examples/rlm_training_example.py for multi-model training setup
+
     Args:
         schema (dict): Target JSON schema. If not provided, use data_model.
         data_model (DataModel): Target data model for structured output.
