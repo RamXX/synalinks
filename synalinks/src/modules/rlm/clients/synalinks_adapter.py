@@ -94,9 +94,7 @@ class SynalinksLMClient:
         try:
             loop = asyncio.get_running_loop()
 
-            future = asyncio.run_coroutine_threadsafe(
-                self.language_model(messages), loop
-            )
+            future = asyncio.run_coroutine_threadsafe(self.language_model(messages), loop)
             result = future.result(timeout=300)
         except RuntimeError:
             result = asyncio.run(self.language_model(messages))
