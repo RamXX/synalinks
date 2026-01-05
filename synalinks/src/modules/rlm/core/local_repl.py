@@ -25,9 +25,13 @@ class LocalREPL:
     Supports multi-model architecture via default_sub_model parameter for
     cost-optimized llm_query() routing to cheaper sub-models.
 
+    Tracks recursion depth for nested llm_query calls and enforces max_depth limit.
+
     Args:
         llm_query_fn: Optional function to inject as llm_query() builtin
         default_sub_model: Default client name for llm_query() routing
+        current_depth: Current recursion depth (default: 0)
+        max_depth: Maximum allowed recursion depth (default: 1)
 
     Example:
         >>> # Basic usage
@@ -45,6 +49,10 @@ class LocalREPL:
         >>> llm_query_fn = handler.create_llm_query_fn("sub")  # Route to sub
         >>> repl = LocalREPL(llm_query_fn=llm_query_fn, default_sub_model="sub")
         >>> result = repl.execute("answer = llm_query('What is 2+2?')")
+
+        >>> # Recursion depth tracking
+        >>> repl = LocalREPL(llm_query_fn=llm_query_fn, current_depth=0, max_depth=2)
+        >>> # llm_query calls can nest up to depth 2
     """
 
     def __init__(
@@ -53,6 +61,8 @@ class LocalREPL:
         default_sub_model: Optional[str] = None,
         llm_query_batched_fn: Optional[Callable] = None,
         timeout: Optional[float] = None,
+        current_depth: int = 0,
+        max_depth: int = 1,
     ):
         """Initialize REPL with safe builtins.
 
@@ -62,10 +72,14 @@ class LocalREPL:
             llm_query_batched_fn: Function to inject as llm_query_batched()
                 for batched calls
             timeout: Optional timeout in seconds for code execution
+            current_depth: Current recursion depth (default: 0)
+            max_depth: Maximum allowed recursion depth (default: 1)
         """
         self._locals: dict[str, Any] = {}
         self.default_sub_model = default_sub_model
         self.timeout = timeout
+        self.current_depth = current_depth
+        self.max_depth = max_depth
         self._final_answer: Optional[Any] = None
         self.temp_dir = tempfile.mkdtemp()
         self._init_builtins(llm_query_fn, llm_query_batched_fn)
@@ -269,6 +283,8 @@ class LocalREPL:
         default_sub_model: Optional[str] = None,
         llm_query_batched_fn: Optional[Callable] = None,
         timeout: Optional[float] = None,
+        current_depth: Optional[int] = None,
+        max_depth: Optional[int] = None,
     ):
         """Reset REPL state to fresh environment.
 
@@ -277,6 +293,8 @@ class LocalREPL:
             default_sub_model: Optional new default client name for routing
             llm_query_batched_fn: Optional new llm_query_batched function
             timeout: Optional new timeout in seconds
+            current_depth: Optional new current recursion depth
+            max_depth: Optional new maximum recursion depth
         """
         self._locals.clear()
         self._final_answer = None
@@ -284,6 +302,10 @@ class LocalREPL:
             self.default_sub_model = default_sub_model
         if timeout is not None:
             self.timeout = timeout
+        if current_depth is not None:
+            self.current_depth = current_depth
+        if max_depth is not None:
+            self.max_depth = max_depth
         self._init_builtins(llm_query_fn, llm_query_batched_fn)
 
     def load_context(self, context: str | dict) -> None:

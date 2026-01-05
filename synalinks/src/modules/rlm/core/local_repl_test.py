@@ -359,3 +359,55 @@ FINAL_VAR(data)
 
         repl.cleanup()
         self.assertFalse(os.path.exists(temp_dir))
+
+    def test_current_depth_parameter_accepted(self):
+        """LocalREPL accepts current_depth parameter."""
+        repl = LocalREPL(current_depth=1)
+        self.assertEqual(repl.current_depth, 1)
+
+    def test_current_depth_defaults_to_zero(self):
+        """current_depth defaults to 0 when not provided."""
+        repl = LocalREPL()
+        self.assertEqual(repl.current_depth, 0)
+
+    def test_max_depth_parameter_accepted(self):
+        """LocalREPL accepts max_depth parameter."""
+        repl = LocalREPL(max_depth=3)
+        self.assertEqual(repl.max_depth, 3)
+
+    def test_max_depth_defaults_to_one(self):
+        """max_depth defaults to 1 when not provided."""
+        repl = LocalREPL()
+        self.assertEqual(repl.max_depth, 1)
+
+    def test_reset_with_new_current_depth(self):
+        """Reset can update current_depth."""
+        repl = LocalREPL(current_depth=0)
+        self.assertEqual(repl.current_depth, 0)
+
+        repl.reset(current_depth=2)
+        self.assertEqual(repl.current_depth, 2)
+
+    def test_reset_preserves_current_depth_if_not_provided(self):
+        """Reset preserves current_depth if not explicitly changed."""
+        repl = LocalREPL(current_depth=1)
+        self.assertEqual(repl.current_depth, 1)
+
+        repl.reset()
+        self.assertEqual(repl.current_depth, 1)
+
+    def test_reset_with_new_max_depth(self):
+        """Reset can update max_depth."""
+        repl = LocalREPL(max_depth=1)
+        self.assertEqual(repl.max_depth, 1)
+
+        repl.reset(max_depth=5)
+        self.assertEqual(repl.max_depth, 5)
+
+    def test_reset_preserves_max_depth_if_not_provided(self):
+        """Reset preserves max_depth if not explicitly changed."""
+        repl = LocalREPL(max_depth=3)
+        self.assertEqual(repl.max_depth, 3)
+
+        repl.reset()
+        self.assertEqual(repl.max_depth, 3)

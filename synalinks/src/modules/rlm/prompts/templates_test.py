@@ -41,7 +41,11 @@ class TestPromptTemplatesRegistry:
 
     def test_templates_contain_jinja_variables(self):
         """Test that templates contain required Jinja2 variables."""
-        required_vars = ["{{ instructions }}", "{{ inputs_schema }}", "{{ outputs_schema }}"]
+        required_vars = [
+            "{{ instructions }}",
+            "{{ inputs_schema }}",
+            "{{ outputs_schema }}",
+        ]
 
         for template_name, template in PROMPT_TEMPLATES.items():
             for var in required_vars:

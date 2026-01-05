@@ -280,9 +280,7 @@ class LMHandlerTest(testing.TestCase):
             # Send 3 concurrent requests
             start_time = time.time()
             with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                futures = [
-                    executor.submit(llm_query, f"Q{i}") for i in range(3)
-                ]
+                futures = [executor.submit(llm_query, f"Q{i}") for i in range(3)]
                 results = [f.result() for f in futures]
             elapsed = time.time() - start_time
 
@@ -301,8 +299,7 @@ class LMHandlerTest(testing.TestCase):
             # Verify all calls started within a short window (concurrent)
             if len(call_times) >= 2:
                 time_spread = max(call_times) - min(call_times)
-                self.assertLess(time_spread, 0.15,
-                              "Calls should start concurrently")
+                self.assertLess(time_spread, 0.15, "Calls should start concurrently")
         finally:
             handler.stop()
 
@@ -347,5 +344,73 @@ class LMHandlerTest(testing.TestCase):
             # Verify each client was called twice
             self.assertEqual(mock_client_root.completion.call_count, 2)
             self.assertEqual(mock_client_sub.completion.call_count, 2)
+        finally:
+            handler.stop()
+
+    def test_create_llm_query_fn_with_depth_parameters(self):
+        """create_llm_query_fn accepts current_depth and max_depth parameters."""
+        handler = LMHandler()
+        mock_lm = MagicMock()
+        mock_lm.model = "test"
+        client = SynalinksLMClient(mock_lm)
+        handler.register_client("test", client)
+
+        llm_query_fn = handler.create_llm_query_fn("test", current_depth=1, max_depth=3)
+        self.assertIsNotNone(llm_query_fn)
+        self.assertTrue(callable(llm_query_fn))
+
+    def test_llm_query_includes_current_depth_in_request(self):
+        """llm_query sends current_depth field in request."""
+        handler = LMHandler()
+
+        # Mock client that returns the request it received
+        received_prompts = []
+
+        def mock_completion(prompt):
+            received_prompts.append(prompt)
+            return "response"
+
+        mock_client = MagicMock()
+        mock_client.completion = MagicMock(side_effect=mock_completion)
+        handler.register_client("test", mock_client)
+
+        handler.start()
+        try:
+            llm_query = handler.create_llm_query_fn("test", current_depth=2, max_depth=5)
+            result = llm_query("test prompt")
+
+            # Verify the completion was called
+            self.assertEqual(result, "response")
+            self.assertEqual(len(received_prompts), 1)
+        finally:
+            handler.stop()
+
+    def test_handler_returns_current_depth_in_response(self):
+        """LMHandler includes current_depth in response."""
+        import json
+        import socket
+
+        handler = LMHandler()
+
+        mock_client = MagicMock()
+        mock_client.completion = MagicMock(return_value="test response")
+        handler.register_client("test", mock_client)
+
+        handler.start()
+        try:
+            # Send request with depth manually
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((handler.host, handler.port))
+
+            request = {"prompt": "test", "client": "test", "current_depth": 3}
+            sock.sendall(json.dumps(request).encode("utf-8"))
+
+            data = sock.recv(65536).decode("utf-8")
+            response = json.loads(data)
+            sock.close()
+
+            # Verify depth is in response
+            self.assertIn("current_depth", response)
+            self.assertEqual(response["current_depth"], 3)
         finally:
             handler.stop()

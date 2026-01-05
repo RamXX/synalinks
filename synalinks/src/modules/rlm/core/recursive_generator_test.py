@@ -133,3 +133,49 @@ class RecursiveGeneratorTest(testing.TestCase):
         # Call should complete without error
         result = await gen(input_data)
         self.assertIsNotNone(result)
+
+    def test_max_depth_parameter_accepted(self):
+        """RecursiveGenerator accepts max_depth parameter."""
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "zai/glm-4.7"
+
+        gen = RecursiveGenerator(language_model=mock_lm, max_depth=5)
+        self.assertEqual(gen.max_depth, 5)
+
+    def test_max_depth_defaults_to_one(self):
+        """max_depth defaults to 1 when not provided."""
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "zai/glm-4.7"
+
+        gen = RecursiveGenerator(language_model=mock_lm)
+        self.assertEqual(gen.max_depth, 1)
+
+    def test_max_depth_accepts_values_greater_than_one(self):
+        """max_depth accepts values > 1."""
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "zai/glm-4.7"
+
+        gen = RecursiveGenerator(language_model=mock_lm, max_depth=10)
+        self.assertEqual(gen.max_depth, 10)
+
+    def test_serialization_includes_max_depth(self):
+        """get_config() serializes max_depth parameter."""
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "test"
+
+        gen = RecursiveGenerator(language_model=mock_lm, max_depth=7)
+
+        config = gen.get_config()
+        self.assertIn("max_depth", config)
+        self.assertEqual(config["max_depth"], 7)
+
+    def test_from_config_restores_max_depth(self):
+        """from_config() restores max_depth correctly."""
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "test"
+
+        gen1 = RecursiveGenerator(language_model=mock_lm, max_depth=9)
+        config = gen1.get_config()
+        gen2 = RecursiveGenerator.from_config(config)
+
+        self.assertEqual(gen2.max_depth, 9)

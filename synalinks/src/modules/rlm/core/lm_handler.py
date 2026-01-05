@@ -35,6 +35,7 @@ class LMRequestHandler(socketserver.BaseRequestHandler):
 
             prompt = request.get("prompt", "")
             client_name = request.get("client", None)
+            current_depth = request.get("current_depth", 0)
 
             # Route to appropriate client
             if client_name and client_name in handler._clients:
@@ -47,7 +48,7 @@ class LMRequestHandler(socketserver.BaseRequestHandler):
             else:
                 try:
                     result = client.completion(prompt)
-                    response = {"result": result}
+                    response = {"result": result, "current_depth": current_depth}
                 except Exception as e:
                     response = {"error": str(e)}
 
@@ -198,22 +199,33 @@ class LMHandler:
         """Get the port the server is listening on."""
         return self.port
 
-    def create_llm_query_fn(self, client_name: Optional[str] = None):
+    def create_llm_query_fn(
+        self,
+        client_name: Optional[str] = None,
+        current_depth: int = 0,
+        max_depth: int = 1,
+    ):
         """Create llm_query function for REPL injection.
 
         Args:
             client_name: Name of client to route to (None for default)
+            current_depth: Current recursion depth (default: 0)
+            max_depth: Maximum allowed recursion depth (default: 1)
 
         Returns:
             Function that can be injected as llm_query() in REPL
         """
 
         def llm_query(prompt: str) -> str:
-            """Query LLM via TCP socket."""
+            """Query LLM via TCP socket.
+
+            When current_depth < max_depth, allows nested llm_query calls.
+            When current_depth >= max_depth, uses direct completion without recursion.
+            """
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 sock.connect((self.host, self.port))
-                request = {"prompt": prompt}
+                request = {"prompt": prompt, "current_depth": current_depth}
                 if client_name:
                     request["client"] = client_name
                 sock.sendall(json.dumps(request).encode("utf-8"))
