@@ -7,19 +7,18 @@ These tests verify E2E integration with real LLM calls using:
 - groq/openai/gpt-oss-20b
 """
 
-import pytest
-
+from synalinks.src import testing
 from synalinks.src.language_models import LanguageModel
 from synalinks.src.modules.rlm.core.chunking_strategy import KeywordChunking
 from synalinks.src.modules.rlm.core.chunking_strategy import SemanticChunking
 from synalinks.src.modules.rlm.core.chunking_strategy import UniformChunking
 from synalinks.src.modules.rlm.core.recursive_generator import RecursiveGenerator
+from synalinks.src.saving import serialization_lib
 
 
-class TestRecursiveGeneratorWithChunking:
+class RecursiveGeneratorWithChunkingTest(testing.TestCase):
     """Test RecursiveGenerator with chunking strategies."""
 
-    @pytest.mark.asyncio
     async def test_uniform_chunking_integration_zai(self):
         """Test UniformChunking with zai/glm-4.7 model."""
         lm = LanguageModel(model="zai/glm-4.7")
@@ -31,18 +30,18 @@ class TestRecursiveGeneratorWithChunking:
         )
 
         # Verify chunking_strategy is set
-        assert gen.chunking_strategy is not None
-        assert isinstance(gen.chunking_strategy, UniformChunking)
-        assert gen.chunking_strategy.chunk_size == 1000
-        assert gen.chunking_strategy.overlap == 100
+        self.assertIsNotNone(gen.chunking_strategy)
+        self.assertIsInstance(gen.chunking_strategy, UniformChunking)
+        self.assertEqual(gen.chunking_strategy.chunk_size, 1000)
+        self.assertEqual(gen.chunking_strategy.overlap, 100)
 
         # Test that chunking strategy can process text
         text = "A" * 5000
         chunks = gen.chunking_strategy.chunk(text)
-        assert len(chunks) > 1
-        assert all(len(chunk) <= 1000 for chunk in chunks)
+        self.assertGreater(len(chunks), 1)
+        for chunk in chunks:
+            self.assertLessEqual(len(chunk), 1000)
 
-    @pytest.mark.asyncio
     async def test_uniform_chunking_integration_groq(self):
         """Test UniformChunking with groq/openai/gpt-oss-20b model."""
         lm = LanguageModel(model="groq/openai/gpt-oss-20b")
@@ -53,12 +52,11 @@ class TestRecursiveGeneratorWithChunking:
             chunking_strategy=chunking,
         )
 
-        assert gen.chunking_strategy is not None
-        assert isinstance(gen.chunking_strategy, UniformChunking)
-        assert gen.chunking_strategy.chunk_size == 500
-        assert gen.chunking_strategy.overlap == 50
+        self.assertIsNotNone(gen.chunking_strategy)
+        self.assertIsInstance(gen.chunking_strategy, UniformChunking)
+        self.assertEqual(gen.chunking_strategy.chunk_size, 500)
+        self.assertEqual(gen.chunking_strategy.overlap, 50)
 
-    @pytest.mark.asyncio
     async def test_keyword_chunking_integration_zai(self):
         """Test KeywordChunking with zai/glm-4.7 model."""
         lm = LanguageModel(model="zai/glm-4.7")
@@ -69,16 +67,15 @@ class TestRecursiveGeneratorWithChunking:
             chunking_strategy=chunking,
         )
 
-        assert gen.chunking_strategy is not None
-        assert isinstance(gen.chunking_strategy, KeywordChunking)
-        assert gen.chunking_strategy.keywords == ["Chapter", "Section"]
+        self.assertIsNotNone(gen.chunking_strategy)
+        self.assertIsInstance(gen.chunking_strategy, KeywordChunking)
+        self.assertEqual(gen.chunking_strategy.keywords, ["Chapter", "Section"])
 
         # Test chunking on sample text
         text = "Chapter 1: Intro. Section A. Chapter 2: Methods. Section B."
         chunks = gen.chunking_strategy.chunk(text)
-        assert len(chunks) == 4
+        self.assertEqual(len(chunks), 4)
 
-    @pytest.mark.asyncio
     async def test_keyword_chunking_integration_groq(self):
         """Test KeywordChunking with groq/openai/gpt-oss-20b model."""
         lm = LanguageModel(model="groq/openai/gpt-oss-20b")
@@ -89,10 +86,9 @@ class TestRecursiveGeneratorWithChunking:
             chunking_strategy=chunking,
         )
 
-        assert gen.chunking_strategy is not None
-        assert isinstance(gen.chunking_strategy, KeywordChunking)
+        self.assertIsNotNone(gen.chunking_strategy)
+        self.assertIsInstance(gen.chunking_strategy, KeywordChunking)
 
-    @pytest.mark.asyncio
     async def test_semantic_chunking_integration_zai(self):
         """Test SemanticChunking with zai/glm-4.7 model."""
         lm = LanguageModel(model="zai/glm-4.7")
@@ -103,17 +99,16 @@ class TestRecursiveGeneratorWithChunking:
             chunking_strategy=chunking,
         )
 
-        assert gen.chunking_strategy is not None
-        assert isinstance(gen.chunking_strategy, SemanticChunking)
-        assert gen.chunking_strategy.max_chunk_size == 2000
-        assert gen.chunking_strategy.similarity_threshold == 0.6
+        self.assertIsNotNone(gen.chunking_strategy)
+        self.assertIsInstance(gen.chunking_strategy, SemanticChunking)
+        self.assertEqual(gen.chunking_strategy.max_chunk_size, 2000)
+        self.assertEqual(gen.chunking_strategy.similarity_threshold, 0.6)
 
         # Test chunking behavior
         text = "This is sentence one. This is sentence two. This is sentence three."
         chunks = gen.chunking_strategy.chunk(text)
-        assert len(chunks) >= 1
+        self.assertGreaterEqual(len(chunks), 1)
 
-    @pytest.mark.asyncio
     async def test_semantic_chunking_integration_groq(self):
         """Test SemanticChunking with groq/openai/gpt-oss-20b model."""
         lm = LanguageModel(model="groq/openai/gpt-oss-20b")
@@ -124,10 +119,9 @@ class TestRecursiveGeneratorWithChunking:
             chunking_strategy=chunking,
         )
 
-        assert gen.chunking_strategy is not None
-        assert isinstance(gen.chunking_strategy, SemanticChunking)
+        self.assertIsNotNone(gen.chunking_strategy)
+        self.assertIsInstance(gen.chunking_strategy, SemanticChunking)
 
-    @pytest.mark.asyncio
     async def test_string_strategy_name_zai(self):
         """Test creating chunking strategy from string with zai model."""
         lm = LanguageModel(model="zai/glm-4.7")
@@ -138,10 +132,9 @@ class TestRecursiveGeneratorWithChunking:
         )
 
         # Default UniformChunking should be created
-        assert gen.chunking_strategy is not None
-        assert isinstance(gen.chunking_strategy, UniformChunking)
+        self.assertIsNotNone(gen.chunking_strategy)
+        self.assertIsInstance(gen.chunking_strategy, UniformChunking)
 
-    @pytest.mark.asyncio
     async def test_string_strategy_name_groq(self):
         """Test creating chunking strategy from string with groq model."""
         lm = LanguageModel(model="groq/openai/gpt-oss-20b")
@@ -152,10 +145,9 @@ class TestRecursiveGeneratorWithChunking:
         )
 
         # Default SemanticChunking should be created
-        assert gen.chunking_strategy is not None
-        assert isinstance(gen.chunking_strategy, SemanticChunking)
+        self.assertIsNotNone(gen.chunking_strategy)
+        self.assertIsInstance(gen.chunking_strategy, SemanticChunking)
 
-    @pytest.mark.asyncio
     async def test_no_chunking_strategy(self):
         """Test RecursiveGenerator without chunking strategy."""
         lm = LanguageModel(model="zai/glm-4.7")
@@ -166,13 +158,10 @@ class TestRecursiveGeneratorWithChunking:
         )
 
         # chunking_strategy should be None
-        assert gen.chunking_strategy is None
+        self.assertIsNone(gen.chunking_strategy)
 
-    @pytest.mark.asyncio
     async def test_serialization_with_chunking_zai(self):
         """Test serialization of RecursiveGenerator with chunking using zai model."""
-        from synalinks.src.saving import serialization_lib
-
         lm = LanguageModel(model="zai/glm-4.7")
         chunking = UniformChunking(chunk_size=750, overlap=75)
 
@@ -184,23 +173,20 @@ class TestRecursiveGeneratorWithChunking:
 
         # Serialize and deserialize
         config = original.get_config()
-        assert "chunking_strategy" in config
+        self.assertIn("chunking_strategy", config)
 
         # Full roundtrip
         serialized = serialization_lib.serialize_synalinks_object(original)
         restored = serialization_lib.deserialize_synalinks_object(serialized)
 
-        assert isinstance(restored, RecursiveGenerator)
-        assert restored.chunking_strategy is not None
-        assert isinstance(restored.chunking_strategy, UniformChunking)
-        assert restored.chunking_strategy.chunk_size == 750
-        assert restored.chunking_strategy.overlap == 75
+        self.assertIsInstance(restored, RecursiveGenerator)
+        self.assertIsNotNone(restored.chunking_strategy)
+        self.assertIsInstance(restored.chunking_strategy, UniformChunking)
+        self.assertEqual(restored.chunking_strategy.chunk_size, 750)
+        self.assertEqual(restored.chunking_strategy.overlap, 75)
 
-    @pytest.mark.asyncio
     async def test_serialization_with_chunking_groq(self):
         """Test serialization of RecursiveGenerator with chunking using groq model."""
-        from synalinks.src.saving import serialization_lib
-
         lm = LanguageModel(model="groq/openai/gpt-oss-20b")
         chunking = KeywordChunking(keywords=["Section"], case_sensitive=True)
 
@@ -210,17 +196,16 @@ class TestRecursiveGeneratorWithChunking:
         )
 
         config = original.get_config()
-        assert "chunking_strategy" in config
+        self.assertIn("chunking_strategy", config)
 
         serialized = serialization_lib.serialize_synalinks_object(original)
         restored = serialization_lib.deserialize_synalinks_object(serialized)
 
-        assert isinstance(restored, RecursiveGenerator)
-        assert isinstance(restored.chunking_strategy, KeywordChunking)
-        assert restored.chunking_strategy.keywords == ["Section"]
-        assert restored.chunking_strategy.case_sensitive is True
+        self.assertIsInstance(restored, RecursiveGenerator)
+        self.assertIsInstance(restored.chunking_strategy, KeywordChunking)
+        self.assertEqual(restored.chunking_strategy.keywords, ["Section"])
+        self.assertEqual(restored.chunking_strategy.case_sensitive, True)
 
-    @pytest.mark.asyncio
     async def test_multi_model_with_chunking(self):
         """Test RecursiveGenerator with different root and sub models + chunking."""
         lm_root = LanguageModel(model="zai/glm-4.7")
@@ -233,7 +218,7 @@ class TestRecursiveGeneratorWithChunking:
             chunking_strategy=chunking,
         )
 
-        assert gen.language_model.model == "zai/glm-4.7"
-        assert gen.sub_language_model.model == "groq/openai/gpt-oss-20b"
-        assert gen.chunking_strategy is not None
-        assert gen.chunking_strategy.chunk_size == 800
+        self.assertEqual(gen.language_model.model, "zai/glm-4.7")
+        self.assertEqual(gen.sub_language_model.model, "groq/openai/gpt-oss-20b")
+        self.assertIsNotNone(gen.chunking_strategy)
+        self.assertEqual(gen.chunking_strategy.chunk_size, 800)
