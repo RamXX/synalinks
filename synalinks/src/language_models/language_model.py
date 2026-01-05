@@ -17,6 +17,21 @@ litellm.drop_params = True
 litellm.disable_aiohttp_transport = True
 
 
+def _clean_messages_for_groq(messages: list) -> list:
+    """Remove tool_calls and tool_call_id from messages for Groq compatibility.
+
+    Groq's API rejects messages that contain tool_calls or tool_call_id properties,
+    even if they are empty or None.
+
+    Args:
+        messages: List of message dicts.
+
+    Returns:
+        Cleaned list of message dicts with only role and content.
+    """
+    return [{"role": m.get("role"), "content": m.get("content", "")} for m in messages]
+
+
 @synalinks_export(
     [
         "synalinks.LanguageModel",
@@ -192,6 +207,10 @@ class LanguageModel(SynalinksSaveable):
             model = model.replace("ollama", "ollama_chat")
         if model_provider == "vllm":
             model = model.replace("vllm", "hosted_vllm")
+        self._original_provider = model_provider  # Track original provider
+        if model_provider == "zai":
+            # z.ai uses Anthropic-compatible API via litellm
+            model = model.replace("zai/", "anthropic/")
         self.model = model
         self.fallback = fallback
         if self.model.startswith("ollama") and not api_base:
@@ -199,9 +218,14 @@ class LanguageModel(SynalinksSaveable):
         else:
             self.api_base = api_base
         if self.model.startswith("hosted_vllm") and not api_base:
+            import os
+
             self.api_base = os.environ.get(
                 "HOSTED_VLLM_API_BASE", "http://localhost:8000"
             )
+        if model_provider == "zai" and not api_base:
+            # z.ai uses Anthropic-compatible API
+            self.api_base = "https://api.z.ai/api/anthropic"
         self.timeout = timeout
         self.retry = retry
         self.caching = caching
@@ -224,12 +248,32 @@ class LanguageModel(SynalinksSaveable):
             (dict): The generated structured response.
         """
         formatted_messages = messages.get_json().get("messages", [])
+        # Clean messages for Groq/OpenRouter/z.ai - they reject messages with tool_calls/tool_call_id
+        if (
+            self.model.startswith("groq")
+            or self.model.startswith("openrouter")
+            or self._original_provider == "zai"
+        ):
+            formatted_messages = _clean_messages_for_groq(formatted_messages)
         json_instance = {}
         input_kwargs = copy.deepcopy(kwargs)
         schema = copy.deepcopy(schema)
         if schema:
-            if self.model.startswith("groq"):
-                # Use a tool created on the fly for groq
+            if self.model.startswith("groq/openai"):
+                # OpenAI-compatible models on Groq use json_schema response format
+                kwargs.update(
+                    {
+                        "response_format": {
+                            "type": "json_schema",
+                            "json_schema": {
+                                "name": "structured_output",
+                                "schema": schema,
+                            },
+                        },
+                    }
+                )
+            elif self.model.startswith("groq"):
+                # Native Groq models use tool calling for structured output
                 kwargs.update(
                     {
                         "tools": [
@@ -245,6 +289,19 @@ class LanguageModel(SynalinksSaveable):
                         "tool_choice": {
                             "type": "function",
                             "function": {"name": "structured_output"},
+                        },
+                    }
+                )
+            elif self._original_provider == "zai":
+                # z.ai uses json_schema response format (tool_choice not supported)
+                kwargs.update(
+                    {
+                        "response_format": {
+                            "type": "json_schema",
+                            "json_schema": {
+                                "name": "structured_output",
+                                "schema": schema,
+                            },
                         },
                     }
                 )
@@ -336,6 +393,19 @@ class LanguageModel(SynalinksSaveable):
                         }
                     }
                 )
+            elif self.model.startswith("openrouter"):
+                # OpenRouter uses json_schema response format
+                kwargs.update(
+                    {
+                        "response_format": {
+                            "type": "json_schema",
+                            "json_schema": {
+                                "name": "structured_output",
+                                "schema": schema,
+                            },
+                        }
+                    }
+                )
             else:
                 provider = self.model.split("/")[0]
                 raise ValueError(
@@ -365,13 +435,22 @@ class LanguageModel(SynalinksSaveable):
                 )
                 if hasattr(response, "_hidden_params"):
                     if "response_cost" in response._hidden_params:
-                        self.last_call_cost = response._hidden_params["response_cost"]
-                        self.cumulated_cost += self.last_call_cost
+                        cost = response._hidden_params["response_cost"]
+                        if cost is not None:
+                            self.last_call_cost = cost
+                            self.cumulated_cost += self.last_call_cost
                 if streaming:
                     return StreamingIterator(response)
-                if (
-                    self.model.startswith("groq") or self.model.startswith("anthropic")
-                ) and schema:
+                # Models using tool_choice return response in tool_calls
+                # groq/openai/*, z.ai use json_schema, so they return in content
+                uses_tool_choice = (
+                    self.model.startswith("groq")
+                    and not self.model.startswith("groq/openai")
+                ) or (
+                    self.model.startswith("anthropic")
+                    and self._original_provider != "zai"
+                )
+                if uses_tool_choice and schema:
                     response_str = response["choices"][0]["message"]["tool_calls"][0][
                         "function"
                     ]["arguments"]

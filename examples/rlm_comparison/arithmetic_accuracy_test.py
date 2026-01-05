@@ -17,10 +17,10 @@ Usage:
 
 import asyncio
 import os
-import time
 from dataclasses import dataclass
 
 import synalinks
+from synalinks import RecursiveChainOfThought
 
 
 class MathProblem(synalinks.DataModel):
@@ -117,11 +117,10 @@ async def test_chain_of_thought(
         query = MathProblem(problem=problem)
         result = await program(query.to_json_data_model())
 
-        if result and result.json:
-            import json
-
-            data = json.loads(result.json)
-            return float(data.get("answer", 0)), None
+        if result:
+            data = result.get_json()
+            if data and "answer" in data:
+                return float(data.get("answer", 0)), None
 
         return None, "No result"
 
@@ -137,7 +136,7 @@ async def test_recursive_chain_of_thought(
     try:
         inputs = synalinks.Input(data_model=MathProblem)
 
-        rcot = synalinks.RecursiveChainOfThought(
+        rcot = RecursiveChainOfThought(
             data_model=MathResult,
             language_model=language_model,
             k=2,
@@ -157,11 +156,10 @@ async def test_recursive_chain_of_thought(
         query = MathProblem(problem=problem)
         result = await program(query.to_json_data_model())
 
-        if result and result.json:
-            import json
-
-            data = json.loads(result.json)
-            return float(data.get("answer", 0)), None
+        if result:
+            data = result.get_json()
+            if data and "answer" in data:
+                return float(data.get("answer", 0)), None
 
         return None, "No result"
 
@@ -230,11 +228,11 @@ def print_summary(results: list[TestResult]):
     print("ACCURACY COMPARISON RESULTS")
     print("=" * 70)
 
-    print(f"\nChainOfThought:")
+    print("\nChainOfThought:")
     print(f"  Correct: {cot_correct}/{total} ({100*cot_correct/total:.1f}%)")
     print(f"  Errors:  {cot_errors}/{total}")
 
-    print(f"\nRecursiveChainOfThought:")
+    print("\nRecursiveChainOfThought:")
     print(f"  Correct: {rcot_correct}/{total} ({100*rcot_correct/total:.1f}%)")
     print(f"  Errors:  {rcot_errors}/{total}")
 
@@ -276,15 +274,27 @@ async def main():
     print("ChainOfThought vs RecursiveChainOfThought")
     print("=" * 70)
 
-    groq_key = os.environ.get("GROQ_API_KEY")
-    if not groq_key:
-        print("\nError: GROQ_API_KEY environment variable required")
-        print("Export your Groq API key and try again.")
-        return
+    # Use model from environment or default to z.ai
+    model_name = os.environ.get("SYNALINKS_MODEL", "zai/glm-4.7")
 
-    # Use groq model for both (fast and cheap for testing)
-    language_model = synalinks.LanguageModel(model="groq/openai/gpt-oss-20b")
-    print(f"\nUsing model: groq/openai/gpt-oss-20b")
+    # Set up API key based on model
+    if model_name.startswith("zai/"):
+        zai_key = os.environ.get("ZAI_API_KEY")
+        if not zai_key:
+            print("\nError: ZAI_API_KEY environment variable required for z.ai models")
+            return
+        os.environ["ANTHROPIC_API_KEY"] = zai_key
+    elif model_name.startswith("groq/"):
+        if not os.environ.get("GROQ_API_KEY"):
+            print("\nError: GROQ_API_KEY environment variable required for Groq models")
+            return
+    elif model_name.startswith("openrouter/"):
+        if not os.environ.get("OPENROUTER_API_KEY"):
+            print("\nError: OPENROUTER_API_KEY environment variable required")
+            return
+
+    language_model = synalinks.LanguageModel(model=model_name)
+    print(f"\nUsing model: {model_name}")
 
     # Run comparison
     results = await run_comparison(language_model, num_problems=5)  # Quick test
