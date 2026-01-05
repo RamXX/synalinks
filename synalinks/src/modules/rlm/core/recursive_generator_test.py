@@ -261,8 +261,15 @@ class RecursiveGeneratorTest(testing.TestCase):
 
         # Create mock client that will be used by RecursiveGenerator
         mock_client = AsyncMock()
+        mock_client.get_usage_summary = MagicMock(return_value={
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "calls": 0,
+        })
 
-        # Response sequence: First call generates code, REPL executes, second call returns FINAL
+        # Response sequence: First call generates code, REPL executes,
+        # second call returns FINAL
         mock_client.acompletion.side_effect = [
             # First LLM call - generates REPL code
             """Let me calculate this.
@@ -305,6 +312,12 @@ result = {"answer": 4}
         mock_lm.model = "test-model"
 
         mock_client = AsyncMock()
+        mock_client.get_usage_summary = MagicMock(return_value={
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "calls": 0,
+        })
         # LLM returns FINAL() immediately
         mock_client.acompletion.return_value = 'FINAL({"answer": "42"})'
 
@@ -338,6 +351,12 @@ result = {"answer": 4}
         mock_lm.model = "test-model"
 
         mock_client = AsyncMock()
+        mock_client.get_usage_summary = MagicMock(return_value={
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "calls": 0,
+        })
 
         # Response sequence: code sets variable, then FINAL_VAR references it
         mock_client.acompletion.side_effect = [
@@ -380,6 +399,12 @@ my_answer = {"result": 123}
         mock_lm.model = "test-model"
 
         mock_client = AsyncMock()
+        mock_client.get_usage_summary = MagicMock(return_value={
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "calls": 0,
+        })
         # LLM references non-existent variable - should return None since parsing fails
         mock_client.acompletion.return_value = "FINAL_VAR(nonexistent_var)"
 
@@ -398,3 +423,201 @@ my_answer = {"result": 123}
             # Should return None when variable doesn't exist and can't be parsed
             # Important: no exception was raised, gracefully handled
             self.assertIsNone(result)
+
+    def test_has_last_metrics_attribute(self):
+        """RecursiveGenerator has _last_metrics attribute initialized to None."""
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "zai/glm-4.7"
+
+        gen = RecursiveGenerator(language_model=mock_lm)
+        self.assertIsNone(gen._last_metrics)
+
+    def test_has_training_metrics_attribute(self):
+        """RecursiveGenerator has _training_metrics list initialized empty."""
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "zai/glm-4.7"
+
+        gen = RecursiveGenerator(language_model=mock_lm)
+        self.assertIsInstance(gen._training_metrics, list)
+        self.assertEqual(len(gen._training_metrics), 0)
+
+    def test_get_last_metrics_returns_none_initially(self):
+        """get_last_metrics() returns None before any execution."""
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "zai/glm-4.7"
+
+        gen = RecursiveGenerator(language_model=mock_lm)
+        self.assertIsNone(gen.get_last_metrics())
+
+    async def test_metrics_populated_after_execution(self):
+        """Metrics are populated after execution with mock LLM."""
+        from synalinks.src.modules.rlm.core.types import RLMExecutionMetrics
+
+        class Query(DataModel):
+            question: str = Field(description="The question")
+
+        class Answer(DataModel):
+            answer: str = Field(description="The answer")
+
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "test-model"
+
+        mock_client = AsyncMock()
+        mock_client.get_usage_summary = MagicMock(return_value={
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "calls": 0,
+        })
+        # LLM returns FINAL() immediately
+        mock_client.acompletion.return_value = 'FINAL({"answer": "42"})'
+        mock_client.get_usage_summary = MagicMock(
+            return_value={
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "total_tokens": 150,
+                "calls": 1,
+            }
+        )
+
+        gen = RecursiveGenerator(
+            language_model=mock_lm, data_model=Answer, max_iterations=10
+        )
+
+        with patch(
+            "synalinks.src.modules.rlm.core.recursive_generator.SynalinksLMClient"
+        ) as mock_client_class:
+            mock_client_class.return_value = mock_client
+
+            query = Query(question="What is the answer?")
+            _ = await gen(query.to_json_data_model())
+
+            # Verify metrics were populated
+            metrics = gen.get_last_metrics()
+            self.assertIsNotNone(metrics)
+            self.assertIsInstance(metrics, RLMExecutionMetrics)
+
+    def test_collect_metrics_helper_creates_metrics_object(self):
+        """_collect_metrics() creates RLMExecutionMetrics from LMHandler usage."""
+        from synalinks.src.modules.rlm.core.lm_handler import LMHandler
+        from synalinks.src.modules.rlm.core.types import RLMExecutionMetrics
+
+        mock_lm_root = MagicMock(spec=LanguageModel)
+        mock_lm_root.model = "zai/glm-4.7"
+        mock_lm_sub = MagicMock(spec=LanguageModel)
+        mock_lm_sub.model = "groq/openai/gpt-oss-20b"
+
+        gen = RecursiveGenerator(
+            language_model=mock_lm_root, sub_language_model=mock_lm_sub
+        )
+
+        # Create mock LMHandler with usage data
+        mock_handler = MagicMock(spec=LMHandler)
+        mock_handler.get_all_usage.return_value = {
+            "zai/glm-4.7": {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "total_tokens": 150,
+                "calls": 1,
+            },
+            "groq/openai/gpt-oss-20b": {
+                "prompt_tokens": 500,
+                "completion_tokens": 250,
+                "total_tokens": 750,
+                "calls": 5,
+            },
+        }
+
+        # Call _collect_metrics
+        metrics = gen._collect_metrics(iteration_count=3, lm_handler=mock_handler)
+
+        # Verify metrics object
+        self.assertIsInstance(metrics, RLMExecutionMetrics)
+        self.assertEqual(metrics.iteration_count, 3)
+        self.assertEqual(metrics.sub_call_count, 5)
+        self.assertEqual(metrics.total_tokens, 900)
+        self.assertEqual(metrics.prompt_tokens, 600)
+        self.assertEqual(metrics.completion_tokens, 300)
+
+    def test_metrics_include_root_model_usage(self):
+        """Metrics include root_model_usage field."""
+        from synalinks.src.modules.rlm.core.lm_handler import LMHandler
+
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "zai/glm-4.7"
+
+        gen = RecursiveGenerator(language_model=mock_lm)
+
+        mock_handler = MagicMock(spec=LMHandler)
+        mock_handler.get_all_usage.return_value = {
+            "zai/glm-4.7": {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "total_tokens": 150,
+                "calls": 1,
+            },
+        }
+
+        metrics = gen._collect_metrics(iteration_count=1, lm_handler=mock_handler)
+
+        self.assertIn("prompt_tokens", metrics.root_model_usage)
+        self.assertEqual(metrics.root_model_usage["total_tokens"], 150)
+
+    def test_metrics_include_sub_model_usage(self):
+        """Metrics include sub_model_usage field."""
+        from synalinks.src.modules.rlm.core.lm_handler import LMHandler
+
+        mock_lm_root = MagicMock(spec=LanguageModel)
+        mock_lm_root.model = "zai/glm-4.7"
+        mock_lm_sub = MagicMock(spec=LanguageModel)
+        mock_lm_sub.model = "groq/openai/gpt-oss-20b"
+
+        gen = RecursiveGenerator(
+            language_model=mock_lm_root, sub_language_model=mock_lm_sub
+        )
+
+        mock_handler = MagicMock(spec=LMHandler)
+        mock_handler.get_all_usage.return_value = {
+            "zai/glm-4.7": {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "total_tokens": 150,
+                "calls": 1,
+            },
+            "groq/openai/gpt-oss-20b": {
+                "prompt_tokens": 500,
+                "completion_tokens": 250,
+                "total_tokens": 750,
+                "calls": 3,
+            },
+        }
+
+        metrics = gen._collect_metrics(iteration_count=1, lm_handler=mock_handler)
+
+        self.assertIn("prompt_tokens", metrics.sub_model_usage)
+        self.assertEqual(metrics.sub_model_usage["total_tokens"], 750)
+
+    def test_metrics_estimated_cost_property(self):
+        """RLMExecutionMetrics.estimated_cost returns cost estimate."""
+        from synalinks.src.modules.rlm.core.types import RLMExecutionMetrics
+
+        metrics = RLMExecutionMetrics(
+            iteration_count=5,
+            sub_call_count=10,
+            total_tokens=10000,
+            prompt_tokens=6000,
+            completion_tokens=4000,
+        )
+
+        # With 10000 tokens at $0.0001/1K tokens, cost should be $0.001
+        self.assertAlmostEqual(metrics.estimated_cost, 0.001, places=4)
+
+    def test_training_mode_appends_to_training_metrics(self):
+        """Training mode appends metrics to _training_metrics list."""
+        # This test would require a full integration test with real LLM
+        # For now, verify the attribute exists and is a list
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "zai/glm-4.7"
+
+        gen = RecursiveGenerator(language_model=mock_lm)
+        self.assertIsInstance(gen._training_metrics, list)

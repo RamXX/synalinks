@@ -18,6 +18,9 @@ from synalinks.src.modules.rlm.core.chunking_strategy import ChunkingStrategy
 from synalinks.src.modules.rlm.core.chunking_strategy import get_chunking_strategy
 from synalinks.src.modules.rlm.core.lm_handler import LMHandler
 from synalinks.src.modules.rlm.core.local_repl import LocalREPL
+from synalinks.src.modules.rlm.core.types import RLMExecutionMetrics
+from synalinks.src.modules.rlm.core.types import RLMIteration
+from synalinks.src.modules.rlm.core.types import RLMTrajectory
 from synalinks.src.modules.rlm.utils.parsing import find_code_blocks
 from synalinks.src.modules.rlm.utils.parsing import find_final_answer
 from synalinks.src.modules.rlm.utils.parsing import format_execution_result
@@ -71,7 +74,8 @@ class RecursiveGenerator(Module):
         max_iterations (int): Maximum RLM loop iterations (default 30).
         max_depth (int): Maximum recursion depth (default 1).
         temperature (float): LLM temperature (default 0.0).
-        chunking_strategy (ChunkingStrategy | str): Optional chunking for large inputs.
+        chunking_strategy (ChunkingStrategy | str): Optional chunking.
+        enable_trajectory_logging (bool): Enable trajectory logging (False).
         name (str): Module name.
         description (str): Module description.
         trainable (bool): Whether module variables are trainable.
@@ -122,6 +126,7 @@ class RecursiveGenerator(Module):
         max_depth: int = 1,
         temperature: float = 0.0,
         chunking_strategy: Optional[Union[str, ChunkingStrategy]] = None,
+        enable_trajectory_logging: bool = False,
         name=None,
         description=None,
         trainable=True,
@@ -171,6 +176,14 @@ class RecursiveGenerator(Module):
                 self.chunking_strategy = get_chunking_strategy(chunking_strategy)
             else:
                 self.chunking_strategy = chunking_strategy
+
+        # Trajectory logging
+        self.enable_trajectory_logging = enable_trajectory_logging
+        self._last_trajectory: Optional[RLMTrajectory] = None
+
+        # Metrics tracking
+        self._last_metrics: Optional[RLMExecutionMetrics] = None
+        self._training_metrics: list[RLMExecutionMetrics] = []
 
         # Create trainable state variable following Generator pattern
         predictions = [
@@ -263,6 +276,16 @@ class RecursiveGenerator(Module):
         if not inputs:
             return None
 
+        # Initialize trajectory if logging enabled
+        trajectory = None
+        if self.enable_trajectory_logging:
+            trajectory = RLMTrajectory(
+                root_model=self.language_model.model,
+                sub_model=self.sub_language_model.model,
+                max_iterations=self.max_iterations,
+                max_depth=self.max_depth,
+            )
+
         # Create LM clients - separate for root and sub
         root_client = SynalinksLMClient(self.language_model)
         sub_client = SynalinksLMClient(self.sub_language_model)
@@ -305,26 +328,74 @@ class RecursiveGenerator(Module):
                 user_msg = self._format_user_prompt(inputs)
                 message_history = [system_msg, user_msg]
 
+                # Track actual iteration count for metrics
+                actual_iteration_count = 0
+
                 # RLM loop
                 for i in range(self.max_iterations):
+                    # Initialize iteration logging if enabled
+                    iteration_log = None
+                    actual_iteration_count = i + 1
+                    if trajectory is not None:
+                        iteration_log = RLMIteration(
+                            iteration=i,
+                            prompt="",  # Will be filled below
+                            response="",
+                        )
+
                     # Convert messages to dict format for client
                     msg_dicts = [
                         {"role": msg.role, "content": msg.content}
                         for msg in message_history
                     ]
 
+                    # Log prompt if trajectory logging enabled
+                    if iteration_log is not None:
+                        iteration_log.prompt = json.dumps(msg_dicts, indent=2)
+
                     # Get LLM response using root model
                     response = await root_client.acompletion(msg_dicts)
+
+                    # Log response if trajectory logging enabled
+                    if iteration_log is not None:
+                        iteration_log.response = response
 
                     # Find and execute code blocks
                     code_blocks = find_code_blocks(response)
                     exec_results = []
+
+                    # Log code blocks if trajectory logging enabled
+                    if iteration_log is not None:
+                        iteration_log.code_blocks = code_blocks
+
                     for code in code_blocks:
                         result = repl.execute(code)
                         exec_results.append(result)
 
+                        # Log execution results if trajectory logging enabled
+                        if iteration_log is not None:
+                            iteration_log.execution_results.append(
+                                {
+                                    "stdout": result.stdout,
+                                    "stderr": result.stderr,
+                                    "exception": (
+                                        str(result.exception)
+                                        if result.exception
+                                        else None
+                                    ),
+                                    "final_answer": result.final_answer,
+                                }
+                            )
+
                         # Check if FINAL_VAR was set during execution
                         if result.final_answer is not None:
+                            if iteration_log is not None:
+                                iteration_log.final_answer = result.final_answer
+                                trajectory.iterations.append(iteration_log)
+                                trajectory.total_iterations = i + 1
+                                trajectory.success = True
+                                self._last_trajectory = trajectory
+
                             output = self._parse_output(result.final_answer)
                             if training and output:
                                 self._track_prediction(inputs, output)
@@ -342,10 +413,21 @@ class RecursiveGenerator(Module):
                                 # Variable not found, use content as-is
                                 pass
 
+                        if iteration_log is not None:
+                            iteration_log.final_answer = content
+                            trajectory.iterations.append(iteration_log)
+                            trajectory.total_iterations = i + 1
+                            trajectory.success = True
+                            self._last_trajectory = trajectory
+
                         output = self._parse_output(content)
                         if training and output:
                             self._track_prediction(inputs, output)
                         return output
+
+                    # Add iteration to trajectory if no final answer yet
+                    if iteration_log is not None:
+                        trajectory.iterations.append(iteration_log)
 
                     # Add assistant response to history
                     message_history.append(
@@ -365,14 +447,35 @@ class RecursiveGenerator(Module):
                         )
 
                 # Max iterations reached - try to extract final answer
-                return await self._default_answer(
-                    message_history, root_client, inputs, training
+                result = await self._default_answer(
+                    message_history, root_client, inputs, training, trajectory
                 )
 
+                # Update trajectory if enabled
+                if trajectory is not None:
+                    trajectory.total_iterations = self.max_iterations
+                    trajectory.success = result is not None
+                    self._last_trajectory = trajectory
+
+                return result
+
+            except Exception as e:
+                # Log error in trajectory if enabled
+                if trajectory is not None:
+                    trajectory.error = str(e)
+                    trajectory.success = False
+                    self._last_trajectory = trajectory
+                raise
             finally:
                 repl.cleanup()
 
         finally:
+            # Collect metrics from this execution
+            self._last_metrics = self._collect_metrics(actual_iteration_count, lm_handler)
+            # Append to training metrics if in training mode
+            if training and self._last_metrics:
+                self._training_metrics.append(self._last_metrics)
+
             lm_handler.stop()
 
     def _parse_output(self, content):
@@ -398,7 +501,9 @@ class RecursiveGenerator(Module):
             # The RLM loop will continue or reach max iterations
             return None
 
-    async def _default_answer(self, message_history, client, inputs, training):
+    async def _default_answer(
+        self, message_history, client, inputs, training, trajectory=None
+    ):
         """Generate answer when max iterations reached.
 
         Args:
@@ -406,6 +511,7 @@ class RecursiveGenerator(Module):
             client (SynalinksLMClient): LM client to use
             inputs: Original inputs
             training (bool): Whether in training mode
+            trajectory (RLMTrajectory): Optional trajectory to update
 
         Returns:
             Parsed output or None
@@ -428,6 +534,77 @@ class RecursiveGenerator(Module):
             self._track_prediction(inputs, output)
         return output
 
+    def get_last_metrics(self) -> Optional["RLMExecutionMetrics"]:
+        """Get metrics from the most recent execution.
+
+        Returns comprehensive usage statistics including iteration count,
+        sub-call count, and token usage broken down by model. Useful for
+        cost analysis and optimization of multi-model architectures.
+
+        Returns:
+            RLMExecutionMetrics from last call(), or None if no execution yet
+
+        Example:
+            >>> gen = RecursiveGenerator(
+            ...     language_model=lm_root,
+            ...     sub_language_model=lm_sub
+            ... )
+            >>> result = await gen(inputs)
+            >>> metrics = gen.get_last_metrics()
+            >>> if metrics:
+            ...     print(f"Iterations: {metrics.iteration_count}")
+            ...     print(f"Sub-calls: {metrics.sub_call_count}")
+            ...     print(f"Total tokens: {metrics.total_tokens}")
+            ...     print(f"Estimated cost: ${metrics.estimated_cost:.4f}")
+        """
+        return self._last_metrics
+
+    def _collect_metrics(
+        self, iteration_count: int, lm_handler: LMHandler
+    ) -> RLMExecutionMetrics:
+        """Collect metrics from LMHandler and clients.
+
+        Args:
+            iteration_count: Number of iterations executed
+            lm_handler: LMHandler instance with registered clients
+
+        Returns:
+            RLMExecutionMetrics with collected usage data
+        """
+        # Get usage from all clients
+        all_usage = lm_handler.get_all_usage()
+
+        # Extract root and sub model usage
+        root_model_name = self.language_model.model
+        sub_model_name = self.sub_language_model.model
+
+        root_usage = all_usage.get(root_model_name, {})
+        sub_usage = all_usage.get(sub_model_name, {})
+
+        # Calculate totals
+        total_tokens = root_usage.get("total_tokens", 0) + sub_usage.get(
+            "total_tokens", 0
+        )
+        prompt_tokens = root_usage.get("prompt_tokens", 0) + sub_usage.get(
+            "prompt_tokens", 0
+        )
+        completion_tokens = root_usage.get("completion_tokens", 0) + sub_usage.get(
+            "completion_tokens", 0
+        )
+
+        # Sub-call count is the number of calls to the sub model
+        sub_call_count = sub_usage.get("calls", 0)
+
+        return RLMExecutionMetrics(
+            iteration_count=iteration_count,
+            sub_call_count=sub_call_count,
+            root_model_usage=root_usage,
+            sub_model_usage=sub_usage,
+            total_tokens=total_tokens,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        )
+
     def _track_prediction(self, inputs, output):
         """Track prediction for training.
 
@@ -443,6 +620,27 @@ class RecursiveGenerator(Module):
                 "reward": None,
             }
         )
+
+    def get_last_trajectory(self) -> Optional[RLMTrajectory]:
+        """Get the trajectory from the last execution.
+
+        Returns:
+            RLMTrajectory object from last call() if trajectory logging was enabled,
+            None otherwise
+
+        Example:
+            >>> gen = RecursiveGenerator(
+            ...     language_model=lm,
+            ...     enable_trajectory_logging=True
+            ... )
+            >>> result = await gen(inputs)
+            >>> trajectory = gen.get_last_trajectory()
+            >>> if trajectory:
+            ...     print(trajectory.to_markdown())
+            ...     with open("trajectory.json", "w") as f:
+            ...         f.write(trajectory.to_json())
+        """
+        return self._last_trajectory
 
     async def compute_output_spec(self, inputs, training=False):
         """Return output schema for graph building.
@@ -473,6 +671,7 @@ class RecursiveGenerator(Module):
             "max_iterations": self.max_iterations,
             "max_depth": self.max_depth,
             "temperature": self.temperature,
+            "enable_trajectory_logging": self.enable_trajectory_logging,
         }
 
         # Serialize language models
