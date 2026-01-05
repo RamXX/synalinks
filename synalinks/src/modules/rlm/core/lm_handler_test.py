@@ -1,5 +1,6 @@
 """Tests for LMHandler."""
 
+import asyncio
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 
@@ -247,3 +248,104 @@ class LMHandlerTest(testing.TestCase):
         llm_query_batched_fn = handler.create_llm_query_batched_fn("test")
         self.assertIsNotNone(llm_query_batched_fn)
         self.assertTrue(callable(llm_query_batched_fn))
+
+    def test_threading_tcp_server_handles_concurrent_requests(self):
+        """ThreadingTCPServer handles multiple concurrent requests."""
+        import concurrent.futures
+        import time
+
+        handler = LMHandler()
+
+        # Create a mock client with delay to verify concurrency
+        call_times = []
+
+        async def slow_completion_async(prompt):
+            call_times.append(time.time())
+            await asyncio.sleep(0.1)  # Simulate slow LLM call
+            return f"Response to: {prompt}"
+
+        def slow_completion(prompt):
+            """Sync wrapper that runs async in event loop."""
+            return asyncio.run(slow_completion_async(prompt))
+
+        mock_client = MagicMock()
+        mock_client.completion = MagicMock(side_effect=slow_completion)
+        handler.register_client("test", mock_client)
+
+        handler.start()
+        try:
+            # Create query function
+            llm_query = handler.create_llm_query_fn("test")
+
+            # Send 3 concurrent requests
+            start_time = time.time()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                futures = [
+                    executor.submit(llm_query, f"Q{i}") for i in range(3)
+                ]
+                results = [f.result() for f in futures]
+            elapsed = time.time() - start_time
+
+            # Verify all requests completed
+            self.assertEqual(len(results), 3)
+            for i, result in enumerate(results):
+                self.assertEqual(result, f"Response to: Q{i}")
+
+            # Verify requests were processed concurrently
+            # If sequential: 3 * 0.1s = 0.3s minimum
+            # If concurrent: ~0.1s (all start around same time)
+            # Allow some overhead, but should be < 0.25s for concurrent
+            msg = f"Requests took {elapsed:.2f}s, expected < 0.25s for concurrent"
+            self.assertLess(elapsed, 0.25, msg)
+
+            # Verify all calls started within a short window (concurrent)
+            if len(call_times) >= 2:
+                time_spread = max(call_times) - min(call_times)
+                self.assertLess(time_spread, 0.15,
+                              "Calls should start concurrently")
+        finally:
+            handler.stop()
+
+    def test_multi_model_routing_with_threading(self):
+        """ThreadingTCPServer routes to correct model for concurrent requests."""
+        import concurrent.futures
+
+        handler = LMHandler()
+
+        # Create two different mock clients (not using SynalinksLMClient)
+        mock_client_root = MagicMock()
+        mock_client_root.completion = MagicMock(return_value="ROOT response")
+
+        mock_client_sub = MagicMock()
+        mock_client_sub.completion = MagicMock(return_value="SUB response")
+
+        handler.register_client("root", mock_client_root)
+        handler.register_client("sub", mock_client_sub)
+
+        handler.start()
+        try:
+            # Create query functions for different clients
+            llm_query_root = handler.create_llm_query_fn("root")
+            llm_query_sub = handler.create_llm_query_fn("sub")
+
+            # Send concurrent requests to different models
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [
+                    executor.submit(llm_query_root, "Q1"),
+                    executor.submit(llm_query_sub, "Q2"),
+                    executor.submit(llm_query_root, "Q3"),
+                    executor.submit(llm_query_sub, "Q4"),
+                ]
+                results = [f.result() for f in futures]
+
+            # Verify routing was correct
+            self.assertEqual(results[0], "ROOT response")
+            self.assertEqual(results[1], "SUB response")
+            self.assertEqual(results[2], "ROOT response")
+            self.assertEqual(results[3], "SUB response")
+
+            # Verify each client was called twice
+            self.assertEqual(mock_client_root.completion.call_count, 2)
+            self.assertEqual(mock_client_sub.completion.call_count, 2)
+        finally:
+            handler.stop()

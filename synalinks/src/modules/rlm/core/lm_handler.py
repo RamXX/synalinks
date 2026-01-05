@@ -3,11 +3,58 @@
 import asyncio
 import json
 import socket
+import socketserver
 import threading
 from typing import Optional
 from typing import Union
 
 from synalinks.src.modules.rlm.clients.synalinks_adapter import SynalinksLMClient
+
+
+class LMRequestHandler(socketserver.BaseRequestHandler):
+    """Request handler for LMHandler TCP server.
+
+    This handler processes individual client connections in separate threads
+    via ThreadingTCPServer. It delegates to the parent LMHandler for routing
+    and client management.
+    """
+
+    def handle(self):
+        """Handle incoming request and route to appropriate client."""
+        try:
+            data = self.request.recv(65536).decode("utf-8")
+            request = json.loads(data)
+
+            # Get the parent handler from server
+            handler: "LMHandler" = self.server.lm_handler  # type: ignore
+
+            # Check if this is a batched request
+            if request.get("batch", False):
+                handler._handle_batched_internal(request, self.request)
+                return
+
+            prompt = request.get("prompt", "")
+            client_name = request.get("client", None)
+
+            # Route to appropriate client
+            if client_name and client_name in handler._clients:
+                client = handler._clients[client_name]
+            else:
+                client = handler._default_client
+
+            if client is None:
+                response = {"error": "No client registered"}
+            else:
+                try:
+                    result = client.completion(prompt)
+                    response = {"result": result}
+                except Exception as e:
+                    response = {"error": str(e)}
+
+            self.request.sendall(json.dumps(response).encode("utf-8"))
+        except Exception:
+            # Errors are logged by socketserver framework
+            raise
 
 
 class LMHandler:
@@ -35,7 +82,7 @@ class LMHandler:
         self.port = port
         self._clients: dict[str, SynalinksLMClient] = {}
         self._default_client: Optional[SynalinksLMClient] = None
-        self._server_socket: Optional[socket.socket] = None
+        self._server: Optional[socketserver.ThreadingTCPServer] = None
         self._server_thread: Optional[threading.Thread] = None
         self._running = False
 
@@ -85,18 +132,22 @@ class LMHandler:
         return self._clients.get(name)
 
     def start(self):
-        """Start TCP server for handling requests."""
+        """Start TCP server for handling requests using ThreadingTCPServer."""
         if self._running:
             return
 
-        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._server_socket.bind((self.host, self.port))
-        self._server_socket.listen(5)
+        # Create ThreadingTCPServer with custom request handler
+        self._server = socketserver.ThreadingTCPServer(
+            (self.host, self.port), LMRequestHandler
+        )
+        self._server.allow_reuse_address = True
+
+        # Attach this handler to the server for request routing
+        self._server.lm_handler = self  # type: ignore
 
         # Get actual port if random port was requested
         if self.port == 0:
-            self.port = self._server_socket.getsockname()[1]
+            self.port = self._server.server_address[1]
 
         self._running = True
         self._server_thread = threading.Thread(target=self._serve, daemon=True)
@@ -105,62 +156,16 @@ class LMHandler:
     def stop(self):
         """Stop TCP server."""
         self._running = False
-        if self._server_socket:
-            self._server_socket.close()
+        if self._server:
+            self._server.shutdown()
+            self._server.server_close()
         if self._server_thread:
             self._server_thread.join(timeout=1.0)
 
     def _serve(self):
-        """Server loop handling incoming connections."""
-        while self._running:
-            try:
-                self._server_socket.settimeout(0.5)
-                conn, addr = self._server_socket.accept()
-                threading.Thread(
-                    target=self._handle_connection, args=(conn,), daemon=True
-                ).start()
-            except socket.timeout:
-                continue
-            except Exception:
-                if self._running:
-                    raise
-
-    def _handle_connection(self, conn: socket.socket):
-        """Handle a single client connection.
-
-        Routes to _handle_batched() if batch flag is present in request.
-        """
-        try:
-            data = conn.recv(65536).decode("utf-8")
-            request = json.loads(data)
-
-            # Check if this is a batched request
-            if request.get("batch", False):
-                # Delegate to batched handler with pre-parsed request
-                self._handle_batched_internal(request, conn)
-                return
-
-            prompt = request.get("prompt", "")
-            client_name = request.get("client", None)
-
-            # Route to appropriate client
-            if client_name and client_name in self._clients:
-                client = self._clients[client_name]
-            else:
-                client = self._default_client
-
-            if client is None:
-                response = {"error": "No client registered"}
-            else:
-                try:
-                    result = client.completion(prompt)
-                    response = {"result": result}
-                except Exception as e:
-                    response = {"error": str(e)}
-
-            conn.sendall(json.dumps(response).encode("utf-8"))
-        finally:
-            conn.close()
+        """Server loop using ThreadingTCPServer.serve_forever()."""
+        if self._server:
+            self._server.serve_forever()
 
     def _handle_batched_internal(self, request: dict, conn: socket.socket):
         """Internal helper for batched requests with pre-parsed request."""
