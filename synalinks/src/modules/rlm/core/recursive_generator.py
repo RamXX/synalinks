@@ -1,10 +1,14 @@
 """RecursiveGenerator module for RLM integration."""
 
 from typing import Optional
+from typing import Union
 
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.language_models import LanguageModel
 from synalinks.src.modules.module import Module
+from synalinks.src.modules.rlm.core.chunking_strategy import ChunkingStrategy
+from synalinks.src.modules.rlm.core.chunking_strategy import get_chunking_strategy
+from synalinks.src.modules.rlm.prompts.templates import get_prompt_template
 
 
 @synalinks_export(
@@ -25,6 +29,11 @@ class RecursiveGenerator(Module):
         language_model: Root LanguageModel for orchestration
         sub_language_model: Optional sub-LM for recursive calls (cost optimization)
         max_iterations: Maximum REPL iterations before termination
+        max_depth: Maximum recursion depth for llm_query calls (default: 1)
+        chunking_strategy: Optional chunking strategy for large inputs. Can be a
+            ChunkingStrategy instance or a string ('uniform', 'keyword', 'semantic')
+        prompt_template: Optional Jinja2 prompt template. If None, automatically
+            selects template based on language_model.model prefix (e.g., 'zai', 'groq')
         name: Module name
         description: Module description
         trainable: Whether module variables are trainable
@@ -61,6 +70,9 @@ class RecursiveGenerator(Module):
         language_model: Optional[LanguageModel] = None,
         sub_language_model: Optional[LanguageModel] = None,
         max_iterations: int = 10,
+        max_depth: int = 1,
+        chunking_strategy: Optional[Union[str, ChunkingStrategy]] = None,
+        prompt_template: Optional[str] = None,
         name=None,
         description=None,
         trainable=True,
@@ -81,6 +93,22 @@ class RecursiveGenerator(Module):
             sub_language_model if sub_language_model is not None else language_model
         )
         self.max_iterations = max_iterations
+        self.max_depth = max_depth
+
+        # Initialize chunking strategy
+        self.chunking_strategy = None
+        if chunking_strategy is not None:
+            if isinstance(chunking_strategy, str):
+                self.chunking_strategy = get_chunking_strategy(chunking_strategy)
+            else:
+                self.chunking_strategy = chunking_strategy
+
+        # Initialize prompt template (auto-detect if not provided)
+        if prompt_template is None:
+            # Auto-detect based on language_model.model prefix
+            self.prompt_template = get_prompt_template(language_model.model)
+        else:
+            self.prompt_template = prompt_template
 
         # Schema for structured output
         self.schema = None
@@ -120,16 +148,35 @@ class RecursiveGenerator(Module):
 
     def get_config(self):
         """Get serialization config."""
+        from synalinks.src.saving import serialization_lib
+
         base_config = super().get_config()
         config = {
             "data_model": self.data_model,
             "language_model": self.language_model,
             "sub_language_model": self.sub_language_model,
             "max_iterations": self.max_iterations,
+            "max_depth": self.max_depth,
+            "prompt_template": self.prompt_template,
         }
+
+        # Serialize chunking_strategy if present
+        if self.chunking_strategy is not None:
+            config["chunking_strategy"] = serialization_lib.serialize_synalinks_object(
+                self.chunking_strategy
+            )
+
         return {**base_config, **config}
 
     @classmethod
     def from_config(cls, config):
         """Deserialize from config."""
+        from synalinks.src.saving import serialization_lib
+
+        # Deserialize chunking_strategy if present
+        if "chunking_strategy" in config:
+            config["chunking_strategy"] = serialization_lib.deserialize_synalinks_object(
+                config["chunking_strategy"]
+            )
+
         return cls(**config)
