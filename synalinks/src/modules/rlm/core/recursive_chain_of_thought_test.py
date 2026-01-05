@@ -221,12 +221,14 @@ class RecursiveChainOfThoughtTest(testing.TestCase):
         mock_lm.model = "test-model"
 
         mock_client = AsyncMock()
-        mock_client.get_usage_summary = MagicMock(return_value={
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0,
-            "calls": 0,
-        })
+        mock_client.get_usage_summary = MagicMock(
+            return_value={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "calls": 0,
+            }
+        )
 
         # Mock response with thinking fields + answer
         mock_client.acompletion.side_effect = [
