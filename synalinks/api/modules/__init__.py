@@ -35,6 +35,9 @@ from synalinks.src.modules.retrievers.entity_retriever import (
 from synalinks.src.modules.retrievers.triplet_retriever import (
     TripletRetriever as TripletRetriever,
 )
+from synalinks.src.modules.rlm.core.recursive_generator import (
+    RecursiveGenerator as RecursiveGenerator,
+)
 from synalinks.src.modules.synthesis.python_synthesis import (
     PythonSynthesis as PythonSynthesis,
 )

@@ -1,8 +1,12 @@
 """Tests for RecursiveGenerator."""
 
+from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
+from unittest.mock import patch
 
 from synalinks.src import testing
+from synalinks.src.backend import DataModel
+from synalinks.src.backend import Field
 from synalinks.src.language_models import LanguageModel
 from synalinks.src.modules.rlm.core.recursive_generator import RecursiveGenerator
 
@@ -241,3 +245,156 @@ class RecursiveGeneratorTest(testing.TestCase):
         # Check the decorator was applied (API must be regenerated with api_gen.py)
         # For now, verify the export function call happened
         self.assertTrue(callable(RecursiveGenerator))
+
+    async def test_e2e_rlm_loop_with_mocked_llm(self):
+        """E2E test: Input -> LLM generates code -> REPL executes -> FINAL -> output."""
+
+        class Query(DataModel):
+            question: str = Field(description="Math question")
+
+        class Answer(DataModel):
+            answer: int = Field(description="The numeric answer")
+
+        # Mock LLM responses simulating RLM loop
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "test-model"
+
+        # Create mock client that will be used by RecursiveGenerator
+        mock_client = AsyncMock()
+
+        # Response sequence: First call generates code, REPL executes, second call returns FINAL
+        mock_client.acompletion.side_effect = [
+            # First LLM call - generates REPL code
+            """Let me calculate this.
+```repl
+result = {"answer": 4}
+```
+""",
+            # Second LLM call - returns FINAL with variable reference
+            "FINAL_VAR(result)",
+        ]
+
+        gen = RecursiveGenerator(
+            language_model=mock_lm, data_model=Answer, max_iterations=5
+        )
+
+        # Patch the SynalinksLMClient to return our mock
+        with patch(
+            "synalinks.src.modules.rlm.core.recursive_generator.SynalinksLMClient"
+        ) as mock_client_class:
+            mock_client_class.return_value = mock_client
+
+            query = Query(question="What is 2+2?")
+            result = await gen(query.to_json_data_model())
+
+            # Verify we got structured output
+            self.assertIsNotNone(result)
+            # Verify LLM was called (indicating loop executed)
+            self.assertGreater(mock_client.acompletion.call_count, 0)
+
+    async def test_final_pattern_detection_and_termination(self):
+        """Test FINAL() pattern terminates RLM loop."""
+
+        class Query(DataModel):
+            question: str = Field(description="The question")
+
+        class Answer(DataModel):
+            answer: str = Field(description="The answer")
+
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "test-model"
+
+        mock_client = AsyncMock()
+        # LLM returns FINAL() immediately
+        mock_client.acompletion.return_value = 'FINAL({"answer": "42"})'
+
+        gen = RecursiveGenerator(
+            language_model=mock_lm, data_model=Answer, max_iterations=10
+        )
+
+        with patch(
+            "synalinks.src.modules.rlm.core.recursive_generator.SynalinksLMClient"
+        ) as mock_client_class:
+            mock_client_class.return_value = mock_client
+
+            query = Query(question="What is the answer?")
+            result = await gen(query.to_json_data_model())
+
+            # FINAL() should terminate after 1 call
+            self.assertEqual(mock_client.acompletion.call_count, 1)
+            # Result should be parsed to DataModel
+            self.assertIsNotNone(result)
+
+    async def test_final_var_extraction_from_repl(self):
+        """Test FINAL_VAR(variable_name) extracts variable from REPL locals."""
+
+        class Query(DataModel):
+            input: str = Field(description="Input text")
+
+        class Answer(DataModel):
+            result: int = Field(description="The result")
+
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "test-model"
+
+        mock_client = AsyncMock()
+
+        # Response sequence: code sets variable, then FINAL_VAR references it
+        mock_client.acompletion.side_effect = [
+            # First call - set variable via REPL
+            """```repl
+my_answer = {"result": 123}
+```""",
+            # Second call - reference it with FINAL_VAR
+            "FINAL_VAR(my_answer)",
+        ]
+
+        gen = RecursiveGenerator(
+            language_model=mock_lm, data_model=Answer, max_iterations=5
+        )
+
+        with patch(
+            "synalinks.src.modules.rlm.core.recursive_generator.SynalinksLMClient"
+        ) as mock_client_class:
+            mock_client_class.return_value = mock_client
+
+            query = Query(input="test")
+            result = await gen(query.to_json_data_model())
+
+            # Should have extracted variable from REPL and parsed to DataModel
+            self.assertIsNotNone(result)
+            # Verify variable was actually extracted (not just the string "my_answer")
+            # This will be validated by the fact that result is a DataModel instance
+            self.assertTrue(hasattr(result, "get_json"))
+
+    async def test_final_var_handles_missing_variable(self):
+        """Test FINAL_VAR gracefully handles missing REPL variable."""
+
+        class Query(DataModel):
+            input: str = Field(description="Input text")
+
+        class Answer(DataModel):
+            answer: str = Field(description="The answer")
+
+        mock_lm = MagicMock(spec=LanguageModel)
+        mock_lm.model = "test-model"
+
+        mock_client = AsyncMock()
+        # LLM references non-existent variable - should return None since parsing fails
+        mock_client.acompletion.return_value = "FINAL_VAR(nonexistent_var)"
+
+        gen = RecursiveGenerator(
+            language_model=mock_lm, data_model=Answer, max_iterations=5
+        )
+
+        with patch(
+            "synalinks.src.modules.rlm.core.recursive_generator.SynalinksLMClient"
+        ) as mock_client_class:
+            mock_client_class.return_value = mock_client
+
+            query = Query(input="test")
+            result = await gen(query.to_json_data_model())
+
+            # Should return None when variable doesn't exist and can't be parsed
+            # Important: no exception was raised, gracefully handled
+            self.assertIsNone(result)

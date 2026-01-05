@@ -8,6 +8,7 @@ from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import ChatMessage
 from synalinks.src.backend import ChatRole
 from synalinks.src.backend import Instructions
+from synalinks.src.backend import JsonDataModel
 from synalinks.src.backend import Prediction
 from synalinks.src.backend import SymbolicDataModel
 from synalinks.src.language_models import LanguageModel
@@ -381,18 +382,21 @@ class RecursiveGenerator(Module):
             content: String or dict content to parse
 
         Returns:
-            Parsed DataModel or raw content
+            JsonDataModel when schema provided, raw content otherwise
         """
+        if not self.schema:
+            return content
+
         try:
-            if self.schema:
-                if isinstance(content, str):
-                    data = json.loads(content)
-                else:
-                    data = content
-                return SymbolicDataModel(schema=self.schema).from_json(data)
-            return content
-        except (json.JSONDecodeError, Exception):
-            return content
+            if isinstance(content, str):
+                data = json.loads(content)
+            else:
+                data = content
+            return JsonDataModel(schema=self.schema, json=data)
+        except (json.JSONDecodeError, ValueError, Exception):
+            # Parsing failed - return None to indicate failure
+            # The RLM loop will continue or reach max iterations
+            return None
 
     async def _default_answer(self, message_history, client, inputs, training):
         """Generate answer when max iterations reached.
