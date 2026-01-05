@@ -119,6 +119,24 @@ from synalinks.src.modules.retrievers.entity_retriever import (
 from synalinks.src.modules.retrievers.triplet_retriever import (
     TripletRetriever as TripletRetriever,
 )
+from synalinks.src.modules.rlm.core.chunking_strategy import (
+    ChunkingStrategy as ChunkingStrategy,
+)
+from synalinks.src.modules.rlm.core.chunking_strategy import (
+    KeywordChunking as KeywordChunking,
+)
+from synalinks.src.modules.rlm.core.chunking_strategy import (
+    SemanticChunking as SemanticChunking,
+)
+from synalinks.src.modules.rlm.core.chunking_strategy import (
+    UniformChunking as UniformChunking,
+)
+from synalinks.src.modules.rlm.core.chunking_strategy import (
+    get_chunking_strategy as get_chunking_strategy,
+)
+from synalinks.src.modules.rlm.core.recursive_generator import (
+    RecursiveGenerator as RecursiveGenerator,
+)
 from synalinks.src.modules.synthesis.python_synthesis import (
     PythonSynthesis as PythonSynthesis,
 )

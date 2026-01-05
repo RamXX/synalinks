@@ -6,6 +6,7 @@ from synalinks.api import ChainOfThought
 from synalinks.api import ChatMessage
 from synalinks.api import ChatMessages
 from synalinks.api import ChatRole
+from synalinks.api import ChunkingStrategy
 from synalinks.api import Concat
 from synalinks.api import Concatenate
 from synalinks.api import CosineSimilarity
@@ -32,6 +33,7 @@ from synalinks.api import InMask
 from synalinks.api import Input
 from synalinks.api import Instructions
 from synalinks.api import JsonDataModel
+from synalinks.api import KeywordChunking
 from synalinks.api import KnowledgeBase
 from synalinks.api import KnowledgeGraph
 from synalinks.api import LanguageModel
@@ -47,11 +49,13 @@ from synalinks.api import Prediction
 from synalinks.api import Program
 from synalinks.api import ProgramAsJudge
 from synalinks.api import PythonSynthesis
+from synalinks.api import RecursiveGenerator
 from synalinks.api import Relation
 from synalinks.api import Relations
 from synalinks.api import Reward
 from synalinks.api import Score
 from synalinks.api import SelfCritique
+from synalinks.api import SemanticChunking
 from synalinks.api import Sequential
 from synalinks.api import SimilaritySearch
 from synalinks.api import StatelessScope
@@ -62,6 +66,7 @@ from synalinks.api import ToolCalling
 from synalinks.api import Trainable
 from synalinks.api import TripletRetriever
 from synalinks.api import TripletSearch
+from synalinks.api import UniformChunking
 from synalinks.api import UpdateKnowledge
 from synalinks.api import Xor
 from synalinks.api import __version__
@@ -76,6 +81,7 @@ from synalinks.api import disable_telemetry
 from synalinks.api import embedding_models
 from synalinks.api import enable_logging
 from synalinks.api import enable_observability
+from synalinks.api import get_chunking_strategy
 from synalinks.api import get_seed
 from synalinks.api import hooks
 from synalinks.api import initializers
