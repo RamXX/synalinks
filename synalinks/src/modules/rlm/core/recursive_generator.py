@@ -4,8 +4,6 @@ import json
 from typing import Optional
 from typing import Union
 
-import jinja2
-
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import ChatMessage
 from synalinks.src.backend import ChatRole
@@ -19,7 +17,6 @@ from synalinks.src.modules.rlm.core.chunking_strategy import ChunkingStrategy
 from synalinks.src.modules.rlm.core.chunking_strategy import get_chunking_strategy
 from synalinks.src.modules.rlm.core.lm_handler import LMHandler
 from synalinks.src.modules.rlm.core.local_repl import LocalREPL
-from synalinks.src.modules.rlm.prompts.templates import get_prompt_template
 from synalinks.src.modules.rlm.utils.parsing import find_code_blocks
 from synalinks.src.modules.rlm.utils.parsing import find_final_answer
 from synalinks.src.modules.rlm.utils.parsing import format_execution_result
@@ -70,7 +67,6 @@ class RecursiveGenerator(Module):
         instructions (str): System prompt instructions. Trainable via Variable.
         seed_instructions (list): Seed instructions for optimization.
         examples (list): Few-shot examples as (input, output) tuples. Trainable.
-        prompt_template (str): Jinja2 template for prompts. Auto-detected by model prefix.
         max_iterations (int): Maximum RLM loop iterations (default 30).
         max_depth (int): Maximum recursion depth (default 1).
         temperature (float): LLM temperature (default 0.0).
@@ -121,7 +117,6 @@ class RecursiveGenerator(Module):
         instructions=None,
         seed_instructions=None,
         examples=None,
-        prompt_template=None,
         max_iterations: int = 30,
         max_depth: int = 1,
         temperature: float = 0.0,
@@ -153,11 +148,6 @@ class RecursiveGenerator(Module):
             data_model_keys = list(self.schema["properties"].keys())
             instructions = default_rlm_instructions(data_model_keys)
         self.instructions = instructions
-
-        # Prompt template (auto-detect by model prefix)
-        if not prompt_template:
-            prompt_template = get_prompt_template(language_model.model)
-        self.prompt_template = prompt_template
 
         self.max_iterations = max_iterations
         self.max_depth = max_depth
@@ -204,7 +194,7 @@ class RecursiveGenerator(Module):
         )
 
     def _format_system_prompt(self, inputs_schema=None):
-        """Format system prompt using Jinja2 template.
+        """Format system prompt with instructions and schema.
 
         Args:
             inputs_schema (str): Optional input schema to include in prompt
@@ -212,14 +202,30 @@ class RecursiveGenerator(Module):
         Returns:
             ChatMessage: Formatted system message
         """
-        template = jinja2.Template(self.prompt_template)
-        rendered = template.render(
-            instructions=self.state.get("instructions"),
-            inputs_schema=inputs_schema,
-            outputs_schema=json.dumps(self.schema, indent=2) if self.schema else None,
-            examples=self.state.get("examples") or [],
-        )
-        return ChatMessage(role=ChatRole.SYSTEM, content=rendered)
+        # Build prompt sections
+        sections = []
+
+        # Instructions
+        instructions = self.state.get("instructions")
+        if instructions:
+            sections.append(instructions)
+
+        # Output schema
+        if self.schema:
+            schema_json = json.dumps(self.schema, indent=2)
+            sections.append(f"\n# Expected Output Schema\n{schema_json}")
+
+        # Examples
+        examples = self.state.get("examples") or []
+        if examples:
+            sections.append("\n# Examples")
+            for i, example in enumerate(examples):
+                sections.append(f"\nExample {i+1}:")
+                sections.append(f"Input: {json.dumps(example.get('inputs'), indent=2)}")
+                sections.append(f"Output: {json.dumps(example.get('outputs'), indent=2)}")
+
+        content = "\n".join(sections)
+        return ChatMessage(role=ChatRole.SYSTEM, content=content)
 
     def _format_user_prompt(self, inputs, iteration: int = 0):
         """Format user prompt with input data.
@@ -460,7 +466,6 @@ class RecursiveGenerator(Module):
             "instructions": self.instructions,
             "seed_instructions": self.seed_instructions,
             "examples": self.examples,
-            "prompt_template": self.prompt_template,
             "max_iterations": self.max_iterations,
             "max_depth": self.max_depth,
             "temperature": self.temperature,
