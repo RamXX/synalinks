@@ -261,12 +261,14 @@ class RecursiveGeneratorTest(testing.TestCase):
 
         # Create mock client that will be used by RecursiveGenerator
         mock_client = AsyncMock()
-        mock_client.get_usage_summary = MagicMock(return_value={
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0,
-            "calls": 0,
-        })
+        mock_client.get_usage_summary = MagicMock(
+            return_value={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "calls": 0,
+            }
+        )
 
         # Response sequence: First call generates code, REPL executes,
         # second call returns FINAL
@@ -312,12 +314,14 @@ result = {"answer": 4}
         mock_lm.model = "test-model"
 
         mock_client = AsyncMock()
-        mock_client.get_usage_summary = MagicMock(return_value={
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0,
-            "calls": 0,
-        })
+        mock_client.get_usage_summary = MagicMock(
+            return_value={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "calls": 0,
+            }
+        )
         # LLM returns FINAL() immediately
         mock_client.acompletion.return_value = 'FINAL({"answer": "42"})'
 
@@ -351,12 +355,14 @@ result = {"answer": 4}
         mock_lm.model = "test-model"
 
         mock_client = AsyncMock()
-        mock_client.get_usage_summary = MagicMock(return_value={
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0,
-            "calls": 0,
-        })
+        mock_client.get_usage_summary = MagicMock(
+            return_value={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "calls": 0,
+            }
+        )
 
         # Response sequence: code sets variable, then FINAL_VAR references it
         mock_client.acompletion.side_effect = [
@@ -399,12 +405,14 @@ my_answer = {"result": 123}
         mock_lm.model = "test-model"
 
         mock_client = AsyncMock()
-        mock_client.get_usage_summary = MagicMock(return_value={
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0,
-            "calls": 0,
-        })
+        mock_client.get_usage_summary = MagicMock(
+            return_value={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "calls": 0,
+            }
+        )
         # LLM references non-existent variable - should return None since parsing fails
         mock_client.acompletion.return_value = "FINAL_VAR(nonexistent_var)"
 
@@ -463,12 +471,14 @@ my_answer = {"result": 123}
         mock_lm.model = "test-model"
 
         mock_client = AsyncMock()
-        mock_client.get_usage_summary = MagicMock(return_value={
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0,
-            "calls": 0,
-        })
+        mock_client.get_usage_summary = MagicMock(
+            return_value={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "calls": 0,
+            }
+        )
         # LLM returns FINAL() immediately
         mock_client.acompletion.return_value = 'FINAL({"answer": "42"})'
         mock_client.get_usage_summary = MagicMock(
