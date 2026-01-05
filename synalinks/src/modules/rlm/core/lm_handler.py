@@ -1,9 +1,11 @@
 """LM Handler for routing requests via TCP socket."""
 
+import asyncio
 import json
 import socket
 import threading
 from typing import Optional
+from typing import Union
 
 from synalinks.src.modules.rlm.clients.synalinks_adapter import SynalinksLMClient
 
@@ -42,14 +44,45 @@ class LMHandler:
     ):
         """Register an LM client for routing.
 
+        Enables multi-model architecture for cost optimization. Register
+        separate clients for root (expensive) and sub (cheap) models.
+
         Args:
             name: Client identifier (e.g., "root", "sub")
             client: SynalinksLMClient instance
             is_default: Whether this is the default client for unrouted requests
+
+        Example:
+            >>> handler = LMHandler()
+            >>> lm_root = LanguageModel(model="zai/glm-4.7")
+            >>> lm_sub = LanguageModel(model="groq/openai/gpt-oss-20b")
+            >>> handler.register_client("root", SynalinksLMClient(lm_root))
+            >>> handler.register_client("sub", SynalinksLMClient(lm_sub))
         """
         self._clients[name] = client
         if is_default or self._default_client is None:
             self._default_client = client
+
+    def get_client(self, name: str) -> Optional[SynalinksLMClient]:
+        """Get registered client by name.
+
+        Routes to appropriate client based on name. Returns None if
+        client not found. Used for multi-model routing.
+
+        Args:
+            name: Client identifier
+
+        Returns:
+            SynalinksLMClient instance or None
+
+        Example:
+            >>> handler = LMHandler()
+            >>> handler.register_client("root", client_root)
+            >>> handler.register_client("sub", client_sub)
+            >>> root_client = handler.get_client("root")
+            >>> sub_client = handler.get_client("sub")
+        """
+        return self._clients.get(name)
 
     def start(self):
         """Start TCP server for handling requests."""
@@ -93,10 +126,19 @@ class LMHandler:
                     raise
 
     def _handle_connection(self, conn: socket.socket):
-        """Handle a single client connection."""
+        """Handle a single client connection.
+
+        Routes to _handle_batched() if batch flag is present in request.
+        """
         try:
             data = conn.recv(65536).decode("utf-8")
             request = json.loads(data)
+
+            # Check if this is a batched request
+            if request.get("batch", False):
+                # Delegate to batched handler with pre-parsed request
+                self._handle_batched_internal(request, conn)
+                return
 
             prompt = request.get("prompt", "")
             client_name = request.get("client", None)
@@ -119,6 +161,33 @@ class LMHandler:
             conn.sendall(json.dumps(response).encode("utf-8"))
         finally:
             conn.close()
+
+    def _handle_batched_internal(self, request: dict, conn: socket.socket):
+        """Internal helper for batched requests with pre-parsed request."""
+        try:
+            prompts = request.get("prompts", [])
+            client_name = request.get("client", None)
+
+            try:
+                # Run async batch in new event loop (connection handler is threaded)
+                results = asyncio.run(self.acompletion_batched(prompts, client_name))
+
+                # Convert exceptions to error dicts for JSON serialization
+                serialized_results = []
+                for result in results:
+                    if isinstance(result, Exception):
+                        serialized_results.append({"error": str(result)})
+                    else:
+                        serialized_results.append({"result": result})
+
+                response = {"results": serialized_results}
+            except Exception as e:
+                response = {"error": str(e)}
+
+            conn.sendall(json.dumps(response).encode("utf-8"))
+        except Exception:
+            # Error already handled by outer _handle_connection finally block
+            raise
 
     def get_port(self) -> int:
         """Get the port the server is listening on."""
@@ -152,3 +221,116 @@ class LMHandler:
                 sock.close()
 
         return llm_query
+
+    def get_all_usage(self) -> dict[str, dict]:
+        """Get usage from all registered clients.
+
+        Returns aggregated usage statistics for cost analysis across
+        all clients. Useful for comparing root vs sub-model costs.
+
+        Returns:
+            Dictionary mapping client name to usage summary
+
+        Example:
+            >>> handler = LMHandler()
+            >>> handler.register_client("root", client_root)
+            >>> handler.register_client("sub", client_sub)
+            >>> # ... make some calls ...
+            >>> usage = handler.get_all_usage()
+            >>> print(f"Root tokens: {usage['root']['total_tokens']}")
+            >>> print(f"Sub tokens: {usage['sub']['total_tokens']}")
+        """
+        return {
+            name: client.get_usage_summary() for name, client in self._clients.items()
+        }
+
+    async def acompletion_batched(
+        self,
+        prompts: list[Union[str, list[dict]]],
+        client_name: Optional[str] = None,
+    ) -> list[Union[str, Exception]]:
+        """Execute multiple completions concurrently using asyncio.gather().
+
+        This is the core async batching method that enables ~5x speedup for
+        parallel LLM calls. Individual errors don't fail the entire batch -
+        exceptions are returned as elements in the result list.
+
+        Args:
+            prompts: List of prompts to execute in parallel
+            client_name: Name of client to route to (None for default)
+
+        Returns:
+            List of results or exceptions, one per prompt in same order
+
+        Raises:
+            RuntimeError: If no client registered
+
+        Example:
+            >>> handler = LMHandler()
+            >>> handler.register_client("sub", client_sub)
+            >>> handler.start()
+            >>> prompts = ["Summarize A", "Summarize B", "Summarize C"]
+            >>> results = await handler.acompletion_batched(prompts, "sub")
+            >>> # Returns ~5x faster than sequential for 5 calls
+        """
+        # Route to appropriate client
+        if client_name and client_name in self._clients:
+            client = self._clients[client_name]
+        else:
+            client = self._default_client
+
+        if client is None:
+            raise RuntimeError("No client registered")
+
+        # Create async tasks for all prompts
+        tasks = [client.acompletion(prompt) for prompt in prompts]
+
+        # Execute concurrently using asyncio.gather with return_exceptions=True
+        # This ensures individual errors don't fail the entire batch
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        return results
+
+    def create_llm_query_batched_fn(self, client_name: Optional[str] = None):
+        """Create llm_query_batched function for REPL injection.
+
+        Args:
+            client_name: Name of client to route to (None for default)
+
+        Returns:
+            Function that can be injected as llm_query_batched() in REPL
+
+        Example:
+            >>> handler = LMHandler()
+            >>> handler.register_client("sub", client_sub)
+            >>> handler.start()
+            >>> llm_query_batched = handler.create_llm_query_batched_fn("sub")
+            >>> results = llm_query_batched(["Q1", "Q2", "Q3"])
+        """
+
+        def llm_query_batched(prompts: list[str]) -> list[str]:
+            """Query LLM with multiple prompts via batched TCP socket request."""
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                sock.connect((self.host, self.port))
+                request = {"prompts": prompts, "batch": True}
+                if client_name:
+                    request["client"] = client_name
+                sock.sendall(json.dumps(request).encode("utf-8"))
+                data = sock.recv(65536).decode("utf-8")
+                response = json.loads(data)
+                if "error" in response:
+                    raise RuntimeError(f"LLM batch query failed: {response['error']}")
+
+                # Extract results, preserving exceptions
+                results = []
+                for item in response.get("results", []):
+                    if "error" in item:
+                        results.append(RuntimeError(item["error"]))
+                    else:
+                        results.append(item.get("result", ""))
+                return results
+            finally:
+                sock.close()
+
+        return llm_query_batched

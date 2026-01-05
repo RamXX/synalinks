@@ -92,3 +92,78 @@ class LocalREPLTest(testing.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(result.locals["response"], "mocked response")
         self.assertEqual(called, ["test"])
+
+    def test_default_sub_model_parameter_accepted(self):
+        """LocalREPL accepts default_sub_model parameter."""
+        repl = LocalREPL(default_sub_model="sub")
+        self.assertEqual(repl.default_sub_model, "sub")
+
+    def test_default_sub_model_defaults_to_none(self):
+        """default_sub_model defaults to None when not provided."""
+        repl = LocalREPL()
+        self.assertIsNone(repl.default_sub_model)
+
+    def test_default_sub_model_routing_indication(self):
+        """default_sub_model parameter indicates routing to cheaper model."""
+        # This parameter is documentation for how llm_query should route
+        # The actual routing is done by LMHandler.create_llm_query_fn()
+        repl = LocalREPL(default_sub_model="groq/openai/gpt-oss-20b")
+        self.assertEqual(repl.default_sub_model, "groq/openai/gpt-oss-20b")
+
+    def test_reset_with_new_default_sub_model(self):
+        """Reset can update default_sub_model."""
+        repl = LocalREPL(default_sub_model="sub1")
+        self.assertEqual(repl.default_sub_model, "sub1")
+
+        repl.reset(default_sub_model="sub2")
+        self.assertEqual(repl.default_sub_model, "sub2")
+
+    def test_reset_preserves_default_sub_model_if_not_provided(self):
+        """Reset preserves default_sub_model if not explicitly changed."""
+        repl = LocalREPL(default_sub_model="sub")
+        self.assertEqual(repl.default_sub_model, "sub")
+
+        repl.reset()
+        self.assertEqual(repl.default_sub_model, "sub")
+
+    def test_llm_query_batched_injection(self):
+        """llm_query_batched function can be injected."""
+        called_prompts = []
+
+        def mock_llm_query_batched(prompts):
+            called_prompts.extend(prompts)
+            return [f"response_{i}" for i in range(len(prompts))]
+
+        repl = LocalREPL(llm_query_batched_fn=mock_llm_query_batched)
+        result = repl.execute("results = llm_query_batched(['Q1', 'Q2', 'Q3'])")
+
+        self.assertTrue(result.success)
+        self.assertEqual(
+            result.locals["results"], ["response_0", "response_1", "response_2"]
+        )
+        self.assertEqual(called_prompts, ["Q1", "Q2", "Q3"])
+
+    def test_llm_query_batched_not_available_by_default(self):
+        """llm_query_batched is not available when not injected."""
+        repl = LocalREPL()
+        result = repl.execute("llm_query_batched(['test'])")
+
+        self.assertFalse(result.success)
+        self.assertIsNotNone(result.exception)
+
+    def test_reset_with_new_llm_query_batched(self):
+        """Reset can update llm_query_batched function."""
+
+        def mock_batched_1(prompts):
+            return ["response_1"] * len(prompts)
+
+        def mock_batched_2(prompts):
+            return ["response_2"] * len(prompts)
+
+        repl = LocalREPL(llm_query_batched_fn=mock_batched_1)
+        result1 = repl.execute("r = llm_query_batched(['test'])")
+        self.assertEqual(result1.locals["r"], ["response_1"])
+
+        repl.reset(llm_query_batched_fn=mock_batched_2)
+        result2 = repl.execute("r = llm_query_batched(['test'])")
+        self.assertEqual(result2.locals["r"], ["response_2"])

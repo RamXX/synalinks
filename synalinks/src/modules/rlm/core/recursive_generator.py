@@ -76,7 +76,10 @@ class RecursiveGenerator(Module):
 
         self.data_model = data_model
         self.language_model = language_model
-        self.sub_language_model = sub_language_model
+        # Default sub_language_model to language_model for single-model usage
+        self.sub_language_model = (
+            sub_language_model if sub_language_model is not None else language_model
+        )
         self.max_iterations = max_iterations
 
         # Schema for structured output

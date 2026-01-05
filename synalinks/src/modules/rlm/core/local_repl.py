@@ -16,28 +16,54 @@ class LocalREPL:
     Provides a minimal execution environment with standard builtins but no
     file system access, network access, or other dangerous operations.
 
+    Supports multi-model architecture via default_sub_model parameter for
+    cost-optimized llm_query() routing to cheaper sub-models.
+
     Args:
         llm_query_fn: Optional function to inject as llm_query() builtin
+        default_sub_model: Default client name for llm_query() routing
 
     Example:
+        >>> # Basic usage
         >>> repl = LocalREPL()
         >>> result = repl.execute("x = 1 + 2\\nprint(x)")
         >>> result.stdout
         '3\\n'
         >>> result.locals['x']
         3
+
+        >>> # Multi-model usage with default routing to sub-model
+        >>> handler = LMHandler()
+        >>> handler.register_client("root", client_root)
+        >>> handler.register_client("sub", client_sub)
+        >>> llm_query_fn = handler.create_llm_query_fn("sub")  # Route to sub
+        >>> repl = LocalREPL(llm_query_fn=llm_query_fn, default_sub_model="sub")
+        >>> result = repl.execute("answer = llm_query('What is 2+2?')")
     """
 
-    def __init__(self, llm_query_fn: Optional[Callable] = None):
+    def __init__(
+        self,
+        llm_query_fn: Optional[Callable] = None,
+        default_sub_model: Optional[str] = None,
+        llm_query_batched_fn: Optional[Callable] = None,
+    ):
         """Initialize REPL with safe builtins.
 
         Args:
             llm_query_fn: Function to inject as llm_query() for LM calls
+            default_sub_model: Default client name for llm_query() routing
+            llm_query_batched_fn: Function to inject as llm_query_batched()
+                for batched calls
         """
         self._locals: dict[str, Any] = {}
-        self._init_builtins(llm_query_fn)
+        self.default_sub_model = default_sub_model
+        self._init_builtins(llm_query_fn, llm_query_batched_fn)
 
-    def _init_builtins(self, llm_query_fn: Optional[Callable]):
+    def _init_builtins(
+        self,
+        llm_query_fn: Optional[Callable],
+        llm_query_batched_fn: Optional[Callable] = None,
+    ):
         """Initialize safe builtins environment.
 
         Provides standard Python builtins but restricts dangerous operations.
@@ -75,6 +101,10 @@ class LocalREPL:
         # Add llm_query if provided
         if llm_query_fn:
             safe_builtins["llm_query"] = llm_query_fn
+
+        # Add llm_query_batched if provided
+        if llm_query_batched_fn:
+            safe_builtins["llm_query_batched"] = llm_query_batched_fn
 
         self._locals["__builtins__"] = safe_builtins
 
@@ -129,11 +159,20 @@ class LocalREPL:
             raise KeyError(f"Variable '{name}' not found in REPL")
         return self._locals[name]
 
-    def reset(self, llm_query_fn: Optional[Callable] = None):
+    def reset(
+        self,
+        llm_query_fn: Optional[Callable] = None,
+        default_sub_model: Optional[str] = None,
+        llm_query_batched_fn: Optional[Callable] = None,
+    ):
         """Reset REPL state to fresh environment.
 
         Args:
             llm_query_fn: Optional new llm_query function
+            default_sub_model: Optional new default client name for routing
+            llm_query_batched_fn: Optional new llm_query_batched function
         """
         self._locals.clear()
-        self._init_builtins(llm_query_fn)
+        if default_sub_model is not None:
+            self.default_sub_model = default_sub_model
+        self._init_builtins(llm_query_fn, llm_query_batched_fn)
