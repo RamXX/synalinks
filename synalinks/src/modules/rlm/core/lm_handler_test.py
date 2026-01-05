@@ -414,3 +414,158 @@ class LMHandlerTest(testing.TestCase):
             self.assertEqual(response["current_depth"], 3)
         finally:
             handler.stop()
+
+    def test_call_history_tracks_calls(self):
+        """LMHandler logs calls to call history."""
+        handler = LMHandler()
+
+        mock_client = MagicMock()
+        mock_client.model = "test-model"
+        mock_client.completion = MagicMock(return_value="test response")
+        handler.register_client("test", mock_client)
+
+        handler.start()
+        try:
+            llm_query = handler.create_llm_query_fn("test", current_depth=1)
+
+            # Initially empty
+            history = handler.get_call_history()
+            self.assertEqual(len(history), 0)
+
+            # Make a call
+            result = llm_query("What is 2+2?")
+            self.assertEqual(result, "test response")
+
+            # Check history was updated
+            history = handler.get_call_history()
+            self.assertEqual(len(history), 1)
+
+            # Verify call record structure
+            call = history[0]
+            self.assertEqual(call["model"], "test")
+            self.assertEqual(call["prompt"], "What is 2+2?")
+            self.assertEqual(call["response"], "test response")
+            self.assertEqual(call["depth"], 1)
+            self.assertIsNone(call["error"])
+        finally:
+            handler.stop()
+
+    def test_call_history_tracks_multiple_calls(self):
+        """LMHandler tracks multiple calls in order."""
+        handler = LMHandler()
+
+        mock_client = MagicMock()
+        mock_client.model = "test-model"
+        mock_client.completion = MagicMock(
+            side_effect=["response 1", "response 2", "response 3"]
+        )
+        handler.register_client("test", mock_client)
+
+        handler.start()
+        try:
+            llm_query = handler.create_llm_query_fn("test", current_depth=0)
+
+            # Make multiple calls
+            llm_query("Q1")
+            llm_query("Q2")
+            llm_query("Q3")
+
+            # Check history
+            history = handler.get_call_history()
+            self.assertEqual(len(history), 3)
+
+            # Verify order and content
+            self.assertEqual(history[0]["prompt"], "Q1")
+            self.assertEqual(history[0]["response"], "response 1")
+            self.assertEqual(history[1]["prompt"], "Q2")
+            self.assertEqual(history[1]["response"], "response 2")
+            self.assertEqual(history[2]["prompt"], "Q3")
+            self.assertEqual(history[2]["response"], "response 3")
+        finally:
+            handler.stop()
+
+    def test_call_history_logs_errors(self):
+        """LMHandler logs failed calls with error field."""
+        handler = LMHandler()
+
+        mock_client = MagicMock()
+        mock_client.model = "test-model"
+        mock_client.completion = MagicMock(side_effect=RuntimeError("LLM failed"))
+        handler.register_client("test", mock_client)
+
+        handler.start()
+        try:
+            llm_query = handler.create_llm_query_fn("test", current_depth=0)
+
+            # Make call that will fail
+            try:
+                llm_query("What is 2+2?")
+            except RuntimeError:
+                pass  # Expected
+
+            # Check history logged the error
+            history = handler.get_call_history()
+            self.assertEqual(len(history), 1)
+
+            call = history[0]
+            self.assertEqual(call["prompt"], "What is 2+2?")
+            self.assertEqual(call["response"], "")
+            self.assertIsNotNone(call["error"])
+            self.assertIn("LLM failed", call["error"])
+        finally:
+            handler.stop()
+
+    def test_clear_call_history(self):
+        """clear_call_history() removes all logged calls."""
+        handler = LMHandler()
+
+        mock_client = MagicMock()
+        mock_client.model = "test-model"
+        mock_client.completion = MagicMock(return_value="response")
+        handler.register_client("test", mock_client)
+
+        handler.start()
+        try:
+            llm_query = handler.create_llm_query_fn("test")
+
+            # Make some calls
+            llm_query("Q1")
+            llm_query("Q2")
+            self.assertEqual(len(handler.get_call_history()), 2)
+
+            # Clear history
+            handler.clear_call_history()
+            self.assertEqual(len(handler.get_call_history()), 0)
+
+            # New calls are logged after clear
+            llm_query("Q3")
+            self.assertEqual(len(handler.get_call_history()), 1)
+        finally:
+            handler.stop()
+
+    def test_call_history_thread_safe(self):
+        """Call history is thread-safe for concurrent requests."""
+        import concurrent.futures
+
+        handler = LMHandler()
+
+        mock_client = MagicMock()
+        mock_client.model = "test-model"
+        mock_client.completion = MagicMock(return_value="response")
+        handler.register_client("test", mock_client)
+
+        handler.start()
+        try:
+            llm_query = handler.create_llm_query_fn("test")
+
+            # Make concurrent calls
+            num_calls = 10
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                futures = [executor.submit(llm_query, f"Q{i}") for i in range(num_calls)]
+                [f.result() for f in futures]
+
+            # Verify all calls were logged
+            history = handler.get_call_history()
+            self.assertEqual(len(history), num_calls)
+        finally:
+            handler.stop()

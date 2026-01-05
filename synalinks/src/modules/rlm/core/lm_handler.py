@@ -40,8 +40,14 @@ class LMRequestHandler(socketserver.BaseRequestHandler):
             # Route to appropriate client
             if client_name and client_name in handler._clients:
                 client = handler._clients[client_name]
+                model_name = client_name
             else:
                 client = handler._default_client
+                model_name = (
+                    handler._default_client.model
+                    if handler._default_client
+                    else "unknown"
+                )
 
             if client is None:
                 response = {"error": "No client registered"}
@@ -49,8 +55,17 @@ class LMRequestHandler(socketserver.BaseRequestHandler):
                 try:
                     result = client.completion(prompt)
                     response = {"result": result, "current_depth": current_depth}
+
+                    # Log the call to history
+                    handler._log_call(model_name, prompt, result, current_depth)
                 except Exception as e:
-                    response = {"error": str(e)}
+                    error_str = str(e)
+                    response = {"error": error_str}
+
+                    # Log failed call
+                    handler._log_call(
+                        model_name, prompt, "", current_depth, error=error_str
+                    )
 
             self.request.sendall(json.dumps(response).encode("utf-8"))
         except Exception:
@@ -86,6 +101,8 @@ class LMHandler:
         self._server: Optional[socketserver.ThreadingTCPServer] = None
         self._server_thread: Optional[threading.Thread] = None
         self._running = False
+        self._call_history: list[dict] = []  # Track all llm_query() calls
+        self._call_history_lock = threading.Lock()  # Thread-safe access
 
     def register_client(
         self, name: str, client: SynalinksLMClient, is_default: bool = False
@@ -198,6 +215,48 @@ class LMHandler:
     def get_port(self) -> int:
         """Get the port the server is listening on."""
         return self.port
+
+    def _log_call(
+        self,
+        model: str,
+        prompt: str,
+        response: str,
+        depth: int,
+        error: Optional[str] = None,
+    ):
+        """Log an LLM call to history (thread-safe).
+
+        Args:
+            model: Model identifier
+            prompt: Input prompt
+            response: Model response
+            depth: Recursion depth
+            error: Optional error message if call failed
+        """
+        with self._call_history_lock:
+            self._call_history.append(
+                {
+                    "model": model,
+                    "prompt": prompt,
+                    "response": response,
+                    "depth": depth,
+                    "error": error,
+                }
+            )
+
+    def get_call_history(self) -> list[dict]:
+        """Get all logged calls (thread-safe).
+
+        Returns:
+            List of call records with model, prompt, response, depth, error
+        """
+        with self._call_history_lock:
+            return self._call_history.copy()
+
+    def clear_call_history(self):
+        """Clear call history (thread-safe)."""
+        with self._call_history_lock:
+            self._call_history.clear()
 
     def create_llm_query_fn(
         self,

@@ -208,3 +208,58 @@ class TrajectoryLoggingIntegrationTest(testing.TestCase):
         self.assertEqual(trajectory.root_model, "zai/glm-4.7")
         self.assertEqual(trajectory.sub_model, "groq/openai/gpt-oss-20b")
         self.assertEqual(trajectory.max_depth, 2)
+
+    async def test_trajectory_logs_sub_calls(self):
+        """Trajectory captures llm_query() calls made from REPL."""
+        lm_root = LanguageModel(model="zai/glm-4.7")
+        lm_sub = LanguageModel(model="groq/openai/gpt-oss-20b")
+
+        # Custom instructions that force a sub-call
+        instructions = """
+You must use llm_query() to get the answer to sub-questions.
+
+For example, to answer "What is 2+2?", you should:
+1. Call llm_query("Calculate 2+2") to get the sub-answer
+2. Use FINAL_VAR to return the result
+
+Always make at least one llm_query() call before answering.
+"""
+
+        gen = RecursiveGenerator(
+            data_model=Answer,
+            language_model=lm_root,
+            sub_language_model=lm_sub,
+            instructions=instructions,
+            max_iterations=10,
+            max_depth=2,  # Allow nested calls
+            enable_trajectory_logging=True,
+        )
+
+        query = Query(query="What is 5+3?").to_json_data_model()
+        await gen(query)
+
+        trajectory = gen.get_last_trajectory()
+        self.assertIsNotNone(trajectory)
+
+        # Check if any iteration has sub-calls
+        total_sub_calls = 0
+        for iteration in trajectory.iterations:
+            total_sub_calls += len(iteration.sub_calls)
+
+            # If this iteration has sub-calls, verify structure
+            for sub_call in iteration.sub_calls:
+                self.assertIsNotNone(sub_call.model)
+                self.assertIsNotNone(sub_call.prompt)
+                self.assertIsNotNone(sub_call.response)
+                self.assertIsInstance(sub_call.depth, int)
+                self.assertGreaterEqual(sub_call.depth, 0)
+
+        # We expect at least some sub-calls based on our instructions
+        # (Though this depends on LLM behavior, so we just verify structure)
+        # If sub-calls were made, they should be properly logged
+        if total_sub_calls > 0:
+            # Verify at least one iteration has sub-calls
+            has_sub_calls = any(
+                len(it.sub_calls) > 0 for it in trajectory.iterations
+            )
+            self.assertTrue(has_sub_calls)

@@ -20,6 +20,7 @@ from synalinks.src.modules.rlm.core.lm_handler import LMHandler
 from synalinks.src.modules.rlm.core.local_repl import LocalREPL
 from synalinks.src.modules.rlm.core.types import RLMExecutionMetrics
 from synalinks.src.modules.rlm.core.types import RLMIteration
+from synalinks.src.modules.rlm.core.types import RLMSubCall
 from synalinks.src.modules.rlm.core.types import RLMTrajectory
 from synalinks.src.modules.rlm.utils.parsing import find_code_blocks
 from synalinks.src.modules.rlm.utils.parsing import find_final_answer
@@ -333,6 +334,9 @@ class RecursiveGenerator(Module):
 
                 # RLM loop
                 for i in range(self.max_iterations):
+                    # Clear sub-call history before iteration
+                    lm_handler.clear_call_history()
+
                     # Initialize iteration logging if enabled
                     iteration_log = None
                     actual_iteration_count = i + 1
@@ -390,6 +394,9 @@ class RecursiveGenerator(Module):
                         # Check if FINAL_VAR was set during execution
                         if result.final_answer is not None:
                             if iteration_log is not None:
+                                # Capture sub-calls before finalizing iteration
+                                self._capture_sub_calls(lm_handler, iteration_log)
+
                                 iteration_log.final_answer = result.final_answer
                                 trajectory.iterations.append(iteration_log)
                                 trajectory.total_iterations = i + 1
@@ -414,6 +421,9 @@ class RecursiveGenerator(Module):
                                 pass
 
                         if iteration_log is not None:
+                            # Capture sub-calls before finalizing iteration
+                            self._capture_sub_calls(lm_handler, iteration_log)
+
                             iteration_log.final_answer = content
                             trajectory.iterations.append(iteration_log)
                             trajectory.total_iterations = i + 1
@@ -424,6 +434,10 @@ class RecursiveGenerator(Module):
                         if training and output:
                             self._track_prediction(inputs, output)
                         return output
+
+                    # Capture sub-calls for this iteration if logging enabled
+                    if iteration_log is not None:
+                        self._capture_sub_calls(lm_handler, iteration_log)
 
                     # Add iteration to trajectory if no final answer yet
                     if iteration_log is not None:
@@ -604,6 +618,24 @@ class RecursiveGenerator(Module):
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
         )
+
+    def _capture_sub_calls(self, lm_handler: LMHandler, iteration_log: RLMIteration):
+        """Extract sub-calls from LMHandler and add to iteration log.
+
+        Args:
+            lm_handler: LMHandler instance with call history
+            iteration_log: RLMIteration to update with sub-calls
+        """
+        call_history = lm_handler.get_call_history()
+        for call in call_history:
+            sub_call = RLMSubCall(
+                model=call["model"],
+                prompt=call["prompt"],
+                response=call["response"],
+                depth=call["depth"],
+                error=call.get("error"),
+            )
+            iteration_log.sub_calls.append(sub_call)
 
     def _track_prediction(self, inputs, output):
         """Track prediction for training.
