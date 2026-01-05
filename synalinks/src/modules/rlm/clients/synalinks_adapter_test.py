@@ -323,3 +323,31 @@ class SynalinksLMClientTest(testing.TestCase):
             client._convert_prompt(12345)  # Invalid type
 
         self.assertIn("Unsupported prompt type", str(ctx.exception))
+
+    def test_last_usage_property(self):
+        """last_usage property returns most recent call usage."""
+        mock_lm = MagicMock()
+        mock_lm.model = "test-model"
+
+        async def mock_call(messages):
+            response = MagicMock()
+            response.content = "Response"
+            response.usage = {
+                "prompt_tokens": 42,
+                "completion_tokens": 84,
+                "total_tokens": 126,
+            }
+            return response
+
+        mock_lm.side_effect = mock_call
+
+        client = SynalinksLMClient(mock_lm)
+
+        # Make a call
+        client.completion("Test query")
+
+        # Access via property
+        last = client.last_usage
+        self.assertEqual(last["prompt_tokens"], 42)
+        self.assertEqual(last["completion_tokens"], 84)
+        self.assertEqual(last["total_tokens"], 126)

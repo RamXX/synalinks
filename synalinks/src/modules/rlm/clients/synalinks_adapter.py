@@ -126,6 +126,11 @@ class SynalinksLMClient:
         """Get usage from last call."""
         return self._usage_last.copy()
 
+    @property
+    def last_usage(self) -> dict:
+        """Property for most recent call usage."""
+        return self._usage_last.copy()
+
     def reset_usage(self):
         """Reset usage counters (for new session/experiment)."""
         self._usage_total = {
