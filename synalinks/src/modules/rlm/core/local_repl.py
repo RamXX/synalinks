@@ -1,6 +1,8 @@
 """Local REPL for executing Python code in sandboxed environment."""
 
+import asyncio
 import io
+import signal
 from contextlib import redirect_stderr
 from contextlib import redirect_stdout
 from typing import Any
@@ -46,6 +48,7 @@ class LocalREPL:
         llm_query_fn: Optional[Callable] = None,
         default_sub_model: Optional[str] = None,
         llm_query_batched_fn: Optional[Callable] = None,
+        timeout: Optional[float] = None,
     ):
         """Initialize REPL with safe builtins.
 
@@ -54,10 +57,73 @@ class LocalREPL:
             default_sub_model: Default client name for llm_query() routing
             llm_query_batched_fn: Function to inject as llm_query_batched()
                 for batched calls
+            timeout: Optional timeout in seconds for code execution
         """
         self._locals: dict[str, Any] = {}
         self.default_sub_model = default_sub_model
+        self.timeout = timeout
+        self._final_answer: Optional[Any] = None
         self._init_builtins(llm_query_fn, llm_query_batched_fn)
+
+    def _create_final_var_fn(self):
+        """Create FINAL_VAR function that captures structured results.
+
+        Returns:
+            Function that sets the final answer value
+        """
+
+        def FINAL_VAR(value: Any) -> Any:
+            """Set the final answer to be returned in REPLResult.
+
+            Args:
+                value: The structured result to return
+
+            Returns:
+                The value (for convenience in expressions)
+            """
+            self._final_answer = value
+            return value
+
+        return FINAL_VAR
+
+    def _create_llm_query_batched_wrapper(
+        self, llm_query_fn: Optional[Callable]
+    ) -> Optional[Callable]:
+        """Create async wrapper for batched LLM queries using asyncio.gather.
+
+        Args:
+            llm_query_fn: The base llm_query function to wrap
+
+        Returns:
+            Batched query function or None if llm_query_fn is None
+        """
+        if llm_query_fn is None:
+            return None
+
+        def llm_query_batched(prompts: list[str]) -> list[Any]:
+            """Execute multiple LLM queries concurrently using asyncio.gather.
+
+            Args:
+                prompts: List of prompts to query
+
+            Returns:
+                List of responses in same order as prompts
+            """
+
+            async def _query_all():
+                tasks = [asyncio.to_thread(llm_query_fn, p) for p in prompts]
+                return await asyncio.gather(*tasks)
+
+            # Run in event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            return loop.run_until_complete(_query_all())
+
+        return llm_query_batched
 
     def _init_builtins(
         self,
@@ -68,8 +134,10 @@ class LocalREPL:
 
         Provides standard Python builtins but restricts dangerous operations.
         """
-        # Safe builtins - exclude open, eval, exec, __import__, etc.
+        # Safe builtins - exclude open, eval, exec, etc.
+        # Note: __import__ is allowed for importing safe modules like time, math
         safe_builtins = {
+            "__import__": __import__,
             "abs": abs,
             "all": all,
             "any": any,
@@ -98,24 +166,33 @@ class LocalREPL:
             "zip": zip,
         }
 
+        # Add FINAL_VAR function
+        safe_builtins["FINAL_VAR"] = self._create_final_var_fn()
+
         # Add llm_query if provided
         if llm_query_fn:
             safe_builtins["llm_query"] = llm_query_fn
 
-        # Add llm_query_batched if provided
+        # Add llm_query_batched - use provided or create wrapper
         if llm_query_batched_fn:
             safe_builtins["llm_query_batched"] = llm_query_batched_fn
+        elif llm_query_fn:
+            # Auto-create batched version using asyncio.gather
+            safe_builtins["llm_query_batched"] = self._create_llm_query_batched_wrapper(
+                llm_query_fn
+            )
 
         self._locals["__builtins__"] = safe_builtins
 
-    def execute(self, code: str) -> REPLResult:
+    def execute(self, code: str, timeout: Optional[float] = None) -> REPLResult:
         """Execute Python code and return result.
 
         Args:
             code: Python code to execute
+            timeout: Optional timeout in seconds (overrides instance timeout)
 
         Returns:
-            REPLResult containing stdout, stderr, locals, and exception
+            REPLResult containing stdout, stderr, locals, exception, final_answer
 
         Example:
             >>> repl = LocalREPL()
@@ -128,10 +205,31 @@ class LocalREPL:
         stdout_buffer = io.StringIO()
         stderr_buffer = io.StringIO()
         exception = None
+        self._final_answer = None  # Reset final answer
 
-        try:
+        # Use provided timeout or instance timeout
+        exec_timeout = timeout if timeout is not None else self.timeout
+
+        def _execute():
+            """Inner execution function."""
             with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
                 exec(code, self._locals)
+
+        try:
+            if exec_timeout is not None:
+                # Set up timeout using signal (Unix-only)
+                def timeout_handler(signum, frame):
+                    raise TimeoutError(f"Execution exceeded {exec_timeout}s timeout")
+
+                old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+                signal.setitimer(signal.ITIMER_REAL, exec_timeout)
+                try:
+                    _execute()
+                finally:
+                    signal.setitimer(signal.ITIMER_REAL, 0)  # Cancel alarm
+                    signal.signal(signal.SIGALRM, old_handler)
+            else:
+                _execute()
         except Exception as e:
             exception = e
             stderr_buffer.write(f"{type(e).__name__}: {e}\n")
@@ -141,6 +239,7 @@ class LocalREPL:
             stderr=stderr_buffer.getvalue(),
             locals=self._locals.copy(),
             exception=exception,
+            final_answer=self._final_answer,
         )
 
     def get_variable(self, name: str) -> Any:
@@ -164,6 +263,7 @@ class LocalREPL:
         llm_query_fn: Optional[Callable] = None,
         default_sub_model: Optional[str] = None,
         llm_query_batched_fn: Optional[Callable] = None,
+        timeout: Optional[float] = None,
     ):
         """Reset REPL state to fresh environment.
 
@@ -171,8 +271,12 @@ class LocalREPL:
             llm_query_fn: Optional new llm_query function
             default_sub_model: Optional new default client name for routing
             llm_query_batched_fn: Optional new llm_query_batched function
+            timeout: Optional new timeout in seconds
         """
         self._locals.clear()
+        self._final_answer = None
         if default_sub_model is not None:
             self.default_sub_model = default_sub_model
+        if timeout is not None:
+            self.timeout = timeout
         self._init_builtins(llm_query_fn, llm_query_batched_fn)

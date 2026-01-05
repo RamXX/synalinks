@@ -15,12 +15,14 @@ class REPLResult:
         stderr: Standard error from execution
         locals: Local variables after execution
         exception: Exception object if execution failed, None otherwise
+        final_answer: Optional structured result set via FINAL_VAR()
     """
 
     stdout: str = ""
     stderr: str = ""
     locals: dict[str, Any] = field(default_factory=dict)
     exception: Optional[Exception] = None
+    final_answer: Optional[Any] = None
 
     @property
     def success(self) -> bool:

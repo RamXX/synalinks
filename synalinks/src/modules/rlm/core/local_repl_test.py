@@ -1,5 +1,7 @@
 """Tests for LocalREPL."""
 
+import time
+
 from synalinks.src import testing
 from synalinks.src.modules.rlm.core.local_repl import LocalREPL
 
@@ -167,3 +169,154 @@ class LocalREPLTest(testing.TestCase):
         repl.reset(llm_query_batched_fn=mock_batched_2)
         result2 = repl.execute("r = llm_query_batched(['test'])")
         self.assertEqual(result2.locals["r"], ["response_2"])
+
+    def test_final_var_function_available(self):
+        """FINAL_VAR function is available in builtins."""
+        repl = LocalREPL()
+        result = repl.execute("answer = FINAL_VAR(42)")
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.final_answer, 42)
+        self.assertEqual(result.locals["answer"], 42)
+
+    def test_final_var_sets_final_answer(self):
+        """FINAL_VAR sets final_answer field in REPLResult."""
+        repl = LocalREPL()
+        result = repl.execute("FINAL_VAR({'result': 'success', 'value': 100})")
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.final_answer, {"result": "success", "value": 100})
+
+    def test_final_var_with_structured_data(self):
+        """FINAL_VAR works with complex structured data."""
+        repl = LocalREPL()
+        code = """
+data = {'name': 'test', 'scores': [1, 2, 3], 'nested': {'key': 'value'}}
+FINAL_VAR(data)
+"""
+        result = repl.execute(code)
+
+        self.assertTrue(result.success)
+        self.assertEqual(
+            result.final_answer,
+            {"name": "test", "scores": [1, 2, 3], "nested": {"key": "value"}},
+        )
+
+    def test_final_var_resets_on_each_execute(self):
+        """final_answer resets to None on each execute."""
+        repl = LocalREPL()
+
+        result1 = repl.execute("FINAL_VAR(1)")
+        self.assertEqual(result1.final_answer, 1)
+
+        result2 = repl.execute("x = 2")
+        self.assertIsNone(result2.final_answer)
+
+    def test_timeout_parameter_accepted(self):
+        """LocalREPL accepts timeout parameter."""
+        repl = LocalREPL(timeout=5.0)
+        self.assertEqual(repl.timeout, 5.0)
+
+    def test_timeout_defaults_to_none(self):
+        """timeout defaults to None when not provided."""
+        repl = LocalREPL()
+        self.assertIsNone(repl.timeout)
+
+    def test_timeout_enforced_on_long_execution(self):
+        """Timeout interrupts long-running code."""
+        repl = LocalREPL(timeout=0.1)
+        result = repl.execute("import time; time.sleep(10)")
+
+        self.assertFalse(result.success)
+        self.assertIsNotNone(result.exception)
+        self.assertIsInstance(result.exception, TimeoutError)
+
+    def test_timeout_per_execution_overrides_instance(self):
+        """Per-execution timeout overrides instance timeout."""
+        repl = LocalREPL(timeout=10.0)
+        result = repl.execute("import time; time.sleep(5)", timeout=0.1)
+
+        self.assertFalse(result.success)
+        self.assertIsInstance(result.exception, TimeoutError)
+
+    def test_timeout_allows_fast_execution(self):
+        """Timeout does not interfere with fast code."""
+        repl = LocalREPL(timeout=1.0)
+        result = repl.execute("x = sum(range(100))")
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.locals["x"], 4950)
+
+    def test_reset_with_new_timeout(self):
+        """Reset can update timeout."""
+        repl = LocalREPL(timeout=1.0)
+        self.assertEqual(repl.timeout, 1.0)
+
+        repl.reset(timeout=5.0)
+        self.assertEqual(repl.timeout, 5.0)
+
+    def test_reset_preserves_timeout_if_not_provided(self):
+        """Reset preserves timeout if not explicitly changed."""
+        repl = LocalREPL(timeout=2.0)
+        self.assertEqual(repl.timeout, 2.0)
+
+        repl.reset()
+        self.assertEqual(repl.timeout, 2.0)
+
+    def test_llm_query_batched_auto_created_from_llm_query(self):
+        """llm_query_batched auto-created when llm_query provided."""
+        call_count = []
+
+        def mock_llm_query(prompt):
+            call_count.append(prompt)
+            return f"response:{prompt}"
+
+        repl = LocalREPL(llm_query_fn=mock_llm_query)
+        result = repl.execute("results = llm_query_batched(['Q1', 'Q2', 'Q3'])")
+
+        self.assertTrue(result.success)
+        self.assertEqual(
+            result.locals["results"], ["response:Q1", "response:Q2", "response:Q3"]
+        )
+        self.assertEqual(len(call_count), 3)
+
+    def test_llm_query_batched_uses_asyncio_gather(self):
+        """llm_query_batched executes calls concurrently."""
+        call_times = []
+
+        def slow_llm_query(prompt):
+            call_times.append(time.time())
+            time.sleep(0.1)
+            return f"response:{prompt}"
+
+        repl = LocalREPL(llm_query_fn=slow_llm_query)
+        start = time.time()
+        result = repl.execute("results = llm_query_batched(['Q1', 'Q2', 'Q3'])")
+        elapsed = time.time() - start
+
+        self.assertTrue(result.success)
+        # Concurrent execution should take ~0.1s, not 0.3s
+        self.assertLess(elapsed, 0.25)
+        # All calls should start around the same time
+        self.assertEqual(len(call_times), 3)
+
+    def test_explicit_llm_query_batched_overrides_auto(self):
+        """Explicitly provided llm_query_batched overrides auto-creation."""
+        auto_called = []
+        explicit_called = []
+
+        def mock_llm_query(prompt):
+            auto_called.append(prompt)
+            return "auto"
+
+        def mock_batched(prompts):
+            explicit_called.extend(prompts)
+            return ["explicit"] * len(prompts)
+
+        repl = LocalREPL(llm_query_fn=mock_llm_query, llm_query_batched_fn=mock_batched)
+        result = repl.execute("results = llm_query_batched(['Q1', 'Q2'])")
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.locals["results"], ["explicit", "explicit"])
+        self.assertEqual(explicit_called, ["Q1", "Q2"])
+        self.assertEqual(auto_called, [])  # Auto version not used
