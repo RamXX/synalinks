@@ -13,8 +13,12 @@ Reference:
 
 import asyncio
 import builtins
+import collections
 import inspect
 import io
+import json
+import math
+import re
 import threading
 from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, Callable, Dict, List, Optional
@@ -144,6 +148,13 @@ class NativePythonInterpreter(CodeInterpreter):
         "ZeroDivisionError",
         "NotImplementedError",
     ]
+    DEFAULT_MODULES = {
+        "collections": collections,
+        "json": json,
+        "math": math,
+        "re": re,
+    }
+    ALLOWED_IMPORTS = set(DEFAULT_MODULES.keys())
 
     def __init__(
         self,
@@ -176,7 +187,8 @@ class NativePythonInterpreter(CodeInterpreter):
 
     async def start(self) -> None:
         """Initialize the interpreter with a fresh namespace."""
-        self._namespace = {}
+        # Preload safe stdlib modules for use without imports.
+        self._namespace = dict(self.DEFAULT_MODULES)
         self._started = True
 
     async def stop(self) -> None:
@@ -191,7 +203,24 @@ class NativePythonInterpreter(CodeInterpreter):
         for name in self.allowed_builtins:
             if hasattr(builtins, name):
                 restricted[name] = getattr(builtins, name)
+        # Provide a restricted import mechanism for safe modules only.
+        restricted["__import__"] = self._safe_import
         return restricted
+
+    def _safe_import(
+        self,
+        name: str,
+        globals: Optional[Dict[str, Any]] = None,
+        locals: Optional[Dict[str, Any]] = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> Any:
+        """Allow importing only whitelisted stdlib modules."""
+        if level != 0:
+            raise ImportError("Relative imports are not allowed")
+        if name in self.ALLOWED_IMPORTS:
+            return self.DEFAULT_MODULES[name]
+        raise ImportError(f"Import of '{name}' is not allowed")
 
     def _create_submit_function(self) -> tuple[Callable, Dict[str, Any]]:
         """Create SUBMIT function and container for submitted values."""

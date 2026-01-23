@@ -172,16 +172,15 @@ class TestNativePythonInterpreter:
     async def test_builtin_restrictions(self, interpreter):
         """Test that dangerous builtins are not available."""
         async with interpreter:
-            # __import__ should not be available
+            # disallowed imports should fail
             result = await interpreter.execute(
-                code="__import__('os')",
+                code="import os",
                 variables={},
                 tools={},
             )
 
         assert result["success"] is False
-        # Either NameError (not defined) or TypeError (not callable)
-        assert "Error" in result["error"]
+        assert "ImportError" in result["error"]
 
     @pytest.mark.asyncio
     async def test_allowed_builtins(self, interpreter):
@@ -196,6 +195,45 @@ class TestNativePythonInterpreter:
         assert result["success"] is True
         assert "3" in result["stdout"]
 
+    @pytest.mark.asyncio
+    async def test_preloaded_modules_available(self, interpreter):
+        """Test that safe stdlib modules are available without import."""
+        async with interpreter:
+            result = await interpreter.execute(
+                code=(
+                    "print(re.search('cat', 'a cat').group(0))\n"
+                    "print(json.dumps({'a': 1}))\n"
+                    "print(math.sqrt(9))\n"
+                    "print(len(collections.deque([1, 2, 3])))"
+                ),
+                variables={},
+                tools={},
+            )
+
+        assert result["success"] is True
+        assert "cat" in result["stdout"]
+        assert '{"a": 1}' in result["stdout"]
+        assert "3.0" in result["stdout"]
+
+    @pytest.mark.asyncio
+    async def test_safe_imports_allowed(self, interpreter):
+        """Test that allowed imports succeed and disallowed ones fail."""
+        async with interpreter:
+            ok = await interpreter.execute(
+                code="import re\nprint(re.search('a', 'cat').group(0))",
+                variables={},
+                tools={},
+            )
+            bad = await interpreter.execute(
+                code="import os",
+                variables={},
+                tools={},
+            )
+
+        assert ok["success"] is True
+        assert "a" in ok["stdout"]
+        assert bad["success"] is False
+        assert "ImportError" in bad["error"]
     @pytest.mark.asyncio
     async def test_list_operations(self, interpreter):
         """Test list operations with builtins."""

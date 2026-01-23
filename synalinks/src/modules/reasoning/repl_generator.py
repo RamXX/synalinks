@@ -108,7 +108,7 @@ Available:
 - `llm_query_batched(prompts)` - query multiple prompts concurrently (much faster for multiple queries)
 - `print()` - ALWAYS print to see results
 - `SUBMIT({final_output_names})` - submit final output when done
-- Standard libraries: re, json, collections, math, etc.
+- Standard libraries (preloaded, no imports): re, json, collections, math
 {tool_docs}
 IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see the output, then you decide what to do next. Do NOT try to solve everything in one step.
 
@@ -123,7 +123,8 @@ IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see
 7. JSON SAFETY - Your response must be valid JSON. Avoid unescaped double quotes inside the `code` string. Prefer single quotes in code, avoid triple-quoted strings, and if you must use a double quote inside code, escape it with a backslash.
 8. BACKSLASH SAFETY - Avoid backslashes in code (e.g., regex patterns or escape sequences). If you must include a backslash, build it via `chr(92)` or string concatenation to prevent invalid JSON escapes.
 9. NEWLINE SAFETY - Do not include literal newline characters inside JSON strings. If you need multi-line code, represent line breaks as `\\n` or separate statements with semicolons.
-10. NO FILE I/O - Do NOT use `open()` or read files from disk. File contents are already provided via `variables_info` (e.g., `files`, `file_names`). Use those inputs instead.
+10. IMPORTS LIMITED - Only re/json/math/collections are allowed. Prefer the preloaded modules above; other imports will fail.
+11. NO FILE I/O - Do NOT use `open()` or read files from disk. File contents are already provided via `variables_info` (e.g., `files`, `file_names`). Use those inputs instead.
 
 You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your output.
 
@@ -144,7 +145,7 @@ Available:
 - `llm_query_batched(prompts)` - query multiple prompts concurrently (much faster for multiple queries)
 - `print()` - ALWAYS print to see results
 - `SUBMIT({final_output_names})` - submit final output when done
-- Standard libraries: re, json, collections, math, etc.
+- Standard libraries (preloaded, no imports): re, json, collections, math
 {tool_docs}
 IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see the output, then you decide what to do next. Do NOT try to solve everything in one step.
 
@@ -159,7 +160,8 @@ IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see
 7. JSON SAFETY - Your response must be valid JSON. Avoid unescaped double quotes inside any `code_lines` entry. Prefer single quotes in code; if you must use a double quote inside code, escape it with a backslash.
 8. BACKSLASH SAFETY - Avoid backslashes in code (e.g., regex patterns or escape sequences). If you must include a backslash, build it via `chr(92)` or string concatenation to prevent invalid JSON escapes.
 9. NEWLINE SAFETY - Do not include newline characters inside any `code_lines` entry. Each list item must be a single line.
-10. NO FILE I/O - Do NOT use `open()` or read files from disk. File contents are already provided via `variables_info` (e.g., `files`, `file_names`). Use those inputs instead.
+10. IMPORTS LIMITED - Only re/json/math/collections are allowed. Prefer the preloaded modules above; other imports will fail.
+11. NO FILE I/O - Do NOT use `open()` or read files from disk. File contents are already provided via `variables_info` (e.g., `files`, `file_names`). Use those inputs instead.
 
 You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your output.
 

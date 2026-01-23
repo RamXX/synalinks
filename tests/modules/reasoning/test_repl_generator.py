@@ -176,6 +176,7 @@ class TestGetReplInstructions:
         assert "MINIMIZE RETYPING" in instructions
         assert "SUBMIT ONLY AFTER SEEING" in instructions
         assert "JSON SAFETY" in instructions
+        assert "IMPORTS LIMITED" in instructions
 
     def test_references_variables_info(self):
         """Test that instructions reference variables_info instead of variables."""
