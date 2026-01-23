@@ -1,0 +1,6 @@
+{
+  "nodeModulesDir": "auto",
+  "imports": {
+    "pyodide/pyodide.js": "npm:pyodide@0.27.7/pyodide.js"
+  }
+}

@@ -44,6 +44,7 @@ dependencies = [
   "orjson",
   "pydantic",
   "pydotplus",
+  "pytest-cov>=7.0.0",
   "rich",
   "tenacity",
 ]
@@ -125,4 +126,10 @@ omit = [
   "*/__init__.py",
   "*/cli/*",
   "*/async_utils.py",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
 ]

@@ -95,6 +95,16 @@ if __name__ == "__main__":
 
 ---
 
+### Reasoning Modules
+
+Based on [DSPy's RLM implementation](https://github.com/stanfordnlp/dspy). Enable LLMs to solve complex problems through iterative code execution.
+
+- [RLM](Reasoning Modules/REPLModule module.md) - Recursive Language Model with code execution (REPLModule is a backward-compatible alias)
+- [REPLGenerator](Reasoning Modules/REPLGenerator module.md) - Code generation for REPL iterations
+- [REPL Types](Reasoning Modules/REPL Types.md) - Data types for REPL state
+
+---
+
 ### Synthesis Modules
 
 - [PythonSynthesis module](Synthesis Modules/PythonSynthesis module.md)

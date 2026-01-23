@@ -147,3 +147,6 @@ synalinks-skills/
 
 # Reseach projects
 synalinks-research/
+
+# Node modules (Deno)
+node_modules/

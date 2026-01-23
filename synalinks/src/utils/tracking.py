@@ -139,6 +139,8 @@ class Tracker:
 
 @tree.register_tree_node_class
 class TrackedList(list):
+    tracker = None
+
     def __init__(self, values=None, tracker=None):
         self.tracker = tracker
         if tracker and values:
@@ -146,47 +148,54 @@ class TrackedList(list):
         super().__init__(values or [])
 
     def append(self, value):
-        if self.tracker:
-            self.tracker.track(value)
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            tracker.track(value)
         super().append(value)
 
     def insert(self, index, value):
-        if self.tracker:
-            self.tracker.track(value)
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            tracker.track(value)
         super().insert(index, value)
 
     def extend(self, values):
-        if self.tracker:
-            values = [self.tracker.track(v) for v in values]
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            values = [tracker.track(v) for v in values]
         super().extend(values)
 
     def remove(self, value):
-        if self.tracker:
-            self.tracker.untrack(value)
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            tracker.untrack(value)
         try:
             super().remove(value)
         except ValueError:
             python_utils.remove_by_id(self, value)
 
     def pop(self, index=-1):
-        if self.tracker:
+        tracker = getattr(self, "tracker", None)
+        if tracker:
             value = self[index]
-            self.tracker.untrack(value)
+            tracker.untrack(value)
             return super().pop(index)
         else:
             return super().pop(index)
 
     def clear(self):
-        if self.tracker:
+        tracker = getattr(self, "tracker", None)
+        if tracker:
             for value in self:
-                self.tracker.untrack(value)
+                tracker.untrack(value)
         super().clear()
 
     def __delitem__(self, index):
         value = self[index]  # Get value before removing
         super().__delitem__(index)
-        if self.tracker:
-            self.tracker.untrack(value)
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            tracker.untrack(value)
 
     def tree_flatten(self):
         # For optree / dmtree
@@ -200,6 +209,8 @@ class TrackedList(list):
 
 @tree.register_tree_node_class
 class TrackedDict(dict):
+    tracker = None
+
     def __init__(self, values=None, tracker=None):
         self.tracker = tracker
         if tracker and values:
@@ -207,34 +218,39 @@ class TrackedDict(dict):
         super().__init__(values or [])
 
     def __setitem__(self, key, value):
-        if self.tracker:
-            self.tracker.track(value)
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            tracker.track(value)
         super().__setitem__(key, value)
 
     def update(self, mapping):
-        if self.tracker:
-            mapping = {k: self.tracker.track(v) for k, v in mapping.items()}
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            mapping = {k: tracker.track(v) for k, v in mapping.items()}
         super().update(mapping)
 
     def pop(self, key, default=None):
-        if self.tracker:
+        tracker = getattr(self, "tracker", None)
+        if tracker:
             value = super().pop(key, default)
             if value is not default:
-                self.tracker.untrack(value)
+                tracker.untrack(value)
             return value
         else:
             return super().pop(key, default)
 
     def popitem(self):
         key, value = super().popitem()
-        if self.tracker:
-            self.tracker.untrack(value)
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            tracker.untrack(value)
         return key, value
 
     def clear(self):
-        if self.tracker:
+        tracker = getattr(self, "tracker", None)
+        if tracker:
             for value in self.values():
-                self.tracker.untrack(value)
+                tracker.untrack(value)
         super().clear()
 
     def tree_flatten(self):
@@ -251,6 +267,8 @@ class TrackedDict(dict):
 
 @tree.register_tree_node_class
 class TrackedSet(set):
+    tracker = None
+
     def __init__(self, values=None, tracker=None):
         self.tracker = tracker
         if tracker and values:
@@ -258,30 +276,35 @@ class TrackedSet(set):
         super().__init__(values or [])
 
     def add(self, value):
-        if self.tracker:
-            self.tracker.track(value)
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            tracker.track(value)
         super().add(value)
 
     def update(self, values):
-        if self.tracker:
-            values = [self.tracker.track(v) for v in values]
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            values = [tracker.track(v) for v in values]
         super().update(values)
 
     def remove(self, value):
-        if self.tracker:
-            self.tracker.untrack(value)
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            tracker.untrack(value)
         super().remove(value)
 
     def pop(self):
         value = super().pop()
-        if self.tracker:
-            self.tracker.untrack(value)
+        tracker = getattr(self, "tracker", None)
+        if tracker:
+            tracker.untrack(value)
         return value
 
     def clear(self):
-        if self.tracker:
+        tracker = getattr(self, "tracker", None)
+        if tracker:
             for value in self:
-                self.tracker.untrack(value)
+                tracker.untrack(value)
         super().clear()
 
     def tree_flatten(self):

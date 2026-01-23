@@ -41,5 +41,12 @@ from synalinks.src.modules.module import Module as Module
 from synalinks.src.modules.synthesis.python_synthesis import (
     PythonSynthesis as PythonSynthesis,
 )
+from synalinks.src.modules.reasoning.repl_generator import REPLAction as REPLAction
+from synalinks.src.modules.reasoning.repl_generator import REPLGenerator as REPLGenerator
+from synalinks.src.modules.reasoning.repl_module import RLM as RLM
+from synalinks.src.modules.reasoning.repl_module import REPLModule as REPLModule  # Backward compat
+from synalinks.src.modules.reasoning.repl_types import REPLEntry as REPLEntry
+from synalinks.src.modules.reasoning.repl_types import REPLHistory as REPLHistory
+from synalinks.src.modules.reasoning.repl_types import REPLVariable as REPLVariable
 from synalinks.src.modules.ttc.chain_of_thought import ChainOfThought as ChainOfThought
 from synalinks.src.modules.ttc.self_critique import SelfCritique as SelfCritique

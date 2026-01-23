@@ -15,6 +15,13 @@ from synalinks.src.modules.knowledge.retrieve_knowledge import RetrieveKnowledge
 from synalinks.src.modules.knowledge.stamp_knowledge import StampKnowledge
 from synalinks.src.modules.knowledge.update_knowledge import UpdateKnowledge
 from synalinks.src.modules.module import Module
+from synalinks.src.modules.reasoning.repl_generator import REPLAction
+from synalinks.src.modules.reasoning.repl_generator import REPLGenerator
+from synalinks.src.modules.reasoning.repl_module import RLM
+from synalinks.src.modules.reasoning.repl_module import REPLModule  # Backward compat
+from synalinks.src.modules.reasoning.repl_types import REPLEntry
+from synalinks.src.modules.reasoning.repl_types import REPLHistory
+from synalinks.src.modules.reasoning.repl_types import REPLVariable
 from synalinks.src.modules.ttc.chain_of_thought import ChainOfThought
 from synalinks.src.modules.ttc.self_critique import SelfCritique
 from synalinks.src.saving import serialization_lib
