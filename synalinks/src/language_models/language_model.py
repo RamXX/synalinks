@@ -175,6 +175,18 @@ class LanguageModel(SynalinksSaveable):
         max_tokens (int): Optional. Max output tokens for each request.
     """
 
+    # Groq defaults tuned for high-volume structured outputs.
+    _GROQ_DEFAULT_MAX_TOKENS = {
+        "moonshotai/kimi-k2-instruct-0905": 16384,
+        "openai/gpt-oss-20b": 65536,
+        "openai/gpt-oss-120b": 65536,
+    }
+    _GROQ_JSON_GUARD = (
+        "Return ONLY a valid JSON object that matches the schema. "
+        "Do not include markdown, headings, code fences, or extra text. "
+        "All schema keys are required; include them even if empty."
+    )
+
     def __init__(
         self,
         model=None,
@@ -207,9 +219,33 @@ class LanguageModel(SynalinksSaveable):
         self.timeout = timeout
         self.retry = retry
         self.caching = caching
+        if max_tokens is None:
+            default_max_tokens = self._default_groq_max_tokens(self.model)
+            if default_max_tokens is not None:
+                max_tokens = default_max_tokens
         self.max_tokens = max_tokens
         self.cumulated_cost = 0.0
         self.last_call_cost = 0.0
+
+    @classmethod
+    def _default_groq_max_tokens(cls, model_name: str):
+        if not model_name.startswith("groq/"):
+            return None
+        model_key = model_name.split("/", 1)[1]
+        return cls._GROQ_DEFAULT_MAX_TOKENS.get(model_key)
+
+    @classmethod
+    def _inject_groq_json_guard(cls, messages):
+        guard = cls._GROQ_JSON_GUARD
+        if not messages:
+            return [{"role": "system", "content": guard}]
+        if messages[0].get("role") == "system":
+            content = messages[0].get("content", "")
+            if guard not in content:
+                messages[0]["content"] = f"{guard}\n\n{content}".strip()
+        else:
+            messages.insert(0, {"role": "system", "content": guard})
+        return messages
 
     @staticmethod
     def _clean_messages_for_groq(messages):
@@ -253,6 +289,40 @@ class LanguageModel(SynalinksSaveable):
                 clean_msg = msg
             cleaned.append(clean_msg)
         return cleaned
+
+    @staticmethod
+    def _enforce_required_properties(schema):
+        """Recursively require all properties on object schemas (Groq)."""
+        if isinstance(schema, list):
+            for item in schema:
+                LanguageModel._enforce_required_properties(item)
+            return schema
+
+        if not isinstance(schema, dict):
+            return schema
+
+        schema_type = schema.get("type")
+        if schema_type == "object":
+            properties = schema.get("properties", {}) or {}
+            if properties:
+                required = set(schema.get("required", []))
+                required.update(properties.keys())
+                schema["required"] = sorted(required)
+            for prop in properties.values():
+                LanguageModel._enforce_required_properties(prop)
+            for key in ("$defs", "definitions"):
+                if key in schema and isinstance(schema[key], dict):
+                    for def_schema in schema[key].values():
+                        LanguageModel._enforce_required_properties(def_schema)
+        elif schema_type == "array":
+            if "items" in schema:
+                LanguageModel._enforce_required_properties(schema["items"])
+
+        for key in ("anyOf", "oneOf", "allOf"):
+            if key in schema and isinstance(schema[key], list):
+                LanguageModel._enforce_required_properties(schema[key])
+
+        return schema
 
     @staticmethod
     def _enforce_no_additional_properties(schema):
@@ -304,6 +374,8 @@ class LanguageModel(SynalinksSaveable):
         # Groq requires strict message schema - clean fields per role type
         if self.model.startswith("groq"):
             formatted_messages = self._clean_messages_for_groq(formatted_messages)
+            if schema:
+                formatted_messages = self._inject_groq_json_guard(formatted_messages)
         json_instance = {}
         input_kwargs = copy.deepcopy(kwargs)
         schema = copy.deepcopy(schema)
@@ -340,6 +412,10 @@ class LanguageModel(SynalinksSaveable):
         if use_reasoning:
             kwargs["reasoning_effort"] = reasoning_effort
 
+        # Encourage deterministic structured output for Groq
+        if schema and self.model.startswith("groq") and "temperature" not in kwargs:
+            kwargs["temperature"] = 0
+
         # Apply default max_tokens if configured and not overridden per-call
         if self.max_tokens is not None and "max_tokens" not in kwargs:
             kwargs["max_tokens"] = self.max_tokens
@@ -350,6 +426,7 @@ class LanguageModel(SynalinksSaveable):
                 # Groq requires additionalProperties: false on all object schemas
                 groq_schema = copy.deepcopy(schema)
                 groq_schema = self._enforce_no_additional_properties(groq_schema)
+                groq_schema = self._enforce_required_properties(groq_schema)
                 kwargs.update(
                     {
                         "response_format": {

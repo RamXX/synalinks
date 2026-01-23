@@ -95,7 +95,7 @@ class REPLActionLines(DataModel):
 
 
 # Action instructions template matching DSPy's behavioral guidance
-ACTION_INSTRUCTIONS_TEMPLATE = """Return ONLY a JSON object with keys `reasoning` and `code` (both strings). No markdown, no labels, no extra keys. Do NOT return final output fields directly; always use SUBMIT(...) inside `code`.
+ACTION_INSTRUCTIONS_TEMPLATE = """Return ONLY a JSON object with keys `reasoning` and `code` (both strings). `reasoning` is REQUIRED (use an empty string if needed). No markdown, no labels, no extra keys. Do NOT return final output fields directly; always use SUBMIT(...) inside `code`.
 
 You are tasked with producing the following outputs given the inputs {inputs}:
 {output_fields}
@@ -131,7 +131,7 @@ You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your o
 {output_fields_list}"""
 
 
-ACTION_INSTRUCTIONS_TEMPLATE_LINES = """Return ONLY a JSON object with keys `reasoning` (string) and `code_lines` (array of strings). No markdown, no labels, no extra keys. Do NOT return final output fields directly; always use SUBMIT(...) inside `code_lines`.
+ACTION_INSTRUCTIONS_TEMPLATE_LINES = """Return ONLY a JSON object with keys `reasoning` (string) and `code_lines` (array of strings). `reasoning` is REQUIRED (use an empty string if needed). No markdown, no labels, no extra keys. Do NOT return final output fields directly; always use SUBMIT(...) inside `code_lines`.
 
 You are tasked with producing the following outputs given the inputs {inputs}:
 {output_fields}
