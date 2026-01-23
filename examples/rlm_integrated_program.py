@@ -256,12 +256,15 @@ async def build_deep_analysis_program(code_lm, query_lm, synthesis_lm):
     synthesis_context = inputs & analysis
 
     # Generator for comprehensive synopsis
-    outputs = await synalinks.Generator(
+    synopsis = await synalinks.Generator(
         data_model=ComprehensiveSynopsis,
         language_model=synthesis_lm,
         instructions=(
             "Synthesize the analysis into a comprehensive framework synopsis. "
             "Be specific and technical, using actual concepts discovered in the codebase. "
+            "Return ALL required fields: elevator_pitch, architecture_overview, "
+            "five_key_concepts, getting_started_code, power_features, when_to_use. "
+            "Do not omit any fields. "
             "For `five_key_concepts`, each item must include a short explanation. "
             "For `getting_started_code`, output valid runnable Python code only "
             "(no markdown, no ellipses, no triple quotes). Use ASCII quotes only. "
@@ -270,6 +273,9 @@ async def build_deep_analysis_program(code_lm, query_lm, synthesis_lm):
         ),
         name="synopsis_writer",
     )(synthesis_context)
+
+    # Preserve RLM trajectory by merging analysis output into final result.
+    outputs = analysis & synopsis
 
     program = synalinks.Program(
         inputs=inputs,
@@ -444,9 +450,7 @@ The RLM iterates multiple times, using:
     # Extract history from result (stored as _history when return_history=True)
     history = result.get('_history', []) if result else []
 
-    # Note: In this integrated example, the _history from RLM gets lost
-    # when passing through the synthesis Generator. For full trajectory access,
-    # either use RLM as the final output or extend the output schema.
+    # If _history is missing, ensure the program outputs include the RLM analysis.
     if history:
         print(f"\nREPL Iterations: {len(history)}")
 
