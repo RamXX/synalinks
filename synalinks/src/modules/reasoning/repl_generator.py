@@ -103,6 +103,7 @@ IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see
 6. SUBMIT ONLY AFTER SEEING OUTPUTS - SUBMIT ends the current run immediately. If you need to inspect printed output, run it in one step, review the result, then call SUBMIT in a later step.
 7. JSON SAFETY - Your response must be valid JSON. Avoid unescaped double quotes inside the `code` string. Prefer single quotes in code, avoid triple-quoted strings, and if you must use a double quote inside code, escape it with a backslash.
 8. BACKSLASH SAFETY - Avoid backslashes in code (e.g., regex patterns or escape sequences). If you must include a backslash, build it via `chr(92)` or string concatenation to prevent invalid JSON escapes.
+9. NEWLINE SAFETY - Do not include literal newline characters inside JSON strings. If you need multi-line code, represent line breaks as `\\n` or separate statements with semicolons.
 
 You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your output.
 

@@ -45,12 +45,14 @@ Usage:
     uv run --env-file .env python examples/rlm_integrated_program.py
 """
 
+import ast
 import asyncio
 import os
 from pathlib import Path
 from typing import List
 
 from dotenv import load_dotenv
+from pydantic import field_validator
 
 import synalinks
 from synalinks.src.modules.reasoning import RLM
@@ -120,11 +122,19 @@ class ComprehensiveSynopsis(synalinks.DataModel):
     )
 
     five_key_concepts: List[str] = synalinks.Field(
-        description="The 5 most important concepts with brief explanations"
+        description=(
+            "The 5 most important concepts with brief explanations. "
+            "Format each item as 'Concept — short explanation'."
+        )
     )
 
     getting_started_code: str = synalinks.Field(
-        description="Minimal but complete code example to get started"
+        description=(
+            "Minimal but complete code example to get started. "
+            "Must be valid runnable Python (no markdown fences, no ellipses, "
+            "no triple quotes). Include imports, async main(), await Generator call, "
+            "and asyncio.run(main()). Use ASCII quotes only."
+        )
     )
 
     power_features: List[str] = synalinks.Field(
@@ -134,6 +144,21 @@ class ComprehensiveSynopsis(synalinks.DataModel):
     when_to_use: str = synalinks.Field(
         description="When to choose this framework over alternatives"
     )
+
+    @field_validator("getting_started_code")
+    @classmethod
+    def validate_getting_started_code(cls, value: str) -> str:
+        try:
+            ast.parse(value)
+        except SyntaxError as exc:
+            raise ValueError("getting_started_code must be valid Python") from exc
+
+        required_snippets = ("async def main", "asyncio.run", "await ")
+        if any(snippet not in value for snippet in required_snippets):
+            raise ValueError(
+                "getting_started_code must include async main(), await, and asyncio.run()"
+            )
+        return value
 
 
 # =============================================================================
@@ -173,6 +198,30 @@ def load_sources(repo_root: Path, file_paths: list[str]) -> tuple[list[str], lis
 # Build Integrated Program
 # =============================================================================
 
+GETTING_STARTED_TEMPLATE = """import asyncio
+import synalinks
+
+class Query(synalinks.DataModel):
+    query: str
+
+class Answer(synalinks.DataModel):
+    answer: str
+
+async def main():
+    lm = synalinks.LanguageModel(model="gpt-4o-mini")
+    inputs = synalinks.Input(data_model=Query)
+    outputs = await synalinks.Generator(
+        data_model=Answer,
+        language_model=lm,
+    )(inputs)
+    program = synalinks.Program(inputs=inputs, outputs=outputs)
+    result = await program(Query(query="Capital of France?"))
+    print(result["answer"])
+
+if __name__ == "__main__":
+    asyncio.run(main())
+"""
+
 
 async def build_deep_analysis_program(code_lm, query_lm, synthesis_lm):
     """Build a program for deep multi-stage analysis.
@@ -210,7 +259,15 @@ async def build_deep_analysis_program(code_lm, query_lm, synthesis_lm):
     outputs = await synalinks.Generator(
         data_model=ComprehensiveSynopsis,
         language_model=synthesis_lm,
-        instructions="""Synthesize the analysis into a comprehensive framework synopsis. Be specific and technical, using actual concepts discovered in the codebase.""",
+        instructions=(
+            "Synthesize the analysis into a comprehensive framework synopsis. "
+            "Be specific and technical, using actual concepts discovered in the codebase. "
+            "For `five_key_concepts`, each item must include a short explanation. "
+            "For `getting_started_code`, output valid runnable Python code only "
+            "(no markdown, no ellipses, no triple quotes). Use ASCII quotes only. "
+            "Follow this exact template:\n"
+            f"{GETTING_STARTED_TEMPLATE.strip()}"
+        ),
         name="synopsis_writer",
     )(synthesis_context)
 
