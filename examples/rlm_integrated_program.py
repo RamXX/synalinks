@@ -449,6 +449,8 @@ The RLM iterates multiple times, using:
 
     # Extract history from result (stored as _history when return_history=True)
     history = result.get('_history', []) if result else []
+    iteration_count = len(history)
+    llm_query_calls = 0
 
     # If _history is missing, ensure the program outputs include the RLM analysis.
     if history:
@@ -542,31 +544,47 @@ The RLM iterates multiple times, using:
     print("\n" + "=" * 70)
     print("KEY TAKEAWAYS")
     print("=" * 70)
-    print("""
-This example demonstrates the FULL power of RLM integration:
-
-1. MULTI-STAGE ITERATION: RLM iterates 15+ times, building
-   understanding progressively (structure -> semantics -> relationships)
-
-2. HYBRID ANALYSIS: Combines Python code execution (precise parsing)
-   with llm_query() (semantic understanding) in the same loop
-
-3. DUAL-MODEL ARCHITECTURE: Uses code_lm for generation and query_lm
-   for semantic analysis (can use different model sizes)
-
-4. RICH OUTPUT SCHEMA: DeepAnalysis captures structural, semantic,
-   and relational insights; ComprehensiveSynopsis synthesizes them
-
-5. INTEGRATED PROGRAM: RLM is one component in a Synalinks
-   Program DAG, demonstrating composability
-
-6. TRAINABLE: Both RLM instructions and Generator instructions
-   can be optimized through Synalinks' training workflow
-
-This is neuro-symbolic programming at its best: code execution for
-precision, LLM reasoning for understanding, unified in a trainable
-framework.
-""")
+    iteration_line = (
+        f"1. MULTI-STAGE ITERATION: RLM iterates {iteration_count} times, building"
+        if iteration_count
+        else "1. MULTI-STAGE ITERATION: RLM iterates over multiple steps, building"
+    )
+    llm_query_line = (
+        "2. HYBRID ANALYSIS: Combines Python code execution (precise parsing)\n"
+        "   with llm_query() (semantic understanding) in the same loop"
+        if llm_query_calls > 0
+        else "2. HYBRID ANALYSIS: Combines Python code execution (precise parsing)\n"
+        "   with optional llm_query() semantic calls when needed"
+    )
+    print(
+        "\n".join(
+            [
+                "This example demonstrates the FULL power of RLM integration:",
+                "",
+                iteration_line,
+                "   understanding progressively (structure -> semantics -> relationships)",
+                "",
+                llm_query_line,
+                "",
+                "3. DUAL-MODEL ARCHITECTURE: Uses code_lm for generation and query_lm",
+                "   for semantic analysis (can use different model sizes)",
+                "",
+                "4. RICH OUTPUT SCHEMA: DeepAnalysis captures structural, semantic,",
+                "   and relational insights; ComprehensiveSynopsis synthesizes them",
+                "",
+                "5. INTEGRATED PROGRAM: RLM is one component in a Synalinks",
+                "   Program DAG, demonstrating composability",
+                "",
+                "6. TRAINABLE: Both RLM instructions and Generator instructions",
+                "   can be optimized through Synalinks' training workflow",
+                "",
+                "This is neuro-symbolic programming at its best: code execution for",
+                "precision, LLM reasoning for understanding, unified in a trainable",
+                "framework.",
+                "",
+            ]
+        )
+    )
 
 
 async def cleanup_litellm():

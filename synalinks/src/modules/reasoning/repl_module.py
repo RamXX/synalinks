@@ -450,7 +450,11 @@ class RLM(Module):
                     break
 
                 # Allow direct output submissions (schema match) without REPL code
-                if "code" not in action_json and "reasoning" not in action_json:
+                if (
+                    "code" not in action_json
+                    and "code_lines" not in action_json
+                    and "reasoning" not in action_json
+                ):
                     parsed, error = self._validate_and_parse_output(action_json)
                     if error:
                         history = history.append(
