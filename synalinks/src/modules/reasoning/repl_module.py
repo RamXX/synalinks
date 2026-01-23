@@ -16,6 +16,7 @@ Reference:
 """
 
 import asyncio
+import keyword
 from typing import Any, Callable, Dict, List, Optional, Type
 
 import jsonschema
@@ -176,6 +177,7 @@ class RLM(Module):
         # Build tool registry
         self.tools: Dict[str, Tool] = {}
         if tools:
+            self._validate_tool_names(tools)
             for tool in tools:
                 self.tools[tool.name] = tool
 
@@ -211,6 +213,25 @@ class RLM(Module):
             ),
             name=f"extractor_{self.name}",
         )
+
+    _RESERVED_TOOL_NAMES = {"llm_query", "llm_query_batched", "SUBMIT", "print"}
+
+    def _validate_tool_names(self, tools: List[Tool]) -> None:
+        """Validate tool names for REPL safety and consistency."""
+        seen = set()
+        for tool in tools:
+            name = tool.name
+            if not name.isidentifier() or keyword.iskeyword(name):
+                raise ValueError(
+                    f"Invalid tool name '{name}': must be a valid Python identifier"
+                )
+            if name in self._RESERVED_TOOL_NAMES:
+                raise ValueError(
+                    f"Tool name '{name}' conflicts with built-in sandbox function"
+                )
+            if name in seen:
+                raise ValueError(f"Duplicate tool name '{name}'")
+            seen.add(name)
 
     def _format_tool_descriptions(self) -> str:
         """Format tool descriptions for inclusion in instructions."""

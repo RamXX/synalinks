@@ -6,6 +6,7 @@ import pytest
 
 from synalinks.src.backend import DataModel, Field, JsonDataModel
 from synalinks.src.interpreters.native import NativePythonInterpreter
+from synalinks.src.modules.core.tool import Tool
 from synalinks.src.modules.reasoning.repl_module import RLM
 
 
@@ -389,6 +390,65 @@ class TestRLMTypeCoercion:
         assert result.get("flag") is False
         history = result.get("_history")
         assert "Type Error" in history[0]["error"]
+
+
+class TestRLMToolValidation:
+    """Tests for tool name validation."""
+
+    @pytest.mark.asyncio
+    async def test_invalid_tool_name(self):
+        """Test invalid tool identifiers are rejected."""
+        async def noop(value: str) -> str:
+            """No-op tool.
+
+            Args:
+                value (str): Input value.
+            """
+            return value
+
+        tool = Tool(noop, name="bad-name")
+        schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
+        lm = MockLanguageModel([])
+
+        with pytest.raises(ValueError, match="valid Python identifier"):
+            RLM(schema=schema, language_model=lm, tools=[tool])
+
+    @pytest.mark.asyncio
+    async def test_reserved_tool_name(self):
+        """Test reserved tool names are rejected."""
+        async def noop(value: str) -> str:
+            """No-op tool.
+
+            Args:
+                value (str): Input value.
+            """
+            return value
+
+        tool = Tool(noop, name="llm_query")
+        schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
+        lm = MockLanguageModel([])
+
+        with pytest.raises(ValueError, match="conflicts with built-in"):
+            RLM(schema=schema, language_model=lm, tools=[tool])
+
+    @pytest.mark.asyncio
+    async def test_duplicate_tool_names(self):
+        """Test duplicate tool names are rejected."""
+        async def noop(value: str) -> str:
+            """No-op tool.
+
+            Args:
+                value (str): Input value.
+            """
+            return value
+
+        tool_a = Tool(noop, name="lookup")
+        tool_b = Tool(noop, name="lookup")
+        schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
+        lm = MockLanguageModel([])
+
+        with pytest.raises(ValueError, match="Duplicate tool name"):
+            RLM(schema=schema, language_model=lm, tools=[tool_a, tool_b])
 
 
 class TestRLMSerialization:
