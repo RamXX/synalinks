@@ -25,6 +25,22 @@ from synalinks.src.utils import tracking
 from synalinks.src.utils.async_utils import run_maybe_nested
 from synalinks.src.utils.naming import auto_name
 
+
+def _is_trainable_variable(value):
+    return isinstance(value, backend.Variable) and value.trainable
+
+
+def _is_non_trainable_variable(value):
+    return isinstance(value, backend.Variable) and not value.trainable
+
+
+def _is_metric(value):
+    return isinstance(value, Metric)
+
+
+def _is_module(value):
+    return isinstance(value, Module) and not isinstance(value, Metric)
+
 if backend.backend() == "pydantic":
     from synalinks.src.backend.pydantic.module import PydanticModule as BackendModule
 else:
@@ -163,16 +179,16 @@ class Module(BackendModule, Operation, SynalinksSaveable):
         self._tracker = tracking.Tracker(
             {
                 "trainable_variables": (
-                    lambda x: isinstance(x, backend.Variable) and x.trainable,
+                    _is_trainable_variable,
                     trainable_variables,
                 ),
                 "non_trainable_variables": (
-                    lambda x: isinstance(x, backend.Variable) and not x.trainable,
+                    _is_non_trainable_variable,
                     non_trainable_variables,
                 ),
-                "metrics": (lambda x: isinstance(x, Metric), metrics),
+                "metrics": (_is_metric, metrics),
                 "modules": (
-                    lambda x: isinstance(x, Module) and not isinstance(x, Metric),
+                    _is_module,
                     modules,
                 ),
             },
