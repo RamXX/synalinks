@@ -354,14 +354,16 @@ class RLM(Module):
             # Build tool callables (sync wrappers around async tools)
             tool_callables = self._build_tool_callables()
 
-            # Create llm_query as async (interpreter handles async calls)
-            async def llm_query(prompt: str) -> str:
-                """Query the sub-LLM with a prompt."""
+            def _reserve_llm_calls(count: int) -> bool:
+                """Reserve LLM calls without double-counting."""
                 nonlocal llm_call_count
-                llm_call_count += 1
-                if llm_call_count > self.max_llm_calls:
-                    return "ERROR: Maximum LLM calls exceeded"
+                if llm_call_count + count > self.max_llm_calls:
+                    return False
+                llm_call_count += count
+                return True
 
+            async def _llm_query(prompt: str) -> str:
+                """Query the sub-LLM with a prompt (no call counting)."""
                 try:
                     messages = ChatMessages(
                         messages=[ChatMessage(role="user", content=prompt)]
@@ -380,15 +382,22 @@ class RLM(Module):
                 except Exception as e:
                     return f"ERROR: {str(e)}"
 
+            # Create llm_query as async (interpreter handles async calls)
+            async def llm_query(prompt: str) -> str:
+                """Query the sub-LLM with a prompt."""
+                if not _reserve_llm_calls(1):
+                    return "ERROR: Maximum LLM calls exceeded"
+                return await _llm_query(prompt)
+
             # Create batched query function
             async def llm_query_batched(prompts: List[str]) -> List[str]:
                 """Query the sub-LLM with multiple prompts concurrently."""
-                nonlocal llm_call_count
-                llm_call_count += len(prompts)
-                if llm_call_count > self.max_llm_calls:
+                if not prompts:
+                    return []
+                if not _reserve_llm_calls(len(prompts)):
                     return ["ERROR: Maximum LLM calls exceeded"] * len(prompts)
 
-                tasks = [llm_query(p) for p in prompts]
+                tasks = [_llm_query(p) for p in prompts]
                 return await asyncio.gather(*tasks)
 
             # Add LLM functions to tools

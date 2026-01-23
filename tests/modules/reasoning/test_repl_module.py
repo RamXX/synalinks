@@ -232,6 +232,76 @@ class TestRLMExecution:
         assert history[0]["reasoning"] == "Explore"
         assert history[1]["reasoning"] == "Submit"
 
+    @pytest.mark.asyncio
+    async def test_llm_query_batched_call_count(self, simple_schema):
+        """Test that batched LLM calls count once per prompt."""
+        class DummyLM:
+            async def __call__(self, messages, schema=None, **kwargs):
+                return {"content": "ok"}
+
+        lm = MockLanguageModel(
+            [
+                {
+                    "reasoning": "Batch call",
+                    "code": 'print(llm_query_batched(["a", "b"]))',
+                },
+                {"reasoning": "Submit", "code": 'SUBMIT(result="done")'},
+            ]
+        )
+
+        module = RLM(
+            schema=simple_schema,
+            language_model=lm,
+            sub_language_model=DummyLM(),
+            max_llm_calls=2,
+            return_history=True,
+        )
+
+        inputs = JsonDataModel(
+            json={"query": "test"},
+            schema={"type": "object"},
+            name="inputs",
+        )
+
+        result = await module(inputs)
+        history = result.get("_history")
+        assert "Maximum LLM calls exceeded" not in history[0]["stdout"]
+
+    @pytest.mark.asyncio
+    async def test_llm_query_batched_limit_exceeded(self, simple_schema):
+        """Test that batched LLM calls respect max_llm_calls."""
+        class DummyLM:
+            async def __call__(self, messages, schema=None, **kwargs):
+                return {"content": "ok"}
+
+        lm = MockLanguageModel(
+            [
+                {
+                    "reasoning": "Batch call",
+                    "code": 'print(llm_query_batched(["a", "b"]))',
+                },
+                {"reasoning": "Submit", "code": 'SUBMIT(result="done")'},
+            ]
+        )
+
+        module = RLM(
+            schema=simple_schema,
+            language_model=lm,
+            sub_language_model=DummyLM(),
+            max_llm_calls=1,
+            return_history=True,
+        )
+
+        inputs = JsonDataModel(
+            json={"query": "test"},
+            schema={"type": "object"},
+            name="inputs",
+        )
+
+        result = await module(inputs)
+        history = result.get("_history")
+        assert "Maximum LLM calls exceeded" in history[0]["stdout"]
+
 
 class TestRLMTypeCoercion:
     """Tests for output type coercion."""
