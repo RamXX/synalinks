@@ -440,8 +440,34 @@ class RLM(Module):
                 if not action:
                     break
 
-                reasoning = action.get("reasoning", "")
-                raw_code = action.get("code", "")
+                action_json = action.get_json() if isinstance(action, JsonDataModel) else action
+                if not isinstance(action_json, dict):
+                    break
+
+                # Allow direct output submissions (schema match) without REPL code
+                if "code" not in action_json and "reasoning" not in action_json:
+                    parsed, error = self._validate_and_parse_output(action_json)
+                    if error:
+                        history = history.append(
+                            iteration=iteration,
+                            reasoning="",
+                            code="<DIRECT_OUTPUT>",
+                            stdout="",
+                            error=error,
+                        )
+                        continue
+
+                    submitted_output = parsed
+                    history = history.append(
+                        iteration=iteration,
+                        reasoning="",
+                        code="<DIRECT_OUTPUT>",
+                        stdout=f"SUBMIT: {parsed}",
+                    )
+                    break
+
+                reasoning = action_json.get("reasoning", "")
+                raw_code = action_json.get("code", "")
 
                 # Strip markdown code fences from LLM output
                 code = strip_code_fences(raw_code)

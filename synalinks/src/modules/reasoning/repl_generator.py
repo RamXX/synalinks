@@ -11,6 +11,7 @@ Reference:
     https://github.com/stanfordnlp/dspy
 """
 
+import copy
 import re
 from typing import List, Optional
 
@@ -98,6 +99,7 @@ IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see
 4. USE llm_query FOR SEMANTICS - String matching finds WHERE things are; llm_query understands WHAT things mean.
 5. MINIMIZE RETYPING (INPUTS & OUTPUTS) - When values are long, precise, or error-prone (IDs, numbers, code, quotes), re-access them via variables and parse/compute in code instead of retyping. Use small, targeted prints to sanity-check, but avoid manual copying when variables can carry the exact value.
 6. SUBMIT ONLY AFTER SEEING OUTPUTS - SUBMIT ends the current run immediately. If you need to inspect printed output, run it in one step, review the result, then call SUBMIT in a later step.
+7. JSON SAFETY - Your response must be valid JSON. Avoid unescaped double quotes inside the `code` string. Prefer single quotes in code, avoid triple-quoted strings, and if you must use a double quote inside code, escape it with a backslash.
 
 You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your output.
 
@@ -199,13 +201,17 @@ class REPLGenerator(Generator):
         self.output_fields = list(output_schema.get("properties", {}).keys())
         self._max_llm_calls = max_llm_calls
 
+        action_schema = REPLAction.get_schema()
+        if self._supports_direct_output(language_model):
+            action_schema = self._build_action_schema(action_schema, output_schema)
+
         if not instructions:
             instructions = get_repl_instructions(
                 self.output_fields, tool_descriptions, max_llm_calls
             )
 
         super().__init__(
-            schema=REPLAction.get_schema(),
+            schema=action_schema,
             language_model=language_model,
             instructions=instructions,
             seed_instructions=seed_instructions,
@@ -234,3 +240,24 @@ class REPLGenerator(Generator):
             language_model=language_model,
             **config,
         )
+
+    @staticmethod
+    def _supports_direct_output(language_model) -> bool:
+        """Return True when direct output schema is needed for strict providers."""
+        model = getattr(language_model, "model", "")
+        return isinstance(model, str) and model.startswith("groq")
+
+    @staticmethod
+    def _build_action_schema(action_schema: dict, output_schema: dict) -> dict:
+        """Merge REPLAction schema with output schema for strict providers."""
+        merged = {
+            "type": "object",
+            "title": "REPLActionOrOutput",
+            "description": "Either REPL action (reasoning+code) or direct output.",
+            "additionalProperties": False,
+            "properties": {},
+            "minProperties": 1,
+        }
+        merged["properties"].update(copy.deepcopy(action_schema.get("properties", {})))
+        merged["properties"].update(copy.deepcopy(output_schema.get("properties", {})))
+        return merged

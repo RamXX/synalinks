@@ -134,6 +134,34 @@ class TestRLMExecution:
         assert result.get("result") == "hello world"
 
     @pytest.mark.asyncio
+    async def test_direct_output_without_repl_action(self, simple_schema):
+        """Test direct output submission without reasoning/code."""
+        lm = MockLanguageModel(
+            [
+                {
+                    "result": "hello world",
+                }
+            ]
+        )
+
+        module = RLM(
+            schema=simple_schema,
+            language_model=lm,
+            max_iterations=5,
+        )
+
+        inputs = JsonDataModel(
+            json={"query": "test"},
+            schema={"type": "object"},
+            name="inputs",
+        )
+
+        result = await module(inputs)
+
+        assert result is not None
+        assert result.get("result") == "hello world"
+
+    @pytest.mark.asyncio
     async def test_multi_iteration_exploration(self, simple_schema):
         """Test multiple iterations before SUBMIT."""
         lm = MockLanguageModel(

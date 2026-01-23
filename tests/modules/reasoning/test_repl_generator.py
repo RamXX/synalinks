@@ -175,6 +175,7 @@ class TestGetReplInstructions:
         assert "llm_query" in instructions
         assert "MINIMIZE RETYPING" in instructions
         assert "SUBMIT ONLY AFTER SEEING" in instructions
+        assert "JSON SAFETY" in instructions
 
     def test_references_variables_info(self):
         """Test that instructions reference variables_info instead of variables."""
@@ -274,3 +275,37 @@ class TestREPLGenerator:
         # Can't fully test without parent setup, but verify attributes exist
         assert gen.output_schema == schema
         assert gen._max_llm_calls == 50
+
+    def test_groq_schema_allows_direct_output(self):
+        """Groq schema should allow direct output fields."""
+        schema = {
+            "type": "object",
+            "properties": {"answer": {"type": "string"}},
+        }
+
+        class GroqLM:
+            model = "groq/test-model"
+
+        gen = REPLGenerator(output_schema=schema, language_model=GroqLM())
+
+        props = gen.schema.get("properties", {})
+        assert "reasoning" in props
+        assert "code" in props
+        assert "answer" in props
+
+    def test_non_groq_schema_stays_action_only(self):
+        """Non-Groq schema should remain REPLAction-only."""
+        schema = {
+            "type": "object",
+            "properties": {"answer": {"type": "string"}},
+        }
+
+        class OpenAILM:
+            model = "openai/test-model"
+
+        gen = REPLGenerator(output_schema=schema, language_model=OpenAILM())
+
+        props = gen.schema.get("properties", {})
+        assert "reasoning" in props
+        assert "code" in props
+        assert "answer" not in props
