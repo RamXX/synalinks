@@ -144,6 +144,8 @@ mlflow.db
 
 # Claude skills
 synalinks-skills/
+.claude/
+AGENTS.md
 
 # Reseach projects
 synalinks-research/
