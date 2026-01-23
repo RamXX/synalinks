@@ -473,6 +473,10 @@ class RLM(Module):
 
                 reasoning = action_json.get("reasoning", "")
                 raw_code = action_json.get("code", "")
+                if not raw_code and isinstance(action_json.get("code_lines"), list):
+                    raw_code = "\n".join(
+                        line for line in action_json.get("code_lines") if line is not None
+                    )
 
                 # Strip markdown code fences from LLM output
                 code = strip_code_fences(raw_code)

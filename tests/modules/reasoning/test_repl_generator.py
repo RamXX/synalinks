@@ -290,7 +290,7 @@ class TestREPLGenerator:
 
         props = gen.schema.get("properties", {})
         assert "reasoning" in props
-        assert "code" in props
+        assert "code_lines" in props
         assert "answer" not in props
 
     def test_non_groq_schema_stays_action_only(self):

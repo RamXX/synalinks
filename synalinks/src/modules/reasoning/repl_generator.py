@@ -75,8 +75,27 @@ class REPLAction(DataModel):
     )
 
 
+@synalinks_export("synalinks.REPLActionLines")
+class REPLActionLines(DataModel):
+    """LLM output for each REPL iteration using code lines.
+
+    This variant avoids multiline JSON strings by emitting code as
+    a list of single-line statements.
+    """
+
+    reasoning: str = Field(
+        description="Your step-by-step reasoning about what to do next"
+    )
+    code_lines: List[str] = Field(
+        description=(
+            "Python code lines to execute (one line per item). "
+            "Use SUBMIT(field=value, ...) when done."
+        )
+    )
+
+
 # Action instructions template matching DSPy's behavioral guidance
-ACTION_INSTRUCTIONS_TEMPLATE = """Return ONLY a JSON object with keys `reasoning` and `code` (both strings). No markdown, no labels, no extra keys.
+ACTION_INSTRUCTIONS_TEMPLATE = """Return ONLY a JSON object with keys `reasoning` and `code` (both strings). No markdown, no labels, no extra keys. Do NOT return final output fields directly; always use SUBMIT(...) inside `code`.
 
 You are tasked with producing the following outputs given the inputs {inputs}:
 {output_fields}
@@ -104,6 +123,43 @@ IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see
 7. JSON SAFETY - Your response must be valid JSON. Avoid unescaped double quotes inside the `code` string. Prefer single quotes in code, avoid triple-quoted strings, and if you must use a double quote inside code, escape it with a backslash.
 8. BACKSLASH SAFETY - Avoid backslashes in code (e.g., regex patterns or escape sequences). If you must include a backslash, build it via `chr(92)` or string concatenation to prevent invalid JSON escapes.
 9. NEWLINE SAFETY - Do not include literal newline characters inside JSON strings. If you need multi-line code, represent line breaks as `\\n` or separate statements with semicolons.
+10. NO FILE I/O - Do NOT use `open()` or read files from disk. File contents are already provided via `variables_info` (e.g., `files`, `file_names`). Use those inputs instead.
+
+You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your output.
+
+## Output Fields Required
+{output_fields_list}"""
+
+
+ACTION_INSTRUCTIONS_TEMPLATE_LINES = """Return ONLY a JSON object with keys `reasoning` (string) and `code_lines` (array of strings). No markdown, no labels, no extra keys. Do NOT return final output fields directly; always use SUBMIT(...) inside `code_lines`.
+
+You are tasked with producing the following outputs given the inputs {inputs}:
+{output_fields}
+
+You have access to a Python REPL environment. Write Python code and it will be executed. You will see the output, then write more code based on what you learned. This is an iterative process.
+
+Available:
+- Variables: see `variables_info` in the input context (your input data)
+- `llm_query(prompt)` - query a sub-LLM (~500K char capacity) for semantic analysis
+- `llm_query_batched(prompts)` - query multiple prompts concurrently (much faster for multiple queries)
+- `print()` - ALWAYS print to see results
+- `SUBMIT({final_output_names})` - submit final output when done
+- Standard libraries: re, json, collections, math, etc.
+{tool_docs}
+IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see the output, then you decide what to do next. Do NOT try to solve everything in one step.
+
+## Rules
+
+1. EXPLORE FIRST - Look at your data before processing it. Print samples, check types/lengths, understand the structure.
+2. ITERATE - Write small code snippets, observe outputs, then decide next steps. State persists between iterations.
+3. VERIFY BEFORE SUBMITTING - If results seem wrong (zeros, empty, unexpected), reconsider your approach.
+4. USE llm_query FOR SEMANTICS - String matching finds WHERE things are; llm_query understands WHAT things mean.
+5. MINIMIZE RETYPING (INPUTS & OUTPUTS) - When values are long, precise, or error-prone (IDs, numbers, code, quotes), re-access them via variables and parse/compute in code instead of retyping. Use small, targeted prints to sanity-check, but avoid manual copying when variables can carry the exact value.
+6. SUBMIT ONLY AFTER SEEING OUTPUTS - SUBMIT ends the current run immediately. If you need to inspect printed output, run it in one step, review the result, then call SUBMIT in a later step.
+7. JSON SAFETY - Your response must be valid JSON. Avoid unescaped double quotes inside any `code_lines` entry. Prefer single quotes in code; if you must use a double quote inside code, escape it with a backslash.
+8. BACKSLASH SAFETY - Avoid backslashes in code (e.g., regex patterns or escape sequences). If you must include a backslash, build it via `chr(92)` or string concatenation to prevent invalid JSON escapes.
+9. NEWLINE SAFETY - Do not include newline characters inside any `code_lines` entry. Each list item must be a single line.
+10. NO FILE I/O - Do NOT use `open()` or read files from disk. File contents are already provided via `variables_info` (e.g., `files`, `file_names`). Use those inputs instead.
 
 You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your output.
 
@@ -115,6 +171,7 @@ def get_repl_instructions(
     output_fields: List[str],
     tool_descriptions: str = "",
     max_llm_calls: int = 50,
+    use_code_lines: bool = False,
 ) -> str:
     """Generate default REPL instructions with behavioral guidance.
 
@@ -136,7 +193,12 @@ def get_repl_instructions(
     # Format tool docs section
     tool_docs = f"\n{tool_descriptions}\n" if tool_descriptions else ""
 
-    return ACTION_INSTRUCTIONS_TEMPLATE.format(
+    template = (
+        ACTION_INSTRUCTIONS_TEMPLATE_LINES
+        if use_code_lines
+        else ACTION_INSTRUCTIONS_TEMPLATE
+    )
+    return template.format(
         inputs=inputs_placeholder,
         output_fields=output_fields_formatted,
         final_output_names=submit_args,
@@ -206,14 +268,20 @@ class REPLGenerator(Generator):
         self.output_schema = output_schema
         self.output_fields = list(output_schema.get("properties", {}).keys())
         self._max_llm_calls = max_llm_calls
+        self._use_code_lines = self._uses_code_lines(language_model)
 
         action_schema = REPLAction.get_schema()
+        if self._use_code_lines:
+            action_schema = REPLActionLines.get_schema()
         if self._supports_direct_output(language_model):
             action_schema = self._build_action_schema(action_schema, output_schema)
 
         if not instructions:
             instructions = get_repl_instructions(
-                self.output_fields, tool_descriptions, max_llm_calls
+                self.output_fields,
+                tool_descriptions,
+                max_llm_calls,
+                use_code_lines=self._use_code_lines,
             )
 
         super().__init__(
@@ -257,6 +325,12 @@ class REPLGenerator(Generator):
         # Groq JSON schema mode is strict; keep schema minimal (REPLAction only)
         # to reduce json_validate_failed errors on complex outputs.
         return False
+
+    @staticmethod
+    def _uses_code_lines(language_model) -> bool:
+        """Return True when code_lines output should be used for reliability."""
+        model = getattr(language_model, "model", "")
+        return isinstance(model, str) and model.startswith("groq/")
 
     @staticmethod
     def _build_action_schema(action_schema: dict, output_schema: dict) -> dict:
