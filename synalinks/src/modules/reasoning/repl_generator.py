@@ -76,7 +76,9 @@ class REPLAction(DataModel):
 
 
 # Action instructions template matching DSPy's behavioral guidance
-ACTION_INSTRUCTIONS_TEMPLATE = """You are tasked with producing the following outputs given the inputs {inputs}:
+ACTION_INSTRUCTIONS_TEMPLATE = """Return ONLY a JSON object with keys `reasoning` and `code` (both strings). No markdown, no labels, no extra keys.
+
+You are tasked with producing the following outputs given the inputs {inputs}:
 {output_fields}
 
 You have access to a Python REPL environment. Write Python code and it will be executed. You will see the output, then write more code based on what you learned. This is an iterative process.
@@ -100,6 +102,7 @@ IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see
 5. MINIMIZE RETYPING (INPUTS & OUTPUTS) - When values are long, precise, or error-prone (IDs, numbers, code, quotes), re-access them via variables and parse/compute in code instead of retyping. Use small, targeted prints to sanity-check, but avoid manual copying when variables can carry the exact value.
 6. SUBMIT ONLY AFTER SEEING OUTPUTS - SUBMIT ends the current run immediately. If you need to inspect printed output, run it in one step, review the result, then call SUBMIT in a later step.
 7. JSON SAFETY - Your response must be valid JSON. Avoid unescaped double quotes inside the `code` string. Prefer single quotes in code, avoid triple-quoted strings, and if you must use a double quote inside code, escape it with a backslash.
+8. BACKSLASH SAFETY - Avoid backslashes in code (e.g., regex patterns or escape sequences). If you must include a backslash, build it via `chr(92)` or string concatenation to prevent invalid JSON escapes.
 
 You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your output.
 
@@ -248,7 +251,11 @@ class REPLGenerator(Generator):
     def _supports_direct_output(language_model) -> bool:
         """Return True when direct output schema is needed for strict providers."""
         model = getattr(language_model, "model", "")
-        return isinstance(model, str) and model.startswith("groq")
+        if not isinstance(model, str):
+            return False
+        # Groq JSON schema mode is strict; keep schema minimal (REPLAction only)
+        # to reduce json_validate_failed errors on complex outputs.
+        return False
 
     @staticmethod
     def _build_action_schema(action_schema: dict, output_schema: dict) -> dict:
@@ -263,4 +270,6 @@ class REPLGenerator(Generator):
         }
         merged["properties"].update(copy.deepcopy(action_schema.get("properties", {})))
         merged["properties"].update(copy.deepcopy(output_schema.get("properties", {})))
+        # Groq requires required to include every property at top level.
+        merged["required"] = sorted(list(merged["properties"].keys()))
         return merged

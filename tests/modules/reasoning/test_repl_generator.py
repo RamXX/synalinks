@@ -276,8 +276,8 @@ class TestREPLGenerator:
         assert gen.output_schema == schema
         assert gen._max_llm_calls == 50
 
-    def test_groq_schema_allows_direct_output(self):
-        """Groq schema should allow direct output fields."""
+    def test_groq_schema_stays_action_only(self):
+        """Groq schema should remain REPLAction-only to reduce JSON failures."""
         schema = {
             "type": "object",
             "properties": {"answer": {"type": "string"}},
@@ -291,7 +291,7 @@ class TestREPLGenerator:
         props = gen.schema.get("properties", {})
         assert "reasoning" in props
         assert "code" in props
-        assert "answer" in props
+        assert "answer" not in props
 
     def test_non_groq_schema_stays_action_only(self):
         """Non-Groq schema should remain REPLAction-only."""
