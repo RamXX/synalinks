@@ -172,6 +172,7 @@ class LanguageModel(SynalinksSaveable):
         fallback (LanguageModel): Optional. The language model to fallback
             if anything is wrong.
         caching (bool): Optional. Enable caching of LM calls (Default to False).
+        max_tokens (int): Optional. Max output tokens for each request.
     """
 
     def __init__(
@@ -182,6 +183,7 @@ class LanguageModel(SynalinksSaveable):
         retry=2,
         fallback=None,
         caching=False,
+        max_tokens=None,
     ):
         if model is None:
             raise ValueError("You need to set the `model` argument for any LanguageModel")
@@ -205,6 +207,7 @@ class LanguageModel(SynalinksSaveable):
         self.timeout = timeout
         self.retry = retry
         self.caching = caching
+        self.max_tokens = max_tokens
         self.cumulated_cost = 0.0
         self.last_call_cost = 0.0
 
@@ -336,6 +339,10 @@ class LanguageModel(SynalinksSaveable):
         # Pass reasoning_effort to LiteLLM when reasoning is enabled
         if use_reasoning:
             kwargs["reasoning_effort"] = reasoning_effort
+
+        # Apply default max_tokens if configured and not overridden per-call
+        if self.max_tokens is not None and "max_tokens" not in kwargs:
+            kwargs["max_tokens"] = self.max_tokens
 
         if schema:
             if self.model.startswith("groq"):
@@ -516,6 +523,7 @@ class LanguageModel(SynalinksSaveable):
             "timeout": self.timeout,
             "retry": self.retry,
             "caching": self.caching,
+            "max_tokens": self.max_tokens,
         }
         if self.fallback:
             fallback_config = {

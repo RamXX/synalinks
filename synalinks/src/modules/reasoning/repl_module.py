@@ -121,6 +121,7 @@ class RLM(Module):
         max_iterations: Maximum REPL iterations (default: 20).
         max_llm_calls: Maximum sub-LLM calls (default: 50).
         max_output_chars: Maximum output characters (default: 100,000).
+        max_tokens: Optional max output tokens for each LM call.
         instructions: Custom instructions for code generation.
         seed_instructions: Seed instructions for optimization.
         return_history: Whether to include execution history in output.
@@ -140,6 +141,7 @@ class RLM(Module):
         max_iterations: int = 20,
         max_llm_calls: int = 50,
         max_output_chars: int = 100_000,
+        max_tokens: Optional[int] = None,
         instructions: Optional[str] = None,
         seed_instructions: Optional[List[str]] = None,
         return_history: bool = False,
@@ -185,6 +187,7 @@ class RLM(Module):
         self.max_iterations = max_iterations
         self.max_llm_calls = max_llm_calls
         self.max_output_chars = max_output_chars
+        self.max_tokens = max_tokens
         self.return_history = return_history
         self._instructions = instructions
         self._seed_instructions = seed_instructions
@@ -200,6 +203,7 @@ class RLM(Module):
             seed_instructions=seed_instructions,
             tool_descriptions=tool_descriptions,
             max_llm_calls=max_llm_calls,
+            max_tokens=max_tokens,
             name=f"generator_{self.name}",
         )
 
@@ -211,6 +215,7 @@ class RLM(Module):
                 "Extract the final answer from the execution history above. "
                 f"Required output fields: {', '.join(self.output_fields)}"
             ),
+            max_tokens=max_tokens,
             name=f"extractor_{self.name}",
         )
 
@@ -646,6 +651,7 @@ class RLM(Module):
             "max_iterations": self.max_iterations,
             "max_llm_calls": self.max_llm_calls,
             "max_output_chars": self.max_output_chars,
+            "max_tokens": self.max_tokens,
             "return_history": self.return_history,
             "instructions": self._instructions,
             "seed_instructions": self._seed_instructions,

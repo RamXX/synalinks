@@ -181,6 +181,7 @@ class REPLGenerator(Generator):
         examples: List of example input/output pairs.
         tool_descriptions: Formatted string describing available tools.
         max_llm_calls: Maximum sub-LLM calls allowed (for instructions).
+        max_tokens: Optional max output tokens for each LM call.
         name: Module name.
         **kwargs: Additional arguments passed to Generator.
     """
@@ -194,6 +195,7 @@ class REPLGenerator(Generator):
         examples: Optional[list] = None,
         tool_descriptions: str = "",
         max_llm_calls: int = 50,
+        max_tokens: Optional[int] = None,
         name: Optional[str] = None,
         **kwargs,
     ):
@@ -218,6 +220,7 @@ class REPLGenerator(Generator):
             examples=examples,
             name=name or "repl_generator",
             use_inputs_schema=True,
+            max_tokens=max_tokens,
             **kwargs,
         )
 

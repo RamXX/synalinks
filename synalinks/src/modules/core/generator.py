@@ -127,6 +127,7 @@ class Generator(Module):
         return_inputs (bool): Optional. Whether or not to concatenate the inputs to
             the outputs (Default to False).
         temperature (float): Optional. The temperature for the LM call.
+        max_tokens (int): Optional. Max output tokens for each LM call.
         reasoning_effort (string): Optional. The reasoning effort for the LM call
             between ['minimal', 'low', 'medium', 'high', 'disable', 'none', None].
             Default to None (no reasoning).
@@ -150,6 +151,7 @@ class Generator(Module):
         use_outputs_schema=False,
         return_inputs=False,
         temperature=0.0,
+        max_tokens=None,
         reasoning_effort=None,
         streaming=False,
         name=None,
@@ -179,6 +181,7 @@ class Generator(Module):
         self.instructions = instructions
         self.return_inputs = return_inputs
         self.temperature = temperature
+        self.max_tokens = max_tokens
         efforts = ["minimal", "low", "medium", "high", "disable", "none", None]
         if reasoning_effort not in efforts:
             raise ValueError(
@@ -237,6 +240,7 @@ class Generator(Module):
             name="prediction_" + self.name,
             temperature=self.temperature,
             reasoning_effort=self.reasoning_effort,
+            **({"max_tokens": self.max_tokens} if self.max_tokens is not None else {}),
         )
         if streaming:
             return result
@@ -321,6 +325,7 @@ class Generator(Module):
             "use_outputs_schema": self.use_outputs_schema,
             "return_inputs": self.return_inputs,
             "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
             "reasoning_effort": self.reasoning_effort,
             "name": self.name,
             "description": self.description,
