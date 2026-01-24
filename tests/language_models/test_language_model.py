@@ -86,6 +86,27 @@ def test_recover_groq_fallback_on_parse_failure():
     assert recovered == {"reasoning": "", "code_lines": ["print('retry')"]}
 
 
+def test_recover_groq_handles_invalid_backslash_regex():
+    schema = {
+        "type": "object",
+        "properties": {
+            "reasoning": {"type": "string"},
+            "code_lines": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["reasoning", "code_lines"],
+    }
+    failed = (
+        '{"reasoning":"","code_lines":["re.findall(r\'^\\s*\\\\w+\', text)"]}'
+    )
+    error = _make_groq_error(failed)
+
+    recovered = LanguageModel._recover_groq_failed_generation(schema, error)
+
+    assert recovered is not None
+    assert recovered["reasoning"] == ""
+    assert recovered["code_lines"]
+
+
 def test_parse_json_candidate_strips_fences_and_trailing_text():
     text = "```json\n{\"a\": 1}\n```\nExtra text"
     parsed = LanguageModel._parse_json_candidate(text)
