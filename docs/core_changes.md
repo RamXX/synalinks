@@ -95,3 +95,28 @@ constraints while preserving Groq-safe operation when needed.
 - `uv run pytest tests/modules/reasoning/test_repl_generator.py -q`
 - `uv run pytest tests/language_models/test_language_model.py -q`
 - `uv run --env-file .env -- python -m pytest tests/language_models/test_language_model_integration.py -v --override-ini="addopts="`
+
+## 2026-01-24 — Safer line-by-line REPL fallback
+
+### Rationale
+RLM’s syntax stabilizer can execute code line-by-line after a SyntaxError, but
+the previous guard only checked indentation/colons. This allowed partial
+execution of multi-line constructs (open delimiters or backslash continuations),
+which caused cascaded errors and noisy retries.
+
+### Changes
+- `synalinks/src/modules/reasoning/repl_module.py`
+  - `_can_execute_line_by_line` now rejects backslash continuations, unbalanced
+    delimiters, and newline tokens inside open delimiters (via tokenize), while
+    preserving the original indentation/colon checks.
+- `tests/modules/reasoning/test_repl_module.py`
+  - Added coverage for multiline delimiters, backslash continuation, and simple
+    single-line acceptance.
+
+### Impact
+- Line-by-line recovery only triggers for safe single-line snippets.
+- Reduces false recovery attempts and cascading syntax failures.
+
+### Verification
+- `uv run pytest tests/modules/reasoning/test_repl_module.py -q`
+- `uv run pytest tests/interpreters/test_native_interpreter.py -q`

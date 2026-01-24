@@ -554,3 +554,19 @@ class TestRLMSerialization:
         assert config["max_llm_calls"] == 25
         assert config["return_history"] is True
         assert config["name"] == "test_repl"
+
+
+class TestRLMLineByLineGuard:
+    """Tests for line-by-line execution guard."""
+
+    def test_rejects_multiline_delimiters(self):
+        code = "items = [\n1,\n2\n]"
+        assert RLM._can_execute_line_by_line(code) is False
+
+    def test_rejects_backslash_continuation(self):
+        code = "value = 1 + \\\n2"
+        assert RLM._can_execute_line_by_line(code) is False
+
+    def test_accepts_simple_lines(self):
+        code = "print('ok')\nSUBMIT(result='ok')"
+        assert RLM._can_execute_line_by_line(code) is True

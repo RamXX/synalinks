@@ -16,7 +16,9 @@ Reference:
 """
 
 import asyncio
+import io
 import keyword
+import tokenize
 from typing import Any, Callable, Dict, List, Optional, Type
 
 import jsonschema
@@ -298,6 +300,153 @@ class RLM(Module):
         """
         return "\n\n".join(var.format() for var in variables)
 
+    @staticmethod
+    def _sanitize_code(code: str) -> str:
+        """Best-effort sanitizer for common LLM formatting mistakes."""
+        if not code:
+            return code
+        code = strip_code_fences(code)
+        lines = []
+        for line in code.splitlines():
+            stripped = line.strip()
+            if stripped in ("```", "```python", "```py"):
+                continue
+            lines.append(line)
+        code = "\n".join(lines).strip()
+        if (
+            (code.startswith("'''") and code.endswith("'''"))
+            or (code.startswith('"""') and code.endswith('"""'))
+        ):
+            code = code[3:-3].strip()
+        if len(code) >= 2 and code[0] == code[-1] and code[0] in ("'", '"'):
+            inner = code[1:-1]
+            if "\\n" in inner or "\\t" in inner:
+                try:
+                    code = inner.encode("utf-8").decode("unicode_escape")
+                except Exception:
+                    pass
+        return code
+
+    @staticmethod
+    def _can_execute_line_by_line(code: str) -> bool:
+        """Return True if code has no obvious multi-line blocks."""
+        for line in code.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.endswith("\\"):
+                return False
+            if stripped.endswith(":"):
+                return False
+            if line.startswith((" ", "\t")):
+                return False
+
+        stack = []
+        try:
+            tokens = tokenize.generate_tokens(io.StringIO(code).readline)
+        except tokenize.TokenError:
+            return False
+
+        pairs = {")": "(", "]": "[", "}": "{"}
+        for token in tokens:
+            if token.type == tokenize.OP:
+                if token.string in "([{":
+                    stack.append(token.string)
+                elif token.string in ")]}":
+                    if not stack or stack[-1] != pairs[token.string]:
+                        return False
+                    stack.pop()
+            elif token.type == tokenize.NL and stack:
+                return False
+
+        if stack:
+            return False
+
+        return True
+
+    async def _execute_line_by_line(
+        self,
+        code: str,
+        input_vars: dict,
+        tool_callables: dict,
+    ) -> dict:
+        """Execute code line by line to recover from syntax errors."""
+        stdout_chunks: List[str] = []
+        stderr_chunks: List[str] = []
+        submitted = None
+        last_error = None
+
+        for line in code.splitlines():
+            if not line.strip():
+                continue
+            result = await self.interpreter.execute(
+                code=line,
+                variables=input_vars,
+                tools=tool_callables,
+            )
+            stdout_chunks.append(result.get("stdout", ""))
+            if result.get("stderr"):
+                stderr_chunks.append(result.get("stderr", ""))
+            if result.get("submitted"):
+                submitted = result["submitted"]
+                break
+            if not result.get("success"):
+                last_error = result.get("error") or ""
+                if last_error:
+                    stderr_chunks.append(last_error)
+
+        if submitted is not None:
+            return {
+                "success": True,
+                "stdout": "".join(stdout_chunks),
+                "stderr": "".join(stderr_chunks),
+                "error": None,
+                "submitted": submitted,
+            }
+
+        if last_error is None:
+            return {
+                "success": True,
+                "stdout": "".join(stdout_chunks),
+                "stderr": "".join(stderr_chunks),
+                "error": None,
+                "submitted": None,
+            }
+
+        return {
+            "success": False,
+            "stdout": "".join(stdout_chunks),
+            "stderr": "".join(stderr_chunks),
+            "error": last_error,
+            "submitted": None,
+        }
+
+    async def _execute_with_stabilizer(
+        self,
+        code: str,
+        input_vars: dict,
+        tool_callables: dict,
+    ) -> Optional[dict]:
+        """Attempt to recover from syntax errors with sanitization."""
+        sanitized = self._sanitize_code(code)
+        if sanitized and sanitized != code:
+            result = await self.interpreter.execute(
+                code=sanitized,
+                variables=input_vars,
+                tools=tool_callables,
+            )
+            if result.get("success") or result.get("submitted"):
+                return result
+
+        if sanitized and self._can_execute_line_by_line(sanitized):
+            return await self._execute_line_by_line(
+                sanitized,
+                input_vars,
+                tool_callables,
+            )
+
+        return None
+
     def _format_validation_error(self, error: Exception) -> str:
         """Format validation errors for LLM feedback."""
         if isinstance(error, ValidationError):
@@ -495,6 +644,16 @@ class RLM(Module):
                     variables=input_vars,
                     tools=tool_callables,
                 )
+                if not result.get("success") and "SyntaxError" in (
+                    result.get("error") or ""
+                ):
+                    stabilized = await self._execute_with_stabilizer(
+                        code,
+                        input_vars,
+                        tool_callables,
+                    )
+                    if stabilized is not None:
+                        result = stabilized
 
                 # Check for SUBMIT
                 if result.get("submitted"):
