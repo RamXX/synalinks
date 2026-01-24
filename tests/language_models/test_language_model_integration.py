@@ -10,7 +10,7 @@ import os
 
 import pytest
 
-from synalinks.src.backend import ChatMessage, ChatMessages, ChatRole
+from synalinks.src.backend import ChatMessage, ChatMessages, ChatRole, DataModel
 from synalinks.src.language_models.language_model import LanguageModel
 
 
@@ -18,6 +18,10 @@ from synalinks.src.language_models.language_model import LanguageModel
 async def test_groq_structured_output_with_regex_backslash():
     api_key = os.environ.get("GROQ_API_KEY")
     assert api_key, "GROQ_API_KEY is required for integration tests"
+
+    class Action(DataModel):
+        reasoning: str
+        code_lines: list[str]
 
     lm = LanguageModel(model="groq/moonshotai/kimi-k2-instruct-0905")
     schema = {
@@ -40,7 +44,7 @@ async def test_groq_structured_output_with_regex_backslash():
         ]
     )
 
-    result = await lm(messages, schema=schema)
+    result = await lm(messages, schema=schema, data_model=Action)
     assert isinstance(result, dict)
     assert "reasoning" in result
     assert "code_lines" in result
@@ -51,6 +55,9 @@ async def test_groq_structured_output_with_regex_backslash():
 async def test_zai_structured_output_minimal():
     api_key = os.environ.get("ZAI_API_KEY")
     assert api_key, "ZAI_API_KEY is required for integration tests"
+
+    class Result(DataModel):
+        value: str
 
     lm = LanguageModel(
         model="openai/glm-4.7",
@@ -70,6 +77,6 @@ async def test_zai_structured_output_minimal():
         ]
     )
 
-    result = await lm(messages, schema=schema)
+    result = await lm(messages, schema=schema, data_model=Result)
     assert isinstance(result, dict)
     assert result.get("value")

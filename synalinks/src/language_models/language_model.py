@@ -3,6 +3,7 @@
 import asyncio
 import ast
 import copy
+import inspect
 import json
 import os
 import re
@@ -531,6 +532,24 @@ class LanguageModel(SynalinksSaveable):
         return normalized, None
 
     @staticmethod
+    def _validate_with_data_model(data_model, value):
+        if data_model is None:
+            return value, None
+        model_cls = data_model if inspect.isclass(data_model) else data_model.__class__
+        try:
+            if hasattr(model_cls, "model_validate"):
+                instance = model_cls.model_validate(value)
+            else:
+                instance = model_cls(**value)
+        except Exception as exc:
+            return None, exc
+        if hasattr(instance, "get_json"):
+            return instance.get_json(), None
+        if hasattr(instance, "model_dump"):
+            return instance.model_dump(), None
+        return value, None
+
+    @staticmethod
     def _extract_groq_failed_generation(error: Exception) -> str | None:
         """Extract Groq failed_generation payload from an exception message."""
         text = str(error)
@@ -752,7 +771,9 @@ class LanguageModel(SynalinksSaveable):
 
         return schema
 
-    async def __call__(self, messages, schema=None, streaming=False, **kwargs):
+    async def __call__(
+        self, messages, schema=None, data_model=None, streaming=False, **kwargs
+    ):
         """
         Call method to generate a response using the language model.
 
@@ -760,6 +781,8 @@ class LanguageModel(SynalinksSaveable):
             messages (dict): A formatted dict of chat messages.
             schema (dict): The target JSON schema for structed output (optional).
                 If None, output a ChatMessage-like answer.
+            data_model (DataModel): Optional. When provided, outputs are validated
+                via DataModel before returning.
             streaming (bool): Enable streaming (optional). Default to False.
                 Can be enabled only if schema is None.
             **kwargs (keyword arguments): The additional keywords arguments
@@ -768,6 +791,9 @@ class LanguageModel(SynalinksSaveable):
             (dict): The generated structured response.
         """
         formatted_messages = messages.get_json().get("messages", [])
+        if schema is None and data_model is not None:
+            if hasattr(data_model, "get_schema"):
+                schema = data_model.get_schema()
 
         # Groq requires strict message schema - clean fields per role type
         if self.model.startswith("groq"):
@@ -994,6 +1020,41 @@ class LanguageModel(SynalinksSaveable):
                         reasoning_content = getattr(message, "reasoning_content", None)
                         # Always set thinking field if it was removed, default to empty
                         json_instance = {"thinking": reasoning_content or "", **json_instance}
+                    if data_model is not None:
+                        validated_json, dm_error = self._validate_with_data_model(
+                            data_model, json_instance
+                        )
+                        if dm_error:
+                            repaired = await self._repair_structured_output(
+                                schema=schema,
+                                invalid_output=response_str,
+                                error_summary=str(dm_error),
+                                base_kwargs=base_kwargs,
+                            )
+                            if repaired is None:
+                                raise dm_error
+                            normalized, error = self._finalize_structured_output(
+                                schema, repaired
+                            )
+                            if error:
+                                raise error
+                            if use_reasoning and thinking_removed:
+                                message = response["choices"][0]["message"]
+                                reasoning_content = getattr(
+                                    message, "reasoning_content", None
+                                )
+                                normalized = {
+                                    "thinking": reasoning_content or "",
+                                    **normalized,
+                                }
+                            validated_json, dm_error = self._validate_with_data_model(
+                                data_model, normalized
+                            )
+                            if dm_error:
+                                raise dm_error
+                            json_instance = validated_json
+                        else:
+                            json_instance = validated_json
                 else:
                     json_instance = {
                         "role": ChatRole.ASSISTANT,
@@ -1008,7 +1069,31 @@ class LanguageModel(SynalinksSaveable):
                     if recovered is not None:
                         normalized, error = self._finalize_structured_output(schema, recovered)
                         if error is None:
-                            return normalized
+                            if data_model is not None:
+                                validated_json, dm_error = self._validate_with_data_model(
+                                    data_model, normalized
+                                )
+                                if dm_error:
+                                    repaired = await self._repair_structured_output(
+                                        schema=schema,
+                                        invalid_output=json.dumps(
+                                            normalized, ensure_ascii=False
+                                        ),
+                                        error_summary=str(dm_error),
+                                        base_kwargs=base_kwargs,
+                                    )
+                                    if repaired is not None:
+                                        validated_json, dm_error = (
+                                            self._validate_with_data_model(
+                                                data_model, repaired
+                                            )
+                                        )
+                                        if dm_error is None:
+                                            return validated_json
+                                else:
+                                    return validated_json
+                            else:
+                                return normalized
                         repaired = await self._repair_structured_output(
                             schema=schema,
                             invalid_output=json.dumps(recovered, ensure_ascii=False),
@@ -1016,7 +1101,14 @@ class LanguageModel(SynalinksSaveable):
                             base_kwargs=base_kwargs,
                         )
                         if repaired is not None:
-                            return repaired
+                            if data_model is not None:
+                                validated_json, dm_error = self._validate_with_data_model(
+                                    data_model, repaired
+                                )
+                                if dm_error is None:
+                                    return validated_json
+                            else:
+                                return repaired
                 warnings.warn(
                     f"Error occured while trying to call {self}: "
                     + str(e)
