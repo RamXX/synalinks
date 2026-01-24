@@ -63,3 +63,35 @@ optional outputs were omitted.
 ### Verification
 - `uv run pytest tests/modules/reasoning/test_repl_module.py -q`
 - `uv run --env-file .env -- python -m pytest tests/modules/reasoning/test_repl_module_integration.py -v --override-ini="addopts="`
+
+## 2026-01-24 — Configurable strict JSON guidance for RLM instructions
+
+### Rationale
+Strict JSON/backslash rules are essential for some providers (e.g., Groq), but
+they are overly constraining for others and diverge from DSPy’s default RLM
+instructions. Making strict behavior configurable avoids unintended global
+constraints while preserving Groq-safe operation when needed.
+
+### Changes
+- `synalinks/src/language_models/language_model.py`
+  - Added `strict_json` option (defaults to True for Groq, False otherwise) and
+    persisted it in serialization config.
+  - Groq JSON guard injection now respects `strict_json`.
+- `synalinks/src/modules/reasoning/repl_generator.py`
+  - Instruction rules are now generated dynamically with strict JSON rules
+    included only when `strict_json` is enabled.
+  - code_lines mode selection now follows `strict_json`.
+- `tests/modules/reasoning/test_repl_generator.py`
+  - Added coverage for strict JSON rule inclusion/exclusion and code_lines mode.
+- `tests/language_models/test_language_model.py`
+  - Added coverage for strict_json defaults and overrides.
+
+### Impact
+- Non-Groq models receive DSPy-style RLM instructions by default.
+- Groq-specific strict JSON guidance can be enabled explicitly or via default
+  Groq inference to improve structured-output reliability.
+
+### Verification
+- `uv run pytest tests/modules/reasoning/test_repl_generator.py -q`
+- `uv run pytest tests/language_models/test_language_model.py -q`
+- `uv run --env-file .env -- python -m pytest tests/language_models/test_language_model_integration.py -v --override-ini="addopts="`

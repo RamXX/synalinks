@@ -178,6 +178,9 @@ class LanguageModel(SynalinksSaveable):
             if anything is wrong.
         caching (bool): Optional. Enable caching of LM calls (Default to False).
         max_tokens (int): Optional. Max output tokens for each request.
+        strict_json (bool | None): Enable strict JSON prompting/guardrails for
+            models that require it (e.g., Groq). If None, defaults to True for
+            Groq models and False otherwise.
     """
 
     # Groq defaults tuned for high-volume structured outputs.
@@ -203,6 +206,7 @@ class LanguageModel(SynalinksSaveable):
         fallback=None,
         caching=False,
         max_tokens=None,
+        strict_json=None,
     ):
         if model is None:
             raise ValueError("You need to set the `model` argument for any LanguageModel")
@@ -231,6 +235,9 @@ class LanguageModel(SynalinksSaveable):
             if inferred_max_tokens is not None:
                 max_tokens = inferred_max_tokens
         self.max_tokens = max_tokens
+        if strict_json is None:
+            strict_json = self.model.startswith("groq/")
+        self.strict_json = strict_json
         self.cumulated_cost = 0.0
         self.last_call_cost = 0.0
 
@@ -675,7 +682,8 @@ class LanguageModel(SynalinksSaveable):
 
         if self.model.startswith("groq"):
             repair_messages = self._clean_messages_for_groq(repair_messages)
-            repair_messages = self._inject_groq_json_guard(repair_messages, schema)
+            if self.strict_json:
+                repair_messages = self._inject_groq_json_guard(repair_messages, schema)
 
         kwargs = copy.deepcopy(base_kwargs)
         kwargs.pop("stream", None)
@@ -798,7 +806,7 @@ class LanguageModel(SynalinksSaveable):
         # Groq requires strict message schema - clean fields per role type
         if self.model.startswith("groq"):
             formatted_messages = self._clean_messages_for_groq(formatted_messages)
-            if schema:
+            if schema and self.strict_json:
                 formatted_messages = self._inject_groq_json_guard(formatted_messages, schema)
         json_instance = {}
         input_kwargs = copy.deepcopy(kwargs)
@@ -1136,6 +1144,7 @@ class LanguageModel(SynalinksSaveable):
             "retry": self.retry,
             "caching": self.caching,
             "max_tokens": self.max_tokens,
+            "strict_json": self.strict_json,
         }
         if self.fallback:
             fallback_config = {

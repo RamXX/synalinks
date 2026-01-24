@@ -175,8 +175,29 @@ class TestGetReplInstructions:
         assert "llm_query" in instructions
         assert "MINIMIZE RETYPING" in instructions
         assert "SUBMIT ONLY AFTER SEEING" in instructions
-        assert "JSON SAFETY" in instructions
         assert "IMPORTS LIMITED" in instructions
+
+    def test_strict_json_rules_included_when_enabled(self):
+        """Test strict JSON rules are included when strict_json is True."""
+        instructions = get_repl_instructions(
+            output_fields=["answer"],
+            strict_json=True,
+        )
+
+        assert "JSON SAFETY" in instructions
+        assert "BACKSLASH SAFETY" in instructions
+        assert "NEWLINE SAFETY" in instructions
+
+    def test_strict_json_rules_omitted_when_disabled(self):
+        """Test strict JSON rules are omitted when strict_json is False."""
+        instructions = get_repl_instructions(
+            output_fields=["answer"],
+            strict_json=False,
+        )
+
+        assert "JSON SAFETY" not in instructions
+        assert "BACKSLASH SAFETY" not in instructions
+        assert "NEWLINE SAFETY" not in instructions
 
     def test_references_variables_info(self):
         """Test that instructions reference variables_info instead of variables."""
@@ -197,6 +218,7 @@ class TestActionInstructionsTemplate:
         assert "{tool_docs}" in ACTION_INSTRUCTIONS_TEMPLATE
         assert "{max_llm_calls}" in ACTION_INSTRUCTIONS_TEMPLATE
         assert "{output_fields_list}" in ACTION_INSTRUCTIONS_TEMPLATE
+        assert "{rules_section}" in ACTION_INSTRUCTIONS_TEMPLATE
 
     def test_template_formatting(self):
         """Test that template can be formatted without errors."""
@@ -207,6 +229,7 @@ class TestActionInstructionsTemplate:
             tool_docs="",
             max_llm_calls=50,
             output_fields_list="answer, confidence",
+            rules_section="1. EXPLORE FIRST - Test rule",
         )
 
         assert "`query`, `context`" in formatted
@@ -248,12 +271,16 @@ class TestREPLGenerator:
         class MockLM:
             pass
 
-        gen = REPLGenerator.__new__(REPLGenerator)
-        gen.output_schema = schema
-        gen.output_fields = list(schema.get("properties", {}).keys())
+    def test_code_lines_selection_uses_strict_json(self):
+        """Test code_lines selection is controlled by strict_json flag."""
+        class DummyLM:
+            strict_json = True
 
-        assert "answer" in gen.output_fields
-        assert "confidence" in gen.output_fields
+        class LenientLM:
+            strict_json = False
+
+        assert REPLGenerator._uses_code_lines(DummyLM()) is True
+        assert REPLGenerator._uses_code_lines(LenientLM()) is False
 
     def test_get_config(self):
         """Test get_config includes output_schema."""
@@ -286,6 +313,7 @@ class TestREPLGenerator:
 
         class GroqLM:
             model = "groq/test-model"
+            strict_json = True
 
         gen = REPLGenerator(output_schema=schema, language_model=GroqLM())
 

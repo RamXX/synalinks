@@ -167,6 +167,20 @@ def test_validate_with_data_model_failure():
     assert error is not None
 
 
+def test_strict_json_defaults_and_override(monkeypatch):
+    """Test strict_json defaults and explicit overrides."""
+    monkeypatch.setattr(litellm, "get_model_info", lambda model: {})
+
+    groq_lm = LanguageModel(model="groq/moonshotai/kimi-k2-instruct-0905")
+    assert groq_lm.strict_json is True
+
+    openai_lm = LanguageModel(model="openai/gpt-4o-mini")
+    assert openai_lm.strict_json is False
+
+    explicit = LanguageModel(model="groq/moonshotai/kimi-k2-instruct-0905", strict_json=False)
+    assert explicit.strict_json is False
+
+
 @pytest.mark.asyncio
 async def test_data_model_validation_triggers_repair(monkeypatch):
     class Result(DataModel):
