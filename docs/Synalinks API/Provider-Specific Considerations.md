@@ -10,6 +10,20 @@ Synalinks uses [LiteLLM](https://github.com/BerriAI/litellm) as its abstraction 
 
 ---
 
+## Structured Output Resilience (All Providers)
+
+When a JSON schema is provided, Synalinks now applies a structured-output resilience pipeline inside `LanguageModel`:
+
+1. **Parse Chain**: `orjson` → `json.loads(strict=False)` → first balanced JSON object → `ast.literal_eval`.
+2. **Normalization**: Coerce common type mismatches (e.g., scalar → list, list → string) based on schema.
+3. **Validation**: Enforce `jsonschema` validation.
+4. **Repair Loop** (one attempt): If parsing or validation fails, Synalinks re-asks the provider with the schema, the invalid output, and a concise error summary.
+5. **DataModel Validation** (when provided): Outputs are validated via Synalinks `DataModel` and re-serialized, ensuring stronger guarantees than raw schema validation.
+
+If the output cannot be repaired and validated, `LanguageModel` will return `None` after retries (or use a fallback model if provided).
+
+---
+
 ## Groq
 
 ### Message Format Requirements
@@ -86,6 +100,19 @@ Groq supports native JSON schema response formats via `response_format`. When yo
 1. **additionalProperties Requirement**: Groq's `json_schema` mode requires `additionalProperties: false` on object schemas. Synalinks automatically adds this to your schema.
 
 2. **Native Schema Enforcement**: Unlike tool-based approaches, `json_schema` mode provides native schema validation, ensuring outputs always conform to the specified structure.
+
+### JSON Recovery for Strict Groq Schemas
+
+Groq can return `json_validate_failed` when the model emits invalid JSON or misses required keys. This is common in RLM/REPL loops where the model must emit `reasoning` plus `code` or `code_lines`.
+
+To reduce hard failures, Synalinks applies two layers of Groq-specific recovery when the schema includes `code` or `code_lines`:
+
+- Parses the `failed_generation` payload from the Groq error (including invalid backslash escapes such as regex `\s`)
+- Fills missing `reasoning` with an empty string when needed
+- Coerces `code_lines` elements into strings
+- If the model returned a direct output object instead of an action, wraps it into a `SUBMIT(...)` call so the REPL can continue
+
+This recovery runs only for Groq and only for action-like schemas. It complements the global structured-output resilience pipeline; it does not relax schema validation or change behavior for other providers.
 
 ### Output Token Limits
 
@@ -166,6 +193,31 @@ result = await program(
 print(result.get_json())
 # Output: {"answer": "Paris", "confidence": 1.0}
 ```
+
+---
+
+## Z.AI (OpenAI-compatible via `api_base`)
+
+Z.AI exposes an OpenAI-compatible API endpoint but does not always honor strict `response_format` JSON schema constraints. Synalinks handles this via:
+
+- **Automatic API key wiring**: If `api_base` contains `z.ai`, Synalinks injects `ZAI_API_KEY` automatically when `api_key` is not provided.
+- **Repair loop**: If the model returns non-JSON or invalid JSON, the repair pass attempts to produce a valid JSON object.
+- **Max tokens**: Default output cap is **16,384** unless explicitly overridden.
+
+Example:
+
+```python
+lm = synalinks.LanguageModel(
+    model="openai/glm-4.7",
+    api_base="https://api.z.ai/api/coding/paas/v4",
+)
+```
+
+---
+
+## Testing Coverage (macOS)
+
+Integration tests for Groq and Z.AI structured output are currently maintained on **macOS only**. Linux and Windows coverage will be added later.
 
 ---
 
