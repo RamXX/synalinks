@@ -234,6 +234,19 @@ class TestNativePythonInterpreter:
         assert "a" in ok["stdout"]
         assert bad["success"] is False
         assert "ImportError" in bad["error"]
+
+    @pytest.mark.asyncio
+    async def test_backslash_helper_available(self, interpreter):
+        """Test that BACKSLASH helper is available."""
+        async with interpreter:
+            result = await interpreter.execute(
+                code="print(BACKSLASH == chr(92))",
+                variables={},
+                tools={},
+            )
+
+        assert result["success"] is True
+        assert "True" in result["stdout"]
     @pytest.mark.asyncio
     async def test_list_operations(self, interpreter):
         """Test list operations with builtins."""

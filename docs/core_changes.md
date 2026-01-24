@@ -120,3 +120,23 @@ which caused cascaded errors and noisy retries.
 ### Verification
 - `uv run pytest tests/modules/reasoning/test_repl_module.py -q`
 - `uv run pytest tests/interpreters/test_native_interpreter.py -q`
+
+## 2026-01-24 — Native interpreter BACKSLASH helper
+
+### Rationale
+Strict JSON REPL guidance instructs using a BACKSLASH helper to avoid literal
+backslashes in JSON strings. The interpreter needs to preload this helper to
+prevent NameError and keep guidance accurate.
+
+### Changes
+- `synalinks/src/interpreters/native.py`
+  - Added `BACKSLASH = chr(92)` to the interpreter namespace at startup.
+- `tests/interpreters/test_native_interpreter.py`
+  - Added coverage for BACKSLASH availability.
+
+### Impact
+- REPL code can safely construct backslashes without embedding them in JSON.
+- Aligns interpreter behavior with strict JSON guidance.
+
+### Verification
+- `uv run pytest tests/interpreters/test_native_interpreter.py -q`

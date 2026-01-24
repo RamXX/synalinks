@@ -189,6 +189,8 @@ class NativePythonInterpreter(CodeInterpreter):
         """Initialize the interpreter with a fresh namespace."""
         # Preload safe stdlib modules for use without imports.
         self._namespace = dict(self.DEFAULT_MODULES)
+        # Helper to build patterns without literal backslashes.
+        self._namespace["BACKSLASH"] = chr(92)
         self._started = True
 
     async def stop(self) -> None:
