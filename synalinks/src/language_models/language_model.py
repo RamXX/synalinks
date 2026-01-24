@@ -1,12 +1,16 @@
 # License Apache 2.0: (c) 2025 Yoan Sallami (Synalinks Team)
 
 import asyncio
+import ast
 import copy
+import json
 import os
+import re
 import warnings
 
 import litellm
 import orjson
+import jsonschema
 
 from synalinks.src.api_export import synalinks_export
 from synalinks.src.backend import ChatRole
@@ -181,6 +185,8 @@ class LanguageModel(SynalinksSaveable):
         "openai/gpt-oss-20b": 65536,
         "openai/gpt-oss-120b": 65536,
     }
+    # Z.AI (OpenAI-compatible) defaults.
+    _ZAI_DEFAULT_MAX_TOKENS = 16384
     _GROQ_JSON_GUARD = (
         "Return ONLY a valid JSON object that matches the schema. "
         "Do not include markdown, headings, code fences, or extra text. "
@@ -220,9 +226,9 @@ class LanguageModel(SynalinksSaveable):
         self.retry = retry
         self.caching = caching
         if max_tokens is None:
-            default_max_tokens = self._default_groq_max_tokens(self.model)
-            if default_max_tokens is not None:
-                max_tokens = default_max_tokens
+            inferred_max_tokens = self._infer_max_tokens(self.model, self.api_base)
+            if inferred_max_tokens is not None:
+                max_tokens = inferred_max_tokens
         self.max_tokens = max_tokens
         self.cumulated_cost = 0.0
         self.last_call_cost = 0.0
@@ -235,8 +241,43 @@ class LanguageModel(SynalinksSaveable):
         return cls._GROQ_DEFAULT_MAX_TOKENS.get(model_key)
 
     @classmethod
-    def _inject_groq_json_guard(cls, messages):
+    def _infer_max_tokens(cls, model_name: str, api_base: str | None):
+        try:
+            info = litellm.get_model_info(model=model_name)
+            if isinstance(info, dict):
+                max_out = info.get("max_output_tokens") or info.get("max_tokens")
+            else:
+                max_out = getattr(info, "max_output_tokens", None) or getattr(
+                    info, "max_tokens", None
+                )
+            if max_out:
+                return max_out
+        except Exception:
+            pass
+        groq_default = cls._default_groq_max_tokens(model_name)
+        if groq_default is not None:
+            return groq_default
+        if api_base and "z.ai" in api_base:
+            return cls._ZAI_DEFAULT_MAX_TOKENS
+        return None
+
+    @classmethod
+    def _inject_groq_json_guard(cls, messages, schema=None):
         guard = cls._GROQ_JSON_GUARD
+        if schema and isinstance(schema, dict):
+            props = schema.get("properties", {}) or {}
+            if "code" in props or "code_lines" in props:
+                guard = (
+                    f"{guard} Output only the action keys (reasoning + code/code_lines); "
+                    "do not output final result fields as JSON keys. Use single quotes "
+                    "inside code fields; avoid double quotes. Never include literal "
+                    "backslashes in code fields; build them via BACKSLASH/chr(92) if "
+                    "absolutely needed."
+                )
+            if "reasoning" in props:
+                guard = (
+                    f"{guard} Always include the reasoning field (use an empty string if needed)."
+                )
         if not messages:
             return [{"role": "system", "content": guard}]
         if messages[0].get("role") == "system":
@@ -289,6 +330,363 @@ class LanguageModel(SynalinksSaveable):
                 clean_msg = msg
             cleaned.append(clean_msg)
         return cleaned
+
+    _VALID_JSON_ESCAPES = set(['"', "\\", "/", "b", "f", "n", "r", "t", "u"])
+
+    @classmethod
+    def _strip_json_code_fences(cls, text: str) -> str:
+        if "```" not in text:
+            return text
+        blocks = re.findall(r"```(?:json)?\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
+        if blocks:
+            return blocks[0].strip()
+        return text
+
+    @classmethod
+    def _escape_invalid_json_backslashes(cls, text: str) -> str:
+        result = []
+        i = 0
+        while i < len(text):
+            ch = text[i]
+            if ch != "\\":
+                result.append(ch)
+                i += 1
+                continue
+            if i + 1 >= len(text):
+                result.append("\\\\")
+                i += 1
+                continue
+            nxt = text[i + 1]
+            if nxt == "u":
+                if i + 5 < len(text) and all(
+                    c in "0123456789abcdefABCDEF" for c in text[i + 2 : i + 6]
+                ):
+                    result.append(ch)
+                    result.append(nxt)
+                    result.extend(text[i + 2 : i + 6])
+                    i += 6
+                    continue
+                result.append("\\\\")
+                i += 1
+                continue
+            if nxt in cls._VALID_JSON_ESCAPES:
+                result.append(ch)
+                result.append(nxt)
+                i += 2
+                continue
+            result.append("\\\\")
+            i += 1
+        return "".join(result)
+
+    @classmethod
+    def _extract_first_json_object(cls, text: str) -> str | None:
+        start = None
+        depth = 0
+        in_str = False
+        escape = False
+        for i, ch in enumerate(text):
+            if in_str:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_str = False
+                continue
+            if ch == '"':
+                in_str = True
+                continue
+            if ch == "{":
+                if depth == 0:
+                    start = i
+                depth += 1
+            elif ch == "}" and depth > 0:
+                depth -= 1
+                if depth == 0 and start is not None:
+                    return text[start : i + 1]
+        return None
+
+    @classmethod
+    def _parse_json_candidate(cls, text: str):
+        if not text:
+            return None
+        candidate = cls._strip_json_code_fences(text.strip())
+        attempts = [
+            candidate,
+            cls._escape_invalid_json_backslashes(candidate),
+        ]
+        for attempt in attempts:
+            try:
+                return orjson.loads(attempt)
+            except Exception:
+                try:
+                    return json.loads(attempt, strict=False)
+                except Exception:
+                    continue
+        extracted = cls._extract_first_json_object(candidate)
+        if extracted:
+            extracted_attempts = [
+                extracted,
+                cls._escape_invalid_json_backslashes(extracted),
+            ]
+            for attempt in extracted_attempts:
+                try:
+                    return orjson.loads(attempt)
+                except Exception:
+                    try:
+                        return json.loads(attempt, strict=False)
+                    except Exception:
+                        continue
+        try:
+            return ast.literal_eval(candidate)
+        except Exception:
+            return None
+
+    @classmethod
+    def _drop_unknown_keys(cls, schema: dict, value):
+        if not isinstance(schema, dict):
+            return value
+        schema_type = schema.get("type")
+        if schema_type == "object" and isinstance(value, dict):
+            props = schema.get("properties", {}) or {}
+            cleaned = {k: value[k] for k in value if k in props}
+            for key, subschema in props.items():
+                if key in cleaned:
+                    cleaned[key] = cls._drop_unknown_keys(subschema, cleaned[key])
+            return cleaned
+        if schema_type == "array" and isinstance(value, list):
+            items_schema = schema.get("items")
+            if items_schema:
+                return [cls._drop_unknown_keys(items_schema, item) for item in value]
+        return value
+
+    @classmethod
+    def _coerce_to_schema(cls, value, schema: dict):
+        if not isinstance(schema, dict):
+            return value
+        schema_type = schema.get("type")
+        if schema_type == "array":
+            if value is None:
+                return []
+            if isinstance(value, list):
+                items_schema = schema.get("items")
+                if items_schema:
+                    return [cls._coerce_to_schema(v, items_schema) for v in value]
+                return value
+            return [value]
+        if schema_type == "string":
+            if value is None:
+                return ""
+            if isinstance(value, list):
+                return "\n".join(map(str, value))
+            return str(value)
+        if schema_type == "integer":
+            if isinstance(value, bool):
+                return int(value)
+            if isinstance(value, (int, float)):
+                return int(value)
+            if isinstance(value, str):
+                try:
+                    return int(value)
+                except Exception:
+                    return value
+        if schema_type == "number":
+            if isinstance(value, bool):
+                return float(value)
+            if isinstance(value, (int, float)):
+                return float(value)
+            if isinstance(value, str):
+                try:
+                    return float(value)
+                except Exception:
+                    return value
+        if schema_type == "boolean":
+            if isinstance(value, str):
+                lowered = value.strip().lower()
+                if lowered in ("true", "false"):
+                    return lowered == "true"
+            return bool(value)
+        if schema_type == "object" and isinstance(value, dict):
+            props = schema.get("properties", {}) or {}
+            coerced = {}
+            for key, subschema in props.items():
+                if key in value:
+                    coerced[key] = cls._coerce_to_schema(value[key], subschema)
+            for key in value:
+                if key not in coerced:
+                    coerced[key] = value[key]
+            return coerced
+        return value
+
+    @classmethod
+    def _finalize_structured_output(cls, schema: dict, value):
+        if not isinstance(value, dict):
+            return None, jsonschema.ValidationError("Structured output is not an object")
+        normalized = cls._drop_unknown_keys(schema, value)
+        normalized = cls._coerce_to_schema(normalized, schema)
+        try:
+            jsonschema.validate(instance=normalized, schema=schema)
+        except jsonschema.ValidationError as exc:
+            return normalized, exc
+        return normalized, None
+
+    @staticmethod
+    def _extract_groq_failed_generation(error: Exception) -> str | None:
+        """Extract Groq failed_generation payload from an exception message."""
+        text = str(error)
+        if "failed_generation" not in text:
+            return None
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            return None
+        payload_str = text[start : end + 1]
+        try:
+            payload = json.loads(payload_str)
+        except json.JSONDecodeError:
+            return None
+        return payload.get("error", {}).get("failed_generation")
+
+    @staticmethod
+    def _build_submit_call(values: dict) -> str:
+        """Build a SUBMIT(...) call from a dict of output values."""
+        if not values:
+            return "SUBMIT()"
+        parts = []
+        for key in sorted(values.keys()):
+            if key in ("reasoning", "code", "code_lines"):
+                continue
+            parts.append(f"{key}={repr(values[key])}")
+        if not parts:
+            return "SUBMIT()"
+        return f"SUBMIT({', '.join(parts)})"
+
+    @classmethod
+    def _recover_groq_failed_generation(cls, schema: dict, error: Exception) -> dict | None:
+        """Attempt to recover a valid action from Groq json_validate_failed errors."""
+        failed = cls._extract_groq_failed_generation(error)
+        if not failed:
+            return None
+        parsed = cls._parse_json_candidate(failed)
+        if parsed is None:
+            props = schema.get("properties", {}) or {}
+            if "code_lines" in props:
+                return {"reasoning": "", "code_lines": ["print('retry')"]}
+            if "code" in props:
+                return {"reasoning": "", "code": "print('retry')"}
+            return None
+        if not isinstance(parsed, dict):
+            props = schema.get("properties", {}) or {}
+            if "code_lines" in props:
+                return {"reasoning": "", "code_lines": ["print('retry')"]}
+            if "code" in props:
+                return {"reasoning": "", "code": "print('retry')"}
+            return None
+
+        props = schema.get("properties", {}) or {}
+        if "code" not in props and "code_lines" not in props:
+            return None
+
+        result = dict(parsed)
+        if "code_lines" in props and "code_lines" not in result and "code" not in result:
+            submit_code = cls._build_submit_call(result)
+            result = {"reasoning": result.get("reasoning", ""), "code_lines": [submit_code]}
+        elif "code" in props and "code" not in result and "code_lines" not in result:
+            submit_code = cls._build_submit_call(result)
+            result = {"reasoning": result.get("reasoning", ""), "code": submit_code}
+
+        if "reasoning" in props and "reasoning" not in result:
+            result["reasoning"] = ""
+
+        if "code_lines" in props and "code_lines" in result:
+            if isinstance(result["code_lines"], str):
+                result["code_lines"] = [result["code_lines"]]
+            elif not isinstance(result["code_lines"], list):
+                result["code_lines"] = [str(result["code_lines"])]
+            else:
+                result["code_lines"] = [str(line) for line in result["code_lines"]]
+
+        if "code" in props and "code" in result and not isinstance(result["code"], str):
+            result["code"] = str(result["code"])
+
+        # Drop extra keys to satisfy additionalProperties=false.
+        result = {key: value for key, value in result.items() if key in props}
+
+        for key in schema.get("required", []) or []:
+            if key in result:
+                continue
+            if key == "reasoning":
+                result[key] = ""
+            elif key == "code_lines":
+                result[key] = []
+            elif key == "code":
+                result[key] = ""
+            else:
+                return None
+
+        return result
+
+    async def _repair_structured_output(
+        self,
+        schema: dict,
+        invalid_output: str,
+        error_summary: str,
+        base_kwargs: dict,
+    ) -> dict | None:
+        repair_messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a JSON repair assistant. Return ONLY valid JSON that matches the schema. "
+                    "Do not include any extra text."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Schema:\\n"
+                    + json.dumps(schema, ensure_ascii=False)
+                    + "\\n\\nInvalid Output:\\n"
+                    + invalid_output
+                    + "\\n\\nError:\\n"
+                    + error_summary
+                ),
+            },
+        ]
+
+        if self.model.startswith("groq"):
+            repair_messages = self._clean_messages_for_groq(repair_messages)
+            repair_messages = self._inject_groq_json_guard(repair_messages, schema)
+
+        kwargs = copy.deepcopy(base_kwargs)
+        kwargs.pop("stream", None)
+        if "temperature" not in kwargs:
+            kwargs["temperature"] = 0
+
+        try:
+            response = await litellm.acompletion(
+                model=self.model,
+                messages=repair_messages,
+                timeout=self.timeout,
+                caching=self.caching,
+                **kwargs,
+            )
+            if hasattr(response, "_hidden_params"):
+                if "response_cost" in response._hidden_params:
+                    self.last_call_cost = response._hidden_params["response_cost"]
+                    if self.last_call_cost is not None:
+                        self.cumulated_cost += self.last_call_cost
+            response_str = response["choices"][0]["message"]["content"].strip()
+        except Exception:
+            return None
+
+        parsed = self._parse_json_candidate(response_str)
+        if parsed is None:
+            return None
+        normalized, error = self._finalize_structured_output(schema, parsed)
+        if error:
+            return None
+        return normalized
 
     @staticmethod
     def _enforce_required_properties(schema):
@@ -375,7 +773,7 @@ class LanguageModel(SynalinksSaveable):
         if self.model.startswith("groq"):
             formatted_messages = self._clean_messages_for_groq(formatted_messages)
             if schema:
-                formatted_messages = self._inject_groq_json_guard(formatted_messages)
+                formatted_messages = self._inject_groq_json_guard(formatted_messages, schema)
         json_instance = {}
         input_kwargs = copy.deepcopy(kwargs)
         schema = copy.deepcopy(schema)
@@ -528,6 +926,11 @@ class LanguageModel(SynalinksSaveable):
                     " they support constrained structured output and fill an issue."
                 )
 
+        if "api_key" not in kwargs:
+            if self.api_base and "z.ai" in self.api_base:
+                zai_key = os.environ.get("ZAI_API_KEY")
+                if zai_key:
+                    kwargs["api_key"] = zai_key
         if self.api_base:
             kwargs.update(
                 {
@@ -538,6 +941,7 @@ class LanguageModel(SynalinksSaveable):
             streaming = False
         if streaming:
             kwargs.update({"stream": True})
+        base_kwargs = copy.deepcopy(kwargs)
         for i in range(self.retry):
             try:
                 response_str = ""
@@ -551,13 +955,38 @@ class LanguageModel(SynalinksSaveable):
                 if hasattr(response, "_hidden_params"):
                     if "response_cost" in response._hidden_params:
                         self.last_call_cost = response._hidden_params["response_cost"]
-                        self.cumulated_cost += self.last_call_cost
+                        if self.last_call_cost is not None:
+                            self.cumulated_cost += self.last_call_cost
                 if streaming:
                     return StreamingIterator(response)
                 # All providers use response_format which returns content in message["content"]
                 response_str = response["choices"][0]["message"]["content"].strip()
                 if schema:
-                    json_instance = orjson.loads(response_str)
+                    parsed = self._parse_json_candidate(response_str)
+                    if parsed is None:
+                        repaired = await self._repair_structured_output(
+                            schema=schema,
+                            invalid_output=response_str,
+                            error_summary="Failed to parse JSON response",
+                            base_kwargs=base_kwargs,
+                        )
+                        if repaired is None:
+                            raise ValueError("Failed to parse structured JSON response")
+                        json_instance = repaired
+                    else:
+                        normalized, error = self._finalize_structured_output(schema, parsed)
+                        if error:
+                            repaired = await self._repair_structured_output(
+                                schema=schema,
+                                invalid_output=response_str,
+                                error_summary=str(error),
+                                base_kwargs=base_kwargs,
+                            )
+                            if repaired is None:
+                                raise error
+                            json_instance = repaired
+                        else:
+                            json_instance = normalized
                     # If reasoning_effort is active and thinking was removed from schema,
                     # populate the "thinking" field from reasoning_content
                     if use_reasoning and thinking_removed:
@@ -574,6 +1003,20 @@ class LanguageModel(SynalinksSaveable):
                     }
                 return json_instance
             except Exception as e:
+                if schema and self.model.startswith("groq"):
+                    recovered = self._recover_groq_failed_generation(schema, e)
+                    if recovered is not None:
+                        normalized, error = self._finalize_structured_output(schema, recovered)
+                        if error is None:
+                            return normalized
+                        repaired = await self._repair_structured_output(
+                            schema=schema,
+                            invalid_output=json.dumps(recovered, ensure_ascii=False),
+                            error_summary=str(error),
+                            base_kwargs=base_kwargs,
+                        )
+                        if repaired is not None:
+                            return repaired
                 warnings.warn(
                     f"Error occured while trying to call {self}: "
                     + str(e)
