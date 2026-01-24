@@ -37,3 +37,29 @@ was spawned on macOS.
 ### Verification
 - `uv run pytest synalinks/src/modules/synthesis/python_synthesis_test.py -v` (2 passed)
 - `uv run pytest --cov-config=pyproject.toml` (macOS: 557 passed, 4 skipped)
+
+## 2026-01-24 — RLM required-field validation honors schema
+
+### Rationale
+RLM previously treated every output property as required when validating SUBMIT
+results. This conflicted with Synalinks DataModels that mark fields as optional
+via JSON Schema `required`. It also caused avoidable retries and failures when
+optional outputs were omitted.
+
+### Changes
+- `synalinks/src/modules/reasoning/repl_module.py`
+  - Added `required_fields` derived from schema `required` (fallback to all
+    properties when absent).
+  - Missing-field validation and fallback extraction prompts now reference
+    `required_fields` instead of all properties.
+- `tests/modules/reasoning/test_repl_module.py`
+  - Added coverage for optional outputs being omitted without errors.
+
+### Impact
+- Optional output fields can be omitted without triggering validation errors.
+- Required output fields continue to be enforced, preserving DSPy-style behavior
+  when all outputs are required.
+
+### Verification
+- `uv run pytest tests/modules/reasoning/test_repl_module.py -q`
+- `uv run --env-file .env -- python -m pytest tests/modules/reasoning/test_repl_module_integration.py -v --override-ini="addopts="`

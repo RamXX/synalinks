@@ -163,6 +163,10 @@ class RLM(Module):
 
         self.output_schema = schema
         self.output_fields = list(schema.get("properties", {}).keys())
+        required_fields = schema.get("required")
+        self.required_fields = (
+            list(required_fields) if isinstance(required_fields, list) else self.output_fields
+        )
         self.data_model = data_model
 
         # Language models
@@ -213,7 +217,7 @@ class RLM(Module):
             language_model=language_model,
             instructions=(
                 "Extract the final answer from the execution history above. "
-                f"Required output fields: {', '.join(self.output_fields)}"
+                f"Required output fields: {', '.join(self.required_fields)}"
             ),
             max_tokens=max_tokens,
             name=f"extractor_{self.name}",
@@ -329,11 +333,11 @@ class RLM(Module):
             )
 
         # Validate all required output fields are present
-        missing = set(self.output_fields) - set(submitted.keys())
+        missing = set(self.required_fields) - set(submitted.keys())
         if missing:
             return None, (
                 f"[Error] Missing output fields: {sorted(missing)}. "
-                f"Use SUBMIT({', '.join(self.output_fields)})"
+                f"Use SUBMIT({', '.join(self.required_fields)})"
             )
 
         if self.data_model is not None:
@@ -636,7 +640,7 @@ class RLM(Module):
             "repl_history": history.format_for_prompt(),
             "task": (
                 "Extract the final answer from the execution history above. "
-                f"Required output fields: {', '.join(self.output_fields)}"
+                f"Required output fields: {', '.join(self.required_fields)}"
             ),
         }
         return JsonDataModel(
