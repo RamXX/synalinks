@@ -140,3 +140,26 @@ prevent NameError and keep guidance accurate.
 
 ### Verification
 - `uv run pytest tests/interpreters/test_native_interpreter.py -q`
+
+## 2026-01-24 — RLM prompt includes environment limits and output types
+
+### Rationale
+Recent RLM runs wasted iterations on forbidden imports and type mismatches.
+Making environment permissions explicit and adding output field type hints
+reduces errors and aligns the prompt with DSPy-style typed signatures.
+
+### Changes
+- `synalinks/src/modules/reasoning/repl_generator.py`
+  - Prompt rules now explicitly call out import/file I/O restrictions.
+  - Output fields include required/optional markers and type hints derived
+    from the output schema.
+- `tests/modules/reasoning/test_repl_generator.py`
+  - Added coverage for environment limits and type/requiredness formatting.
+
+### Impact
+- Fewer wasted iterations on forbidden imports.
+- Reduced type errors during SUBMIT by giving explicit field types.
+
+### Verification
+- `uv run pytest tests/modules/reasoning/test_repl_generator.py -q`
+- `uv run --env-file .env -- python -m pytest tests/modules/reasoning/test_repl_module_integration.py -v --override-ini="addopts="`

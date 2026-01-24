@@ -175,7 +175,7 @@ class TestGetReplInstructions:
         assert "llm_query" in instructions
         assert "MINIMIZE RETYPING" in instructions
         assert "SUBMIT ONLY AFTER SEEING" in instructions
-        assert "IMPORTS LIMITED" in instructions
+        assert "ENVIRONMENT LIMITS" in instructions
 
     def test_strict_json_rules_included_when_enabled(self):
         """Test strict JSON rules are included when strict_json is True."""
@@ -217,7 +217,7 @@ class TestActionInstructionsTemplate:
         assert "{final_output_names}" in ACTION_INSTRUCTIONS_TEMPLATE
         assert "{tool_docs}" in ACTION_INSTRUCTIONS_TEMPLATE
         assert "{max_llm_calls}" in ACTION_INSTRUCTIONS_TEMPLATE
-        assert "{output_fields_list}" in ACTION_INSTRUCTIONS_TEMPLATE
+        assert "{required_fields_list}" in ACTION_INSTRUCTIONS_TEMPLATE
         assert "{rules_section}" in ACTION_INSTRUCTIONS_TEMPLATE
 
     def test_template_formatting(self):
@@ -228,7 +228,7 @@ class TestActionInstructionsTemplate:
             final_output_names="answer=value, confidence=value",
             tool_docs="",
             max_llm_calls=50,
-            output_fields_list="answer, confidence",
+            required_fields_list="answer, confidence",
             rules_section="1. EXPLORE FIRST - Test rule",
         )
 
@@ -270,6 +270,25 @@ class TestREPLGenerator:
         # Create a mock to avoid language model requirement
         class MockLM:
             pass
+
+    def test_output_fields_include_type_and_requiredness(self):
+        """Test output field formatting includes type hints and required/optional."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string", "description": "Answer text"},
+                "items": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["answer"],
+        }
+
+        instructions = get_repl_instructions(
+            output_fields=["answer", "items"],
+            output_schema=schema,
+        )
+
+        assert "answer (required, type=string)" in instructions
+        assert "items (optional, type=array<string>)" in instructions
 
     def test_code_lines_selection_uses_strict_json(self):
         """Test code_lines selection is controlled by strict_json flag."""

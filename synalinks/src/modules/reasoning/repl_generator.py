@@ -111,7 +111,7 @@ Available:
 - `llm_query_batched(prompts)` - query multiple prompts concurrently (much faster for multiple queries)
 - `print()` - ALWAYS print to see results
 - `SUBMIT({final_output_names})` - submit final output when done
-- Standard libraries (preloaded, no imports): re, json, collections, math
+- Standard libraries (preloaded, no imports required): re, json, collections, math
 {tool_docs}
 IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see the output, then you decide what to do next. Do NOT try to solve everything in one step.
 
@@ -122,7 +122,7 @@ IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see
 You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your output.
 
 ## Output Fields Required (SUBMIT only; never return as JSON keys)
-{output_fields_list}"""
+{required_fields_list}"""
 
 
 ACTION_INSTRUCTIONS_TEMPLATE_LINES = """Return ONLY a JSON object with keys `reasoning` (string) and `code_lines` (array of strings). `reasoning` is REQUIRED (use an empty string if needed). No markdown, no labels, no extra keys. No other keys are allowed; any extra keys will be rejected. Do NOT return final output fields directly; always use SUBMIT(...) inside `code_lines`.
@@ -141,7 +141,7 @@ Available:
 - `llm_query_batched(prompts)` - query multiple prompts concurrently (much faster for multiple queries)
 - `print()` - ALWAYS print to see results
 - `SUBMIT({final_output_names})` - submit final output when done
-- Standard libraries (preloaded, no imports): re, json, collections, math
+- Standard libraries (preloaded, no imports required): re, json, collections, math
 {tool_docs}
 IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see the output, then you decide what to do next. Do NOT try to solve everything in one step.
 
@@ -152,12 +152,13 @@ IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see
 You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your output.
 
 ## Output Fields Required (SUBMIT only; never return as JSON keys)
-{output_fields_list}"""
+{required_fields_list}"""
 
 
 _BASE_RULES = [
     "EXPLORE FIRST - Look at your data before processing it. Print samples, check types/lengths, understand the structure.",
     "ITERATE - Write small code snippets, observe outputs, then decide next steps. State persists between iterations.",
+    "ENVIRONMENT LIMITS - Imports are restricted to re/json/collections/math (already preloaded). Do NOT import os/pathlib/glob or use file I/O; those will fail.",
     "VERIFY BEFORE SUBMITTING - If results seem wrong (zeros, empty, unexpected), reconsider your approach.",
     "USE llm_query FOR SEMANTICS - String matching finds WHERE things are; llm_query understands WHAT things mean.",
     "MINIMIZE RETYPING (INPUTS & OUTPUTS) - When values are long, precise, or error-prone (IDs, numbers, code, quotes), re-access them via variables and parse/compute in code instead of retyping. Use small, targeted prints to sanity-check, but avoid manual copying when variables can carry the exact value.",
@@ -171,8 +172,6 @@ _STRICT_JSON_RULES = [
 ]
 
 _TAIL_RULES = [
-    "IMPORTS LIMITED - Only re/json/math/collections are allowed. Prefer the preloaded modules above; other imports will fail.",
-    "NO FILE I/O - Do NOT use open(), os, pathlib, or glob. File contents are already provided via variables_info (e.g., files, file_names). Use those inputs instead.",
     "SUBMIT WITH VARIABLES - Build outputs in code and pass variables to SUBMIT (e.g., SUBMIT(answer=answer)). Avoid long inline string literals.",
     "NO RAW FILE LITERALS - Never paste file contents into Python string literals. Always slice/print from the provided variables (e.g., print(files[0][:500])).",
     "KEEP CODE SIMPLE - Avoid large nested dict literals or multi-line literals. Prefer simple lists/strings and call SUBMIT with variables.",
@@ -187,12 +186,61 @@ def _build_rules_section(strict_json: bool) -> str:
     return "\n".join(f"{idx}. {rule}" for idx, rule in enumerate(rules, start=1))
 
 
+def _schema_type_to_str(schema: dict) -> str:
+    if not isinstance(schema, dict):
+        return "any"
+
+    if "$ref" in schema:
+        return "object"
+
+    schema_type = schema.get("type")
+    if schema_type:
+        if isinstance(schema_type, list):
+            types = schema_type
+        else:
+            types = [schema_type]
+        if "array" in types:
+            item_schema = schema.get("items", {})
+            item_type = _schema_type_to_str(item_schema)
+            return f"array<{item_type}>"
+        if len(types) == 1:
+            return str(types[0])
+        return " | ".join(str(t) for t in types)
+
+    for key in ("anyOf", "oneOf", "allOf"):
+        if key in schema and isinstance(schema[key], list):
+            return " | ".join(_schema_type_to_str(item) for item in schema[key])
+
+    return "any"
+
+
+def _format_output_fields(output_schema: Optional[dict], output_fields: List[str]) -> tuple[str, list[str]]:
+    required = set()
+    properties = {}
+    if isinstance(output_schema, dict):
+        required = set(output_schema.get("required") or [])
+        properties = output_schema.get("properties", {}) or {}
+    if not required:
+        required = set(output_fields)
+
+    lines = []
+    for name in output_fields:
+        prop_schema = properties.get(name, {}) if isinstance(properties, dict) else {}
+        type_str = _schema_type_to_str(prop_schema)
+        description = prop_schema.get("description", "<description>")
+        req_label = "required" if name in required else "optional"
+        lines.append(f"- {name} ({req_label}, type={type_str}): {description}")
+
+    return "\n".join(lines), sorted(required)
+
+
 def get_repl_instructions(
     output_fields: List[str],
     tool_descriptions: str = "",
     max_llm_calls: int = 50,
     use_code_lines: bool = False,
     strict_json: bool = False,
+    output_schema: Optional[dict] = None,
 ) -> str:
     """Generate default REPL instructions with behavioral guidance.
 
@@ -207,9 +255,11 @@ def get_repl_instructions(
     submit_args = ", ".join(f"{f}=value" for f in output_fields)
     inputs_placeholder = "`variables_info`"  # REPL metadata lives in variables_info
 
-    # Format output fields as bullet list
-    output_fields_formatted = "\n".join(f"- {n}: <description>" for n in output_fields)
-    output_fields_list = ", ".join(output_fields)
+    # Format output fields as bullet list (with type hints)
+    output_fields_formatted, required_fields = _format_output_fields(
+        output_schema, output_fields
+    )
+    required_fields_list = ", ".join(required_fields)
 
     # Format tool docs section
     tool_docs = f"\n{tool_descriptions}\n" if tool_descriptions else ""
@@ -226,7 +276,7 @@ def get_repl_instructions(
         final_output_names=submit_args,
         tool_docs=tool_docs,
         max_llm_calls=max_llm_calls,
-        output_fields_list=output_fields_list,
+        required_fields_list=required_fields_list,
         rules_section=rules_section,
     ).strip()
 
@@ -307,6 +357,7 @@ class REPLGenerator(Generator):
                 max_llm_calls,
                 use_code_lines=self._use_code_lines,
                 strict_json=self._strict_json,
+                output_schema=self.output_schema,
             )
 
         super().__init__(
