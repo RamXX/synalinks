@@ -1073,6 +1073,7 @@ class LanguageModel(SynalinksSaveable):
                 return json_instance
             except Exception as e:
                 if schema and self.model.startswith("groq"):
+                    failed_generation = self._extract_groq_failed_generation(e)
                     recovered = self._recover_groq_failed_generation(schema, e)
                     if recovered is not None:
                         normalized, error = self._finalize_structured_output(schema, recovered)
@@ -1117,6 +1118,56 @@ class LanguageModel(SynalinksSaveable):
                                     return validated_json
                             else:
                                 return repaired
+                    if failed_generation:
+                        repaired = await self._repair_structured_output(
+                            schema=schema,
+                            invalid_output=failed_generation,
+                            error_summary="Groq json_validate_failed: failed_generation could not be parsed",
+                            base_kwargs=base_kwargs,
+                        )
+                        if repaired is not None:
+                            normalized, error = self._finalize_structured_output(
+                                schema, repaired
+                            )
+                            if error is not None:
+                                repaired = await self._repair_structured_output(
+                                    schema=schema,
+                                    invalid_output=json.dumps(
+                                        repaired, ensure_ascii=False
+                                    ),
+                                    error_summary=str(error),
+                                    base_kwargs=base_kwargs,
+                                )
+                                if repaired is not None:
+                                    normalized, error = self._finalize_structured_output(
+                                        schema, repaired
+                                    )
+                            if error is None:
+                                if data_model is not None:
+                                    validated_json, dm_error = self._validate_with_data_model(
+                                        data_model, normalized
+                                    )
+                                    if dm_error:
+                                        repaired = await self._repair_structured_output(
+                                            schema=schema,
+                                            invalid_output=json.dumps(
+                                                normalized, ensure_ascii=False
+                                            ),
+                                            error_summary=str(dm_error),
+                                            base_kwargs=base_kwargs,
+                                        )
+                                        if repaired is not None:
+                                            validated_json, dm_error = (
+                                                self._validate_with_data_model(
+                                                    data_model, repaired
+                                                )
+                                            )
+                                            if dm_error is None:
+                                                return validated_json
+                                    else:
+                                        return validated_json
+                                else:
+                                    return normalized
                 warnings.warn(
                     f"Error occured while trying to call {self}: "
                     + str(e)

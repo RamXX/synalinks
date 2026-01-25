@@ -163,3 +163,26 @@ reduces errors and aligns the prompt with DSPy-style typed signatures.
 ### Verification
 - `uv run pytest tests/modules/reasoning/test_repl_generator.py -q`
 - `uv run --env-file .env -- python -m pytest tests/modules/reasoning/test_repl_module_integration.py -v --override-ini="addopts="`
+
+## 2026-01-24 — Groq failed_generation repair fallback in LanguageModel
+
+### Rationale
+Groq can return json_validate_failed with a failed_generation payload that
+isn't valid JSON. Previously this collapsed to a retry stub, causing wasted
+RLM iterations and higher cost. The LanguageModel now attempts a JSON repair
+on the failed_generation text before giving up.
+
+### Changes
+- `synalinks/src/language_models/language_model.py`
+  - Added a Groq-specific repair fallback when failed_generation cannot be
+    parsed, reusing structured-output validation and DataModel checks.
+- `tests/language_models/test_language_model.py`
+  - Added coverage to ensure the repair path returns validated output.
+
+### Impact
+- Fewer Groq json_validate_failed loops when the payload is malformed.
+- Improved resilience for strict JSON providers without changing non-Groq flows.
+
+### Verification
+- `uv run pytest tests/language_models/test_language_model.py -q`
+- `uv run --env-file .env -- python -m pytest tests/language_models/test_language_model_integration.py -v --override-ini="addopts="`

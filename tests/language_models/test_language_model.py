@@ -182,6 +182,34 @@ def test_strict_json_defaults_and_override(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_groq_failed_generation_triggers_repair(monkeypatch):
+    class Result(DataModel):
+        value: int
+
+    async def fake_acompletion(**kwargs):
+        raise _make_groq_error("{not json")
+
+    async def fake_repair(self, schema, invalid_output, error_summary, base_kwargs):
+        return {"value": "2"}
+
+    monkeypatch.setattr(litellm, "acompletion", fake_acompletion)
+    monkeypatch.setattr(LanguageModel, "_repair_structured_output", fake_repair)
+
+    schema = {
+        "type": "object",
+        "properties": {"value": {"type": "integer"}},
+        "required": ["value"],
+    }
+    messages = ChatMessages(
+        messages=[ChatMessage(role=ChatRole.USER, content="Return JSON.")]
+    )
+    lm = LanguageModel(model="groq/moonshotai/kimi-k2-instruct-0905", retry=1)
+    result = await lm(messages, schema=schema, data_model=Result)
+
+    assert result == {"value": 2}
+
+
+@pytest.mark.asyncio
 async def test_data_model_validation_triggers_repair(monkeypatch):
     class Result(DataModel):
         value: int
