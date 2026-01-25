@@ -176,6 +176,8 @@ class TestGetReplInstructions:
         assert "MINIMIZE RETYPING" in instructions
         assert "SUBMIT ONLY AFTER SEEING" in instructions
         assert "ENVIRONMENT LIMITS" in instructions
+        assert "Do NOT use import statements" in instructions
+        assert "NO MULTI-LINE STRINGS" in instructions
 
     def test_strict_json_rules_included_when_enabled(self):
         """Test strict JSON rules are included when strict_json is True."""
@@ -187,6 +189,7 @@ class TestGetReplInstructions:
         assert "JSON SAFETY" in instructions
         assert "BACKSLASH SAFETY" in instructions
         assert "NEWLINE SAFETY" in instructions
+        assert "SINGLE-LINE ONLY" in instructions
 
     def test_strict_json_rules_omitted_when_disabled(self):
         """Test strict JSON rules are omitted when strict_json is False."""

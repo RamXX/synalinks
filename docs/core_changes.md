@@ -186,3 +186,27 @@ on the failed_generation text before giving up.
 ### Verification
 - `uv run pytest tests/language_models/test_language_model.py -q`
 - `uv run --env-file .env -- python -m pytest tests/language_models/test_language_model_integration.py -v --override-ini="addopts="`
+
+## 2026-01-24 — REPL prompt: no-import + single-line strict JSON guidance
+
+### Rationale
+Recent RLM runs still waste iterations on forbidden imports and multi-line
+syntax errors. The prompt now explicitly bans import statements and
+multi-line string literals, and clarifies single-line requirements for
+strict JSON providers.
+
+### Changes
+- `synalinks/src/modules/reasoning/repl_generator.py`
+  - Added explicit no-import guidance and preloaded module list.
+  - Added rules forbidding multi-line string literals.
+  - Added strict JSON single-line rule.
+- `tests/modules/reasoning/test_repl_generator.py`
+  - Added assertions for the new prompt rules.
+
+### Impact
+- Fewer wasted iterations on import and multiline syntax errors.
+- Clearer guidance for strict JSON providers (Groq).
+
+### Verification
+- `uv run pytest tests/modules/reasoning/test_repl_generator.py -q`
+- `uv run --env-file .env -- python -m pytest tests/modules/reasoning/test_repl_module_integration.py -v --override-ini="addopts="`

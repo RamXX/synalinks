@@ -158,7 +158,8 @@ You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your o
 _BASE_RULES = [
     "EXPLORE FIRST - Look at your data before processing it. Print samples, check types/lengths, understand the structure.",
     "ITERATE - Write small code snippets, observe outputs, then decide next steps. State persists between iterations.",
-    "ENVIRONMENT LIMITS - Imports are restricted to re/json/collections/math (already preloaded). Do NOT import os/pathlib/glob or use file I/O; those will fail.",
+    "ENVIRONMENT LIMITS - Do NOT use import statements. Only preloaded modules are available: re, json, collections, math (use directly). File I/O (open/pathlib/os/glob) is disallowed.",
+    "NO MULTI-LINE STRINGS - Do not use triple-quoted or multi-line string literals.",
     "VERIFY BEFORE SUBMITTING - If results seem wrong (zeros, empty, unexpected), reconsider your approach.",
     "USE llm_query FOR SEMANTICS - String matching finds WHERE things are; llm_query understands WHAT things mean.",
     "MINIMIZE RETYPING (INPUTS & OUTPUTS) - When values are long, precise, or error-prone (IDs, numbers, code, quotes), re-access them via variables and parse/compute in code instead of retyping. Use small, targeted prints to sanity-check, but avoid manual copying when variables can carry the exact value.",
@@ -169,6 +170,7 @@ _STRICT_JSON_RULES = [
     "JSON SAFETY - Your response must be valid JSON. Use single quotes for Python strings (including SUBMIT). Do NOT use double quotes inside code. If you truly need a double quote character, build it with chr(34) and string concatenation.",
     "BACKSLASH SAFETY - Never include literal backslashes in code (regex/escapes will break JSON). If absolutely needed, build them via BACKSLASH (preloaded) or chr(92) and string concatenation. Avoid regex patterns that require backslashes.",
     "NEWLINE SAFETY - Do not include literal newline characters inside JSON strings. If you need multiple statements, separate them with semicolons.",
+    "SINGLE-LINE ONLY - In strict JSON mode, keep each code line to a single line; use semicolons to separate statements.",
 ]
 
 _TAIL_RULES = [
