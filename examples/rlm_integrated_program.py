@@ -248,7 +248,31 @@ async def build_deep_analysis_program(code_lm, query_lm, synthesis_lm):
         max_iterations=15,
         max_llm_calls=30,
         return_history=True,  # Enable history for introspection
-        instructions="""Analyze the framework codebase to understand its architecture, design, and differentiators.""",
+        instructions=(
+            "Analyze the framework codebase to understand its architecture, design, "
+            "and differentiators.\n"
+            "\n"
+            "Constraints:\n"
+            "- Use only preloaded modules (re, json, collections, math) without imports.\n"
+            "- Do NOT use file I/O (open/pathlib/os/glob).\n"
+            "- Avoid multi-line blocks (for/if/def/class); prefer list comprehensions "
+            "or one-line statements.\n"
+            "- If a search can return None, guard before calling .group().\n"
+            "- Only call SUBMIT after all required fields are prepared with correct types.\n"
+            "\n"
+            "Required output fields and types:\n"
+            "- classes_found: list[str]\n"
+            "- key_patterns: list[str]\n"
+            "- core_abstractions: list[str]\n"
+            "- design_principles: list[str]\n"
+            "- module_relationships: list[str]\n"
+            "- data_flow: str\n"
+            "- novel_techniques: list[str]\n"
+            "- comparison_to_alternatives: str\n"
+            "\n"
+            "Tip: Build lists explicitly (e.g., items = ['a', 'b']) and verify types with "
+            "print(type(items), type(items[0]))."
+        ),
         name="deep_analyzer",
     )(inputs)
 

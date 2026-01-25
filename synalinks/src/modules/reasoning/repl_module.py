@@ -421,11 +421,37 @@ class RLM(Module):
             "submitted": None,
         }
 
+    @staticmethod
+    def _drop_trailing_closer(
+        code: str,
+        closer: str,
+        max_edits: int = 2,
+    ) -> list[str]:
+        """Return candidate code strings with trailing closers removed.
+
+        Only removes closers that appear at end-of-line or end-of-string.
+        """
+        candidates = []
+        current = code
+        for _ in range(max_edits):
+            last_index = -1
+            for idx, ch in enumerate(current):
+                if ch != closer:
+                    continue
+                if idx == len(current) - 1 or current[idx + 1] in ("\n", "\r"):
+                    last_index = idx
+            if last_index == -1:
+                break
+            current = current[:last_index] + current[last_index + 1 :]
+            candidates.append(current)
+        return candidates
+
     async def _execute_with_stabilizer(
         self,
         code: str,
         input_vars: dict,
         tool_callables: dict,
+        error: Optional[str] = None,
     ) -> Optional[dict]:
         """Attempt to recover from syntax errors with sanitization."""
         sanitized = self._sanitize_code(code)
@@ -444,6 +470,34 @@ class RLM(Module):
                 input_vars,
                 tool_callables,
             )
+
+        if error and "unmatched ')'" in error:
+            for candidate in self._drop_trailing_closer(sanitized or code, ")"):
+                result = await self.interpreter.execute(
+                    code=candidate,
+                    variables=input_vars,
+                    tools=tool_callables,
+                )
+                if result.get("success") or result.get("submitted"):
+                    return result
+        if error and "unmatched ']'" in error:
+            for candidate in self._drop_trailing_closer(sanitized or code, "]"):
+                result = await self.interpreter.execute(
+                    code=candidate,
+                    variables=input_vars,
+                    tools=tool_callables,
+                )
+                if result.get("success") or result.get("submitted"):
+                    return result
+        if error and "unmatched '}'" in error:
+            for candidate in self._drop_trailing_closer(sanitized or code, "}"):
+                result = await self.interpreter.execute(
+                    code=candidate,
+                    variables=input_vars,
+                    tools=tool_callables,
+                )
+                if result.get("success") or result.get("submitted"):
+                    return result
 
         return None
 
@@ -651,6 +705,7 @@ class RLM(Module):
                         code,
                         input_vars,
                         tool_callables,
+                        result.get("error"),
                     )
                     if stabilized is not None:
                         result = stabilized
