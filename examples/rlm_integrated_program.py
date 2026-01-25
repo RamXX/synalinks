@@ -248,7 +248,10 @@ async def build_deep_analysis_program(code_lm, query_lm, synthesis_lm):
         max_iterations=15,
         max_llm_calls=30,
         return_history=True,  # Enable history for introspection
-        instructions="""Analyze the framework codebase to understand its architecture, design, and differentiators.""",
+        instructions=(
+            "Analyze the framework codebase to understand its architecture, design, "
+            "and differentiators."
+        ),
         name="deep_analyzer",
     )(inputs)
 

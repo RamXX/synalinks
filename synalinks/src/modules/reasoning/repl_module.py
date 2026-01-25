@@ -16,7 +16,9 @@ Reference:
 """
 
 import asyncio
+import io
 import keyword
+import tokenize
 from typing import Any, Callable, Dict, List, Optional, Type
 
 import jsonschema
@@ -163,6 +165,10 @@ class RLM(Module):
 
         self.output_schema = schema
         self.output_fields = list(schema.get("properties", {}).keys())
+        required_fields = schema.get("required")
+        self.required_fields = (
+            list(required_fields) if isinstance(required_fields, list) else self.output_fields
+        )
         self.data_model = data_model
 
         # Language models
@@ -213,7 +219,7 @@ class RLM(Module):
             language_model=language_model,
             instructions=(
                 "Extract the final answer from the execution history above. "
-                f"Required output fields: {', '.join(self.output_fields)}"
+                f"Required output fields: {', '.join(self.required_fields)}"
             ),
             max_tokens=max_tokens,
             name=f"extractor_{self.name}",
@@ -294,6 +300,206 @@ class RLM(Module):
         """
         return "\n\n".join(var.format() for var in variables)
 
+    @staticmethod
+    def _sanitize_code(code: str) -> str:
+        """Best-effort sanitizer for common LLM formatting mistakes."""
+        if not code:
+            return code
+        code = strip_code_fences(code)
+        lines = []
+        for line in code.splitlines():
+            stripped = line.strip()
+            if stripped in ("```", "```python", "```py"):
+                continue
+            lines.append(line)
+        code = "\n".join(lines).strip()
+        if (
+            (code.startswith("'''") and code.endswith("'''"))
+            or (code.startswith('"""') and code.endswith('"""'))
+        ):
+            code = code[3:-3].strip()
+        if len(code) >= 2 and code[0] == code[-1] and code[0] in ("'", '"'):
+            inner = code[1:-1]
+            if "\\n" in inner or "\\t" in inner:
+                try:
+                    code = inner.encode("utf-8").decode("unicode_escape")
+                except Exception:
+                    pass
+        return code
+
+    @staticmethod
+    def _can_execute_line_by_line(code: str) -> bool:
+        """Return True if code has no obvious multi-line blocks."""
+        for line in code.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.endswith("\\"):
+                return False
+            if stripped.endswith(":"):
+                return False
+            if line.startswith((" ", "\t")):
+                return False
+
+        stack = []
+        try:
+            tokens = tokenize.generate_tokens(io.StringIO(code).readline)
+            pairs = {")": "(", "]": "[", "}": "{"}
+            for token in tokens:
+                if token.type == tokenize.OP:
+                    if token.string in "([{":
+                        stack.append(token.string)
+                    elif token.string in ")]}":
+                        if not stack or stack[-1] != pairs[token.string]:
+                            return False
+                        stack.pop()
+                elif token.type == tokenize.NL and stack:
+                    return False
+        except tokenize.TokenError:
+            return False
+
+        if stack:
+            return False
+
+        return True
+
+    async def _execute_line_by_line(
+        self,
+        code: str,
+        input_vars: dict,
+        tool_callables: dict,
+    ) -> dict:
+        """Execute code line by line to recover from syntax errors."""
+        stdout_chunks: List[str] = []
+        stderr_chunks: List[str] = []
+        submitted = None
+        last_error = None
+
+        for line in code.splitlines():
+            if not line.strip():
+                continue
+            result = await self.interpreter.execute(
+                code=line,
+                variables=input_vars,
+                tools=tool_callables,
+            )
+            stdout_chunks.append(result.get("stdout", ""))
+            if result.get("stderr"):
+                stderr_chunks.append(result.get("stderr", ""))
+            if result.get("submitted"):
+                submitted = result["submitted"]
+                break
+            if not result.get("success"):
+                last_error = result.get("error") or ""
+                if last_error:
+                    stderr_chunks.append(last_error)
+
+        if submitted is not None:
+            return {
+                "success": True,
+                "stdout": "".join(stdout_chunks),
+                "stderr": "".join(stderr_chunks),
+                "error": None,
+                "submitted": submitted,
+            }
+
+        if last_error is None:
+            return {
+                "success": True,
+                "stdout": "".join(stdout_chunks),
+                "stderr": "".join(stderr_chunks),
+                "error": None,
+                "submitted": None,
+            }
+
+        return {
+            "success": False,
+            "stdout": "".join(stdout_chunks),
+            "stderr": "".join(stderr_chunks),
+            "error": last_error,
+            "submitted": None,
+        }
+
+    @staticmethod
+    def _drop_trailing_closer(
+        code: str,
+        closer: str,
+        max_edits: int = 2,
+    ) -> list[str]:
+        """Return candidate code strings with trailing closers removed.
+
+        Only removes closers that appear at end-of-line or end-of-string.
+        """
+        candidates = []
+        current = code
+        for _ in range(max_edits):
+            last_index = -1
+            for idx, ch in enumerate(current):
+                if ch != closer:
+                    continue
+                if idx == len(current) - 1 or current[idx + 1] in ("\n", "\r"):
+                    last_index = idx
+            if last_index == -1:
+                break
+            current = current[:last_index] + current[last_index + 1 :]
+            candidates.append(current)
+        return candidates
+
+    async def _execute_with_stabilizer(
+        self,
+        code: str,
+        input_vars: dict,
+        tool_callables: dict,
+        error: Optional[str] = None,
+    ) -> Optional[dict]:
+        """Attempt to recover from syntax errors with sanitization."""
+        sanitized = self._sanitize_code(code)
+        if sanitized and sanitized != code:
+            result = await self.interpreter.execute(
+                code=sanitized,
+                variables=input_vars,
+                tools=tool_callables,
+            )
+            if result.get("success") or result.get("submitted"):
+                return result
+
+        if sanitized and self._can_execute_line_by_line(sanitized):
+            return await self._execute_line_by_line(
+                sanitized,
+                input_vars,
+                tool_callables,
+            )
+
+        if error and "unmatched ')'" in error:
+            for candidate in self._drop_trailing_closer(sanitized or code, ")"):
+                result = await self.interpreter.execute(
+                    code=candidate,
+                    variables=input_vars,
+                    tools=tool_callables,
+                )
+                if result.get("success") or result.get("submitted"):
+                    return result
+        if error and "unmatched ']'" in error:
+            for candidate in self._drop_trailing_closer(sanitized or code, "]"):
+                result = await self.interpreter.execute(
+                    code=candidate,
+                    variables=input_vars,
+                    tools=tool_callables,
+                )
+                if result.get("success") or result.get("submitted"):
+                    return result
+        if error and "unmatched '}'" in error:
+            for candidate in self._drop_trailing_closer(sanitized or code, "}"):
+                result = await self.interpreter.execute(
+                    code=candidate,
+                    variables=input_vars,
+                    tools=tool_callables,
+                )
+                if result.get("success") or result.get("submitted"):
+                    return result
+
+        return None
+
     def _format_validation_error(self, error: Exception) -> str:
         """Format validation errors for LLM feedback."""
         if isinstance(error, ValidationError):
@@ -329,11 +535,11 @@ class RLM(Module):
             )
 
         # Validate all required output fields are present
-        missing = set(self.output_fields) - set(submitted.keys())
+        missing = set(self.required_fields) - set(submitted.keys())
         if missing:
             return None, (
                 f"[Error] Missing output fields: {sorted(missing)}. "
-                f"Use SUBMIT({', '.join(self.output_fields)})"
+                f"Use SUBMIT({', '.join(self.required_fields)})"
             )
 
         if self.data_model is not None:
@@ -491,6 +697,17 @@ class RLM(Module):
                     variables=input_vars,
                     tools=tool_callables,
                 )
+                if not result.get("success") and "SyntaxError" in (
+                    result.get("error") or ""
+                ):
+                    stabilized = await self._execute_with_stabilizer(
+                        code,
+                        input_vars,
+                        tool_callables,
+                        result.get("error"),
+                    )
+                    if stabilized is not None:
+                        result = stabilized
 
                 # Check for SUBMIT
                 if result.get("submitted"):
@@ -636,7 +853,7 @@ class RLM(Module):
             "repl_history": history.format_for_prompt(),
             "task": (
                 "Extract the final answer from the execution history above. "
-                f"Required output fields: {', '.join(self.output_fields)}"
+                f"Required output fields: {', '.join(self.required_fields)}"
             ),
         }
         return JsonDataModel(

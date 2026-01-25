@@ -2,6 +2,8 @@
 
 """Tests for RLM (Recursive Language Model)."""
 
+from typing import Optional
+
 import pytest
 
 from synalinks.src.backend import DataModel, Field, JsonDataModel
@@ -160,6 +162,35 @@ class TestRLMExecution:
 
         assert result is not None
         assert result.get("result") == "hello world"
+
+    @pytest.mark.asyncio
+    async def test_syntax_stabilizer_removes_fence_line(self, simple_schema):
+        """Test that the stabilizer removes stray markdown fence lines."""
+        lm = MockLanguageModel(
+            [
+                {
+                    "reasoning": "Use SUBMIT after a quick print",
+                    "code": "print('ready')\n```\nSUBMIT(result='ok')",
+                }
+            ]
+        )
+
+        module = RLM(
+            schema=simple_schema,
+            language_model=lm,
+            max_iterations=3,
+        )
+
+        inputs = JsonDataModel(
+            json={"query": "test"},
+            schema={"type": "object"},
+            name="inputs",
+        )
+
+        result = await module(inputs)
+
+        assert result is not None
+        assert result.get("result") == "ok"
 
     @pytest.mark.asyncio
     async def test_multi_iteration_exploration(self, simple_schema):
@@ -419,6 +450,26 @@ class TestRLMTypeCoercion:
         history = result.get("_history")
         assert "Type Error" in history[0]["error"]
 
+    @pytest.mark.asyncio
+    async def test_optional_field_can_be_omitted(self):
+        """Test that optional outputs can be omitted without errors."""
+        class Output(DataModel):
+            required_field: str = Field(description="Required field")
+            optional_field: Optional[str] = Field(default=None, description="Optional")
+
+        lm = MockLanguageModel(
+            [
+                {"reasoning": "Only required", "code": "SUBMIT(required_field='ok')"},
+            ]
+        )
+
+        module = RLM(data_model=Output, language_model=lm)
+        inputs = JsonDataModel(json={}, schema={"type": "object"}, name="inputs")
+
+        result = await module(inputs)
+        assert result.get("required_field") == "ok"
+        assert result.get("optional_field") is None
+
 
 class TestRLMToolValidation:
     """Tests for tool name validation."""
@@ -503,3 +554,19 @@ class TestRLMSerialization:
         assert config["max_llm_calls"] == 25
         assert config["return_history"] is True
         assert config["name"] == "test_repl"
+
+
+class TestRLMLineByLineGuard:
+    """Tests for line-by-line execution guard."""
+
+    def test_rejects_multiline_delimiters(self):
+        code = "items = [\n1,\n2\n]"
+        assert RLM._can_execute_line_by_line(code) is False
+
+    def test_rejects_backslash_continuation(self):
+        code = "value = 1 + \\\n2"
+        assert RLM._can_execute_line_by_line(code) is False
+
+    def test_accepts_simple_lines(self):
+        code = "print('ok')\nSUBMIT(result='ok')"
+        assert RLM._can_execute_line_by_line(code) is True

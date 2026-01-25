@@ -95,9 +95,12 @@ class REPLActionLines(DataModel):
 
 
 # Action instructions template matching DSPy's behavioral guidance
-ACTION_INSTRUCTIONS_TEMPLATE = """Return ONLY a JSON object with keys `reasoning` and `code` (both strings). `reasoning` is REQUIRED (use an empty string if needed). No markdown, no labels, no extra keys. Do NOT return final output fields directly; always use SUBMIT(...) inside `code`.
+ACTION_INSTRUCTIONS_TEMPLATE = """Return ONLY a JSON object with keys `reasoning` and `code` (both strings). `reasoning` is REQUIRED (use an empty string if needed). No markdown, no labels, no extra keys. No other keys are allowed; any extra keys will be rejected. Do NOT return final output fields directly; always use SUBMIT(...) inside `code`.
 
-You are tasked with producing the following outputs given the inputs {inputs}:
+Example JSON:
+{{"reasoning": "", "code": "print('ready'); SUBMIT(answer='ok')"}}
+
+You are tasked with producing the following FINAL outputs given the inputs {inputs} (ONLY via SUBMIT, never as JSON keys):
 {output_fields}
 
 You have access to a Python REPL environment. Write Python code and it will be executed. You will see the output, then write more code based on what you learned. This is an iterative process.
@@ -108,33 +111,27 @@ Available:
 - `llm_query_batched(prompts)` - query multiple prompts concurrently (much faster for multiple queries)
 - `print()` - ALWAYS print to see results
 - `SUBMIT({final_output_names})` - submit final output when done
-- Standard libraries (preloaded, no imports): re, json, collections, math
+- Standard libraries (preloaded, no imports required): re, json, collections, math
 {tool_docs}
 IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see the output, then you decide what to do next. Do NOT try to solve everything in one step.
+REMINDER: Imports and file I/O are blocked. Use only the provided variables and preloaded modules.
 
 ## Rules
 
-1. EXPLORE FIRST - Look at your data before processing it. Print samples, check types/lengths, understand the structure.
-2. ITERATE - Write small code snippets, observe outputs, then decide next steps. State persists between iterations.
-3. VERIFY BEFORE SUBMITTING - If results seem wrong (zeros, empty, unexpected), reconsider your approach.
-4. USE llm_query FOR SEMANTICS - String matching finds WHERE things are; llm_query understands WHAT things mean.
-5. MINIMIZE RETYPING (INPUTS & OUTPUTS) - When values are long, precise, or error-prone (IDs, numbers, code, quotes), re-access them via variables and parse/compute in code instead of retyping. Use small, targeted prints to sanity-check, but avoid manual copying when variables can carry the exact value.
-6. SUBMIT ONLY AFTER SEEING OUTPUTS - SUBMIT ends the current run immediately. If you need to inspect printed output, run it in one step, review the result, then call SUBMIT in a later step.
-7. JSON SAFETY - Your response must be valid JSON. Avoid unescaped double quotes inside the `code` string. Prefer single quotes in code, avoid triple-quoted strings, and if you must use a double quote inside code, escape it with a backslash.
-8. BACKSLASH SAFETY - Avoid backslashes in code (e.g., regex patterns or escape sequences). If you must include a backslash, build it via `chr(92)` or string concatenation to prevent invalid JSON escapes.
-9. NEWLINE SAFETY - Do not include literal newline characters inside JSON strings. If you need multi-line code, represent line breaks as `\\n` or separate statements with semicolons.
-10. IMPORTS LIMITED - Only re/json/math/collections are allowed. Prefer the preloaded modules above; other imports will fail.
-11. NO FILE I/O - Do NOT use `open()` or read files from disk. File contents are already provided via `variables_info` (e.g., `files`, `file_names`). Use those inputs instead.
+{rules_section}
 
 You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your output.
 
-## Output Fields Required
-{output_fields_list}"""
+## Output Fields Required (SUBMIT only; never return as JSON keys)
+{required_fields_list}"""
 
 
-ACTION_INSTRUCTIONS_TEMPLATE_LINES = """Return ONLY a JSON object with keys `reasoning` (string) and `code_lines` (array of strings). `reasoning` is REQUIRED (use an empty string if needed). No markdown, no labels, no extra keys. Do NOT return final output fields directly; always use SUBMIT(...) inside `code_lines`.
+ACTION_INSTRUCTIONS_TEMPLATE_LINES = """Return ONLY a JSON object with keys `reasoning` (string) and `code_lines` (array of strings). `reasoning` is REQUIRED (use an empty string if needed). No markdown, no labels, no extra keys. No other keys are allowed; any extra keys will be rejected. Do NOT return final output fields directly; always use SUBMIT(...) inside `code_lines`.
 
-You are tasked with producing the following outputs given the inputs {inputs}:
+Example JSON:
+{{"reasoning": "", "code_lines": ["print('ready')", "SUBMIT(answer='ok')"]}}
+
+You are tasked with producing the following FINAL outputs given the inputs {inputs} (ONLY via SUBMIT, never as JSON keys):
 {output_fields}
 
 You have access to a Python REPL environment. Write Python code and it will be executed. You will see the output, then write more code based on what you learned. This is an iterative process.
@@ -145,28 +142,106 @@ Available:
 - `llm_query_batched(prompts)` - query multiple prompts concurrently (much faster for multiple queries)
 - `print()` - ALWAYS print to see results
 - `SUBMIT({final_output_names})` - submit final output when done
-- Standard libraries (preloaded, no imports): re, json, collections, math
+- Standard libraries (preloaded, no imports required): re, json, collections, math
 {tool_docs}
 IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see the output, then you decide what to do next. Do NOT try to solve everything in one step.
+REMINDER: Imports and file I/O are blocked. Use only the provided variables and preloaded modules.
 
 ## Rules
 
-1. EXPLORE FIRST - Look at your data before processing it. Print samples, check types/lengths, understand the structure.
-2. ITERATE - Write small code snippets, observe outputs, then decide next steps. State persists between iterations.
-3. VERIFY BEFORE SUBMITTING - If results seem wrong (zeros, empty, unexpected), reconsider your approach.
-4. USE llm_query FOR SEMANTICS - String matching finds WHERE things are; llm_query understands WHAT things mean.
-5. MINIMIZE RETYPING (INPUTS & OUTPUTS) - When values are long, precise, or error-prone (IDs, numbers, code, quotes), re-access them via variables and parse/compute in code instead of retyping. Use small, targeted prints to sanity-check, but avoid manual copying when variables can carry the exact value.
-6. SUBMIT ONLY AFTER SEEING OUTPUTS - SUBMIT ends the current run immediately. If you need to inspect printed output, run it in one step, review the result, then call SUBMIT in a later step.
-7. JSON SAFETY - Your response must be valid JSON. Avoid unescaped double quotes inside any `code_lines` entry. Prefer single quotes in code; if you must use a double quote inside code, escape it with a backslash.
-8. BACKSLASH SAFETY - Avoid backslashes in code (e.g., regex patterns or escape sequences). If you must include a backslash, build it via `chr(92)` or string concatenation to prevent invalid JSON escapes.
-9. NEWLINE SAFETY - Do not include newline characters inside any `code_lines` entry. Each list item must be a single line.
-10. IMPORTS LIMITED - Only re/json/math/collections are allowed. Prefer the preloaded modules above; other imports will fail.
-11. NO FILE I/O - Do NOT use `open()` or read files from disk. File contents are already provided via `variables_info` (e.g., `files`, `file_names`). Use those inputs instead.
+{rules_section}
 
 You have max {max_llm_calls} sub-LLM calls. When done, call SUBMIT() with your output.
 
-## Output Fields Required
-{output_fields_list}"""
+## Output Fields Required (SUBMIT only; never return as JSON keys)
+{required_fields_list}"""
+
+
+_BASE_RULES = [
+    "EXPLORE FIRST - Look at your data before processing it. Print samples, check types/lengths, understand the structure.",
+    "ITERATE - Write small code snippets, observe outputs, then decide next steps. State persists between iterations.",
+    "ENVIRONMENT LIMITS - Do NOT use import statements. Only preloaded modules are available: re, json, collections, math (use directly). File I/O (open/pathlib/os/glob) is disallowed.",
+    "NO MULTI-LINE STRINGS - Do not use triple-quoted or multi-line string literals.",
+    "VERIFY BEFORE SUBMITTING - If results seem wrong (zeros, empty, unexpected), reconsider your approach.",
+    "USE llm_query FOR SEMANTICS - String matching finds WHERE things are; llm_query understands WHAT things mean.",
+    "MINIMIZE RETYPING (INPUTS & OUTPUTS) - When values are long, precise, or error-prone (IDs, numbers, code, quotes), re-access them via variables and parse/compute in code instead of retyping. Use small, targeted prints to sanity-check, but avoid manual copying when variables can carry the exact value.",
+    "SUBMIT ONLY AFTER SEEING OUTPUTS - SUBMIT ends the current run immediately. If you need to inspect printed output, run it in one step, review the result, then call SUBMIT in a later step.",
+]
+
+_STRICT_JSON_RULES = [
+    "JSON SAFETY - Your response must be valid JSON. Use single quotes for Python strings (including SUBMIT). Do NOT use double quotes inside code. If you truly need a double quote character, build it with chr(34) and string concatenation.",
+    "BACKSLASH SAFETY - Never include literal backslashes in code (regex/escapes will break JSON). If absolutely needed, build them via BACKSLASH (preloaded) or chr(92) and string concatenation. Avoid regex patterns that require backslashes.",
+    "NEWLINE SAFETY - Do not include literal newline characters inside JSON strings. If you need multiple statements, separate them with semicolons.",
+    "ASCII ONLY - Use ASCII characters only. No smart quotes or em dashes; use '-' for dashes.",
+    "SINGLE-LINE CODE - Keep code to a single line; use semicolons to separate statements.",
+    "SINGLE-LINE ONLY - In strict JSON mode, keep each code line to a single line; use semicolons to separate statements.",
+]
+
+_TAIL_RULES = [
+    "SUBMIT WITH VARIABLES - Build outputs in code and pass variables to SUBMIT (e.g., SUBMIT(answer=answer) or out = {}; out['answer'] = answer; SUBMIT(**out)). Avoid long inline string literals.",
+    "NO RAW FILE LITERALS - Never paste file contents into Python string literals. Always slice/print from the provided variables (e.g., print(files[0][:500])).",
+    "KEEP CODE SIMPLE - Avoid large nested dict literals or multi-line literals. Prefer simple lists/strings and call SUBMIT with variables.",
+    "SHORT STEPS - Keep each iteration small (a few statements). Fix errors before moving on; avoid rewriting big blocks after a failure.",
+    "INCREMENTAL OUTPUTS - Build lists/dicts in variables step-by-step; avoid huge one-shot literals.",
+    "USE PROVIDED VARIABLES ONLY - Do not attempt imports or file access. All inputs are already available as variables.",
+    "DO NOT INVENT IDENTIFIERS - If you need a file name, ID, or key, derive it from provided variables (e.g., file_names), not from memory or guesses.",
+]
+
+
+def _build_rules_section(strict_json: bool) -> str:
+    rules = list(_BASE_RULES)
+    if strict_json:
+        rules.extend(_STRICT_JSON_RULES)
+    rules.extend(_TAIL_RULES)
+    return "\n".join(f"{idx}. {rule}" for idx, rule in enumerate(rules, start=1))
+
+
+def _schema_type_to_str(schema: dict) -> str:
+    if not isinstance(schema, dict):
+        return "any"
+
+    if "$ref" in schema:
+        return "object"
+
+    schema_type = schema.get("type")
+    if schema_type:
+        if isinstance(schema_type, list):
+            types = schema_type
+        else:
+            types = [schema_type]
+        if "array" in types:
+            item_schema = schema.get("items", {})
+            item_type = _schema_type_to_str(item_schema)
+            return f"array<{item_type}>"
+        if len(types) == 1:
+            return str(types[0])
+        return " | ".join(str(t) for t in types)
+
+    for key in ("anyOf", "oneOf", "allOf"):
+        if key in schema and isinstance(schema[key], list):
+            return " | ".join(_schema_type_to_str(item) for item in schema[key])
+
+    return "any"
+
+
+def _format_output_fields(output_schema: Optional[dict], output_fields: List[str]) -> tuple[str, list[str]]:
+    required = set()
+    properties = {}
+    if isinstance(output_schema, dict):
+        required = set(output_schema.get("required") or [])
+        properties = output_schema.get("properties", {}) or {}
+    if not required:
+        required = set(output_fields)
+
+    lines = []
+    for name in output_fields:
+        prop_schema = properties.get(name, {}) if isinstance(properties, dict) else {}
+        type_str = _schema_type_to_str(prop_schema)
+        description = prop_schema.get("description", "<description>")
+        req_label = "required" if name in required else "optional"
+        lines.append(f"- {name} ({req_label}, type={type_str}): {description}")
+
+    return "\n".join(lines), sorted(required)
 
 
 def get_repl_instructions(
@@ -174,6 +249,8 @@ def get_repl_instructions(
     tool_descriptions: str = "",
     max_llm_calls: int = 50,
     use_code_lines: bool = False,
+    strict_json: bool = False,
+    output_schema: Optional[dict] = None,
 ) -> str:
     """Generate default REPL instructions with behavioral guidance.
 
@@ -188,12 +265,15 @@ def get_repl_instructions(
     submit_args = ", ".join(f"{f}=value" for f in output_fields)
     inputs_placeholder = "`variables_info`"  # REPL metadata lives in variables_info
 
-    # Format output fields as bullet list
-    output_fields_formatted = "\n".join(f"- {n}: <description>" for n in output_fields)
-    output_fields_list = ", ".join(output_fields)
+    # Format output fields as bullet list (with type hints)
+    output_fields_formatted, required_fields = _format_output_fields(
+        output_schema, output_fields
+    )
+    required_fields_list = ", ".join(required_fields)
 
     # Format tool docs section
     tool_docs = f"\n{tool_descriptions}\n" if tool_descriptions else ""
+    rules_section = _build_rules_section(strict_json)
 
     template = (
         ACTION_INSTRUCTIONS_TEMPLATE_LINES
@@ -206,7 +286,8 @@ def get_repl_instructions(
         final_output_names=submit_args,
         tool_docs=tool_docs,
         max_llm_calls=max_llm_calls,
-        output_fields_list=output_fields_list,
+        required_fields_list=required_fields_list,
+        rules_section=rules_section,
     ).strip()
 
 
@@ -270,6 +351,7 @@ class REPLGenerator(Generator):
         self.output_schema = output_schema
         self.output_fields = list(output_schema.get("properties", {}).keys())
         self._max_llm_calls = max_llm_calls
+        self._strict_json = self._uses_strict_json(language_model)
         self._use_code_lines = self._uses_code_lines(language_model)
 
         action_schema = REPLAction.get_schema()
@@ -284,6 +366,8 @@ class REPLGenerator(Generator):
                 tool_descriptions,
                 max_llm_calls,
                 use_code_lines=self._use_code_lines,
+                strict_json=self._strict_json,
+                output_schema=self.output_schema,
             )
 
         super().__init__(
@@ -329,10 +413,14 @@ class REPLGenerator(Generator):
         return False
 
     @staticmethod
+    def _uses_strict_json(language_model) -> bool:
+        """Return True when strict JSON guidance should be enabled."""
+        return bool(getattr(language_model, "strict_json", False))
+
+    @staticmethod
     def _uses_code_lines(language_model) -> bool:
         """Return True when code_lines output should be used for reliability."""
-        model = getattr(language_model, "model", "")
-        return isinstance(model, str) and model.startswith("groq/")
+        return bool(getattr(language_model, "strict_json", False))
 
     @staticmethod
     def _build_action_schema(action_schema: dict, output_schema: dict) -> dict:

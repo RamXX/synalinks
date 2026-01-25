@@ -41,6 +41,7 @@ class Predict(Operation):
         value = await self.language_model(
             x,
             schema=self.schema,
+            data_model=self.data_model,
             streaming=self.streaming,
             **self.lm_kwargs,
         )

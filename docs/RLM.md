@@ -531,16 +531,40 @@ class REPLHistory(DataModel):
 ### 1. Clear Instructions
 Provide specific instructions about available variables and expected output format.
 
-### 2. Appropriate Iteration Limits
+### 2. Optimize REPL Instructions (Trainable Prompt)
+REPLGenerator instructions are stored in a trainable Variable (same as other
+Generators). You can seed variants and let Synalinks optimizers tune them.
+
+```python
+rlm = synalinks.RLM(
+    data_model=OutputModel,
+    language_model=lm,
+    seed_instructions=[
+        "Focus on extracting the output fields with correct types.",
+        "Use llm_query early for semantic extraction.",
+    ],
+)
+
+inputs = synalinks.Input(data_model=InputModel)
+outputs = await rlm(inputs)
+program = synalinks.Program(inputs=inputs, outputs=outputs)
+program.compile(
+    reward=synalinks.rewards.ExactMatch(in_mask=["answer"]),
+    optimizer=synalinks.optimizers.RandomFewShot(),
+)
+await program.fit(x=train_x, y=train_y, epochs=3)
+```
+
+### 3. Appropriate Iteration Limits
 Start with `max_iterations=10-20`. Increase for complex tasks.
 
-### 3. Use Type Hints
+### 4. Use Type Hints
 Define output schemas with proper types for automatic coercion.
 
-### 4. Enable History for Debugging
+### 5. Enable History for Debugging
 Use `return_history=True` during development to understand LLM behavior.
 
-### 5. Custom Tools for Domain Logic
+### 6. Custom Tools for Domain Logic
 Encapsulate complex operations in tools rather than expecting LLM to write them.
 
 ---
@@ -568,7 +592,6 @@ Encapsulate complex operations in tools rather than expecting LLM to write them.
 
 - Docker-based interpreter for full Python support
 - WASM interpreter for browser environments
-- Training/optimization of REPL instructions
 - Parallel REPL execution for independent subtasks
 
 ---
