@@ -20,7 +20,7 @@ This document covers the theory behind RLM, its implementation in Synalinks via 
 
 ## The RLM Paper
 
-RLM was introduced in the paper **"Recursive Language Models"** by Alex L. Zhang, Tim Kraska, and Omar Khattab (December 2025).
+RLM was introduced in the paper **"Recursive Language Models"** by Alex L. Zhang, Tim Kraska, and Omar Khattab (2025).
 
 **Paper:** [https://arxiv.org/abs/2512.24601](https://arxiv.org/abs/2512.24601)
 
@@ -42,12 +42,7 @@ Key insight: Instead of asking "How do I fit this into my context window?", RLM 
 
 ### Key Results
 
-The paper demonstrates:
-
-- Handles inputs **100x longer** than native context windows
-- **Outperforms** base LLMs on long-context tasks
-- **Beats** common long-context scaffolding approaches
-- Maintains **comparable or reduced cost** per query
+The paper reports improved long-context performance versus baseline prompting and common scaffolding approaches; see the paper for benchmark details and task-specific results.
 
 ---
 
@@ -184,7 +179,9 @@ Synalinks provides two interpreter implementations:
 
 **DenoInterpreter** (Secure Sandbox)
 - Runs Python in a WebAssembly sandbox via Deno + Pyodide
-- Complete isolation from host filesystem and network
+- Read access is limited to the interpreter directory (for the runner) and the Deno cache by default
+- No write access unless explicitly enabled
+- Network and environment access are disabled unless explicitly enabled
 - JSON-RPC 2.0 communication protocol
 - Requires Deno installation: `brew install deno` or `curl -fsSL https://deno.land/install.sh | sh`
 - Inspired by DSPy's PythonInterpreter implementation
@@ -243,8 +240,8 @@ rlm = synalinks.RLM(
 The DenoInterpreter provides:
 - **Process isolation**: Python runs in a separate Deno subprocess
 - **WASM sandboxing**: Pyodide runs Python compiled to WebAssembly
-- **Virtual filesystem**: No access to host files by default
-- **Controlled permissions**: Fine-grained `--allow-read`, `--allow-write`, `--allow-net` flags
+- **Controlled filesystem access**: Read access limited to the interpreter directory + Deno cache by default; write access only if enabled
+- **Controlled permissions**: Fine-grained `--allow-read`, `--allow-write`, `--allow-net`, `--allow-env` flags
 
 ---
 
@@ -276,8 +273,8 @@ uv run --env-file .env -- python examples/<example_name>.py
 ```
 
 **Requirements:**
-- `GROQ_API_KEY` environment variable set in `.env` file
 - Synalinks installed (`uv sync`)
+- Provider credentials set for the model you choose (e.g., `GROQ_API_KEY` for Groq)
 
 ### Example 1: Basic Document Analysis
 
@@ -407,9 +404,9 @@ rlm = synalinks.RLM(
 
 **Key Pattern:** Tools must be:
 1. Async functions
-2. Registered with `@register_synalinks_serializable()`
-3. Have docstrings with Args descriptions
-4. Return dicts (not strings)
+2. Have docstrings with Args descriptions
+3. Return dicts (not strings)
+4. Registered with `@register_synalinks_serializable()` if you need serialization
 
 **Run:**
 ```bash
@@ -467,6 +464,7 @@ class RLM(Module):
         max_iterations: int = 20,                 # Max REPL iterations
         max_llm_calls: int = 50,                  # Max sub-LLM queries
         max_output_chars: int = 100_000,          # Max output characters
+        max_tokens: Optional[int] = None,         # Optional max output tokens per LM call
         instructions: Optional[str] = None,       # Custom instructions
         seed_instructions: Optional[List[str]] = None,  # For optimization
         return_history: bool = False,             # Include trajectory
@@ -503,7 +501,7 @@ class NativePythonInterpreter(CodeInterpreter):
         code: str,
         variables: Optional[Dict] = None,
         tools: Optional[Dict] = None,
-    ) -> str | FinalOutput
+    ) -> Dict[str, Any]
 ```
 
 ### REPLEntry / REPLHistory
