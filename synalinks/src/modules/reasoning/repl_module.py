@@ -344,20 +344,19 @@ class RLM(Module):
         stack = []
         try:
             tokens = tokenize.generate_tokens(io.StringIO(code).readline)
+            pairs = {")": "(", "]": "[", "}": "{"}
+            for token in tokens:
+                if token.type == tokenize.OP:
+                    if token.string in "([{":
+                        stack.append(token.string)
+                    elif token.string in ")]}":
+                        if not stack or stack[-1] != pairs[token.string]:
+                            return False
+                        stack.pop()
+                elif token.type == tokenize.NL and stack:
+                    return False
         except tokenize.TokenError:
             return False
-
-        pairs = {")": "(", "]": "[", "}": "{"}
-        for token in tokens:
-            if token.type == tokenize.OP:
-                if token.string in "([{":
-                    stack.append(token.string)
-                elif token.string in ")]}":
-                    if not stack or stack[-1] != pairs[token.string]:
-                        return False
-                    stack.pop()
-            elif token.type == tokenize.NL and stack:
-                return False
 
         if stack:
             return False

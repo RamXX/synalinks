@@ -114,6 +114,7 @@ Available:
 - Standard libraries (preloaded, no imports required): re, json, collections, math
 {tool_docs}
 IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see the output, then you decide what to do next. Do NOT try to solve everything in one step.
+REMINDER: Imports and file I/O are blocked. Use only the provided variables and preloaded modules.
 
 ## Rules
 
@@ -144,6 +145,7 @@ Available:
 - Standard libraries (preloaded, no imports required): re, json, collections, math
 {tool_docs}
 IMPORTANT: This is ITERATIVE. Each code block you write will execute, you'll see the output, then you decide what to do next. Do NOT try to solve everything in one step.
+REMINDER: Imports and file I/O are blocked. Use only the provided variables and preloaded modules.
 
 ## Rules
 
@@ -176,9 +178,13 @@ _STRICT_JSON_RULES = [
 ]
 
 _TAIL_RULES = [
-    "SUBMIT WITH VARIABLES - Build outputs in code and pass variables to SUBMIT (e.g., SUBMIT(answer=answer)). Avoid long inline string literals.",
+    "SUBMIT WITH VARIABLES - Build outputs in code and pass variables to SUBMIT (e.g., SUBMIT(answer=answer) or out = {}; out['answer'] = answer; SUBMIT(**out)). Avoid long inline string literals.",
     "NO RAW FILE LITERALS - Never paste file contents into Python string literals. Always slice/print from the provided variables (e.g., print(files[0][:500])).",
     "KEEP CODE SIMPLE - Avoid large nested dict literals or multi-line literals. Prefer simple lists/strings and call SUBMIT with variables.",
+    "SHORT STEPS - Keep each iteration small (a few statements). Fix errors before moving on; avoid rewriting big blocks after a failure.",
+    "INCREMENTAL OUTPUTS - Build lists/dicts in variables step-by-step; avoid huge one-shot literals.",
+    "USE PROVIDED VARIABLES ONLY - Do not attempt imports or file access. All inputs are already available as variables.",
+    "DO NOT INVENT IDENTIFIERS - If you need a file name, ID, or key, derive it from provided variables (e.g., file_names), not from memory or guesses.",
 ]
 
 
