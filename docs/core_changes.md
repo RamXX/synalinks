@@ -210,3 +210,34 @@ strict JSON providers.
 ### Verification
 - `uv run pytest tests/modules/reasoning/test_repl_generator.py -q`
 - `uv run --env-file .env -- python -m pytest tests/modules/reasoning/test_repl_module_integration.py -v --override-ini="addopts="`
+
+## 2026-01-25 — REPL guidance refinements + tokenizer-safe fallback
+
+### Rationale
+Recent RLM runs showed avoidable retries and higher costs due to:
+- Attempts to import blocked modules or perform file I/O.
+- Large one-shot literals causing SyntaxErrors in the REPL.
+- Tokenization errors bubbling out of the line-by-line fallback check.
+
+These issues affect RLM-only workflows and can be addressed without changing
+core non-RLM behavior.
+
+### Changes
+- `synalinks/src/modules/reasoning/repl_generator.py`
+  - Added concise reminders to use provided variables only (no imports or file access).
+  - Added guidance to build outputs incrementally and submit via variables.
+  - Added “do not invent identifiers; derive from provided variables” to reduce
+    path/key guesswork.
+- `synalinks/src/modules/reasoning/repl_module.py`
+  - `_can_execute_line_by_line` now guards `tokenize.TokenError` to avoid crashes
+    when code contains unterminated strings.
+  - (Earlier stabilizer work remains scoped to REPL execution paths.)
+
+### Impact
+- Lower error rates and fewer wasted iterations for RLM runs.
+- No effect on non-RLM modules; changes are confined to RLM prompt generation
+  and REPL execution safeguards.
+
+### Verification
+- `uv run -- python -m pytest tests/modules/reasoning/test_repl_generator.py -v --override-ini="addopts="`
+- `uv run --env-file .env python examples/rlm_integrated_program.py`
