@@ -160,6 +160,8 @@ _BASE_RULES = [
     "ITERATE - Write small code snippets, observe outputs, then decide next steps. State persists between iterations.",
     "ENVIRONMENT LIMITS - Do NOT use import statements. Only preloaded modules are available: re, json, collections, math (use directly). File I/O (open/pathlib/os/glob) is disallowed.",
     "NO MULTI-LINE STRINGS - Do not use triple-quoted or multi-line string literals.",
+    "ASCII ONLY - Use ASCII characters only. No smart quotes or em dashes; use '-' for dashes.",
+    "SINGLE-LINE CODE - Keep code to a single line; use semicolons to separate statements.",
     "VERIFY BEFORE SUBMITTING - If results seem wrong (zeros, empty, unexpected), reconsider your approach.",
     "USE llm_query FOR SEMANTICS - String matching finds WHERE things are; llm_query understands WHAT things mean.",
     "MINIMIZE RETYPING (INPUTS & OUTPUTS) - When values are long, precise, or error-prone (IDs, numbers, code, quotes), re-access them via variables and parse/compute in code instead of retyping. Use small, targeted prints to sanity-check, but avoid manual copying when variables can carry the exact value.",
