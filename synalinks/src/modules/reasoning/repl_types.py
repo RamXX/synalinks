@@ -6,14 +6,6 @@ These types represent the state and history of REPL-based execution:
 - REPLVariable: Metadata about variables available in the REPL
 - REPLEntry: A single interaction (reasoning, code, output)
 - REPLHistory: Container for the full interaction history (immutable)
-
-This module is based on the Reasoning Language Models (RLM) implementation
-from DSPy (https://github.com/stanfordnlp/dspy). The REPLVariable and
-immutable history patterns were adapted from DSPy's RLM implementation.
-
-Reference:
-    DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines
-    https://github.com/stanfordnlp/dspy
 """
 
 import json

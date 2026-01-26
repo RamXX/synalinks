@@ -6,13 +6,12 @@ This module provides DenoInterpreter, which runs Python code in a sandboxed
 WASM environment using Deno and Pyodide. It implements the CodeInterpreter
 protocol for use with RLM (Recursive Language Model).
 
-This interpreter is based on the Reasoning Language Models (RLM) implementation
-from DSPy (https://github.com/stanfordnlp/dspy). The SUBMIT mechanism, JSONRPC
-protocol, and thread-safety patterns were adapted from DSPy's implementation.
-
-Reference:
-    DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines
-    https://github.com/stanfordnlp/dspy
+Features:
+- Process isolation via Deno subprocess
+- WASM sandbox via Pyodide
+- JSON-RPC 2.0 protocol for communication
+- SUBMIT mechanism for final output
+- Thread-safety enforcement
 """
 
 import asyncio

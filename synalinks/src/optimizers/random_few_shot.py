@@ -34,8 +34,6 @@ class RandomFewShot(GreedyOptimizer):
     ```
 
     References:
-        - DSPy: Compiling Declarative Language Model Calls into
-          Self-Improving Pipelines (https://arxiv.org/pdf/2310.03714)
         - Language Models are Few-Shot Learners
           (https://arxiv.org/abs/2005.14165)
 

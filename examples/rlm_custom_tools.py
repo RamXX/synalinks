@@ -6,12 +6,8 @@
 This example demonstrates using RLM (Recursive Language Model) with custom tools
 that extend the LLM's capabilities beyond basic Python execution.
 
-Equivalent to DSPy's RLM with custom tools:
-    def search_db(query: str) -> str:
-        return db.search(query)
-
-    rlm = dspy.RLM("question -> answer", tools={"search_db": search_db})
-    result = rlm(question="Find users who signed up last month")
+Custom tools extend the RLM's capabilities beyond basic Python execution,
+allowing it to query databases, call APIs, or perform domain-specific operations.
 
 Requirements:
     - Set GROQ_API_KEY environment variable

@@ -6,10 +6,8 @@
 This example demonstrates using RLM (Recursive Language Model) to extract
 structured information from unstructured text, producing multiple typed output fields.
 
-Equivalent to DSPy's RLM with multiple outputs:
-    rlm = dspy.RLM("document -> company: str, revenue: float, employees: int, founded: int")
-    result = rlm(document="...")
-    print(result.company, result.revenue)
+The RLM iteratively parses and extracts typed fields (strings, numbers,
+lists, booleans) from unstructured text into a structured DataModel.
 
 Requirements:
     - Set GROQ_API_KEY environment variable

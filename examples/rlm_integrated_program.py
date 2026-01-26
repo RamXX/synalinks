@@ -35,9 +35,6 @@ Architecture:
         v
     ComprehensiveSynopsis
 
-Based on DSPy's RLM implementation:
-    https://github.com/stanfordnlp/dspy
-
 Requirements:
     - Set GROQ_API_KEY environment variable
 
@@ -106,7 +103,7 @@ class DeepAnalysis(synalinks.DataModel):
         description="Novel or unusual techniques used"
     )
     comparison_to_alternatives: str = synalinks.Field(
-        description="How this compares to DSPy, LangChain, etc."
+        description="How this compares to alternative frameworks"
     )
 
 
@@ -240,7 +237,6 @@ async def build_deep_analysis_program(code_lm, query_lm, synthesis_lm):
     inputs = synalinks.Input(data_model=SourceFiles)
 
     # RLM with extensive iteration for deep analysis
-    # Note: Instructions follow DSPy's exploratory style - let the LLM discover
     analysis = await RLM(
         data_model=DeepAnalysis,
         language_model=code_lm,

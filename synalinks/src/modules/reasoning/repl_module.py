@@ -2,17 +2,10 @@
 
 """RLM - Recursive Language Model for Synalinks.
 
-This module is based on the Reasoning Language Models (RLM) implementation
-from DSPy (https://github.com/stanfordnlp/dspy). The techniques and patterns
-used here were reimplemented to integrate with Synalinks' architecture while
-preserving the core RLM concepts from the original DSPy implementation.
-
-The class is named RLM to match DSPy's naming convention and the
-"Recursive Language Models" paper.
-
-Reference:
-    DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines
-    https://github.com/stanfordnlp/dspy
+RLM enables LLMs to solve complex problems by writing and executing Python
+code iteratively in a sandboxed REPL environment. Instead of answering directly,
+the model explores data programmatically, building up understanding across
+multiple iterations before submitting a final structured output.
 """
 
 import asyncio
@@ -46,9 +39,8 @@ from synalinks.src.saving import serialization_lib
 class RLM(Module):
     """Recursive Language Model module for Synalinks.
 
-    Based on DSPy's RLM implementation. LLMs write Python code to
-    programmatically explore large contexts using iterative code
-    execution with sub-LLM queries.
+    LLMs write Python code to programmatically explore large contexts
+    using iterative code execution with sub-LLM queries.
 
     The RLM enables LLMs to:
     - Write and execute Python code iteratively
@@ -177,7 +169,7 @@ class RLM(Module):
         self.language_model = language_model
         self.sub_language_model = sub_language_model or language_model
 
-        # Interpreter (Deno/WASM sandbox for security, like DSPy)
+        # Interpreter (Deno/WASM sandbox for secure code execution)
         self.interpreter = interpreter or DenoInterpreter(
             max_output_chars=max_output_chars
         )

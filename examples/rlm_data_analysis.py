@@ -6,9 +6,8 @@
 This example demonstrates using RLM (Recursive Language Model) for statistical
 analysis over structured data, requiring multiple computational steps.
 
-Equivalent to DSPy's RLM with complex data:
-    rlm = dspy.RLM("data, question -> result: float, explanation: str")
-    result = rlm(data=sales_data, question="What is the average growth rate?")
+The RLM writes Python code to perform calculations, aggregations, and
+statistical analysis before submitting a final structured result.
 
 Requirements:
     - Set GROQ_API_KEY environment variable

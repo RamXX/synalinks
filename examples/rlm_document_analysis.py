@@ -6,9 +6,8 @@
 This example demonstrates using RLM (Recursive Language Model) to analyze a long
 document by having the LLM write Python code to explore and extract information.
 
-Equivalent to DSPy's basic RLM usage:
-    rlm = dspy.RLM("context, query -> answer", max_iterations=10)
-    result = rlm(context="...long text...", query="What is the answer?")
+The RLM writes and executes Python code iteratively to explore and
+extract information from the document before submitting a final answer.
 
 Requirements:
     - Set GROQ_API_KEY environment variable
@@ -30,7 +29,7 @@ from synalinks.src.modules.reasoning.repl_module import RLM
 # =============================================================================
 
 
-# Define input/output data models (Synalinks equivalent of DSPy signatures)
+# Define input/output data models
 class DocumentQuery(synalinks.DataModel):
     """Input: document and question to answer about it."""
     context: str = synalinks.Field(description="The document to analyze")
@@ -53,7 +52,7 @@ async def main():
     # Create language model (Groq support is built into LanguageModel)
     lm = synalinks.LanguageModel(model="groq/moonshotai/kimi-k2-instruct-0905", timeout=120)
 
-    # Create RLM - equivalent to dspy.RLM("context, query -> answer, evidence")
+    # Create RLM for document analysis
     rlm = RLM(
         data_model=AnalysisResult,
         language_model=lm,

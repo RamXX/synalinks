@@ -1,6 +1,5 @@
 // Synalinks REPL Runner - Deno/Pyodide Sandbox
-// Adapted from DSPy's runner.js (Apache 2.0 License)
-// Original: https://github.com/stanfordnlp/dspy
+// Secure Python execution via WebAssembly
 
 // Deno 2.x requires npm packages to be configured in deno.json
 // with nodeModulesDir: "auto"

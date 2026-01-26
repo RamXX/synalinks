@@ -2,13 +2,10 @@
 
 """Native Python interpreter with tool injection.
 
-This interpreter is based on the Reasoning Language Models (RLM) implementation
-from DSPy (https://github.com/stanfordnlp/dspy). The SUBMIT mechanism, builtin
-restrictions, and thread-safety patterns were adapted from DSPy's implementation.
+Executes Python code in a restricted local environment with custom tool
+injection. Suitable for development and trusted code execution scenarios.
 
-Reference:
-    DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines
-    https://github.com/stanfordnlp/dspy
+For production with untrusted code, use DenoInterpreter instead.
 """
 
 import asyncio

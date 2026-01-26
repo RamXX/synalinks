@@ -2,13 +2,8 @@
 
 """REPLGenerator module for REPL code generation.
 
-This module is based on the Reasoning Language Models (RLM) implementation
-from DSPy (https://github.com/stanfordnlp/dspy). The action instructions
-template and behavioral rules were adapted from DSPy's RLM implementation.
-
-Reference:
-    DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines
-    https://github.com/stanfordnlp/dspy
+Generates structured code actions for RLM execution. The LLM produces
+reasoning and Python code that gets executed in a sandboxed REPL.
 """
 
 import copy
@@ -94,7 +89,7 @@ class REPLActionLines(DataModel):
     )
 
 
-# Action instructions template matching DSPy's behavioral guidance
+# Action instructions template for REPL code generation
 ACTION_INSTRUCTIONS_TEMPLATE = """Return ONLY a JSON object with keys `reasoning` and `code` (both strings). `reasoning` is REQUIRED (use an empty string if needed). No markdown, no labels, no extra keys. No other keys are allowed; any extra keys will be rejected. Do NOT return final output fields directly; always use SUBMIT(...) inside `code`.
 
 Example JSON:
