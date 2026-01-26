@@ -31,7 +31,7 @@ from synalinks.src.backend import ChatMessages
 from synalinks.src.backend import JsonDataModel
 from synalinks.src.backend import SymbolicDataModel
 from synalinks.src.interpreters.base import CodeInterpreter
-from synalinks.src.interpreters.native import NativePythonInterpreter
+from synalinks.src.interpreters.deno import DenoInterpreter
 from synalinks.src.modules.core.tool import Tool
 from synalinks.src.modules.core.generator import Generator
 from synalinks.src.modules.module import Module
@@ -118,7 +118,7 @@ class RLM(Module):
         data_model: Output DataModel class.
         language_model: LLM for code generation.
         sub_language_model: Optional cheaper LLM for llm_query calls.
-        interpreter: CodeInterpreter instance (default: NativePythonInterpreter).
+        interpreter: CodeInterpreter instance (default: DenoInterpreter).
         tools: List of Tool modules for custom functionality.
         max_iterations: Maximum REPL iterations (default: 20).
         max_llm_calls: Maximum sub-LLM calls (default: 50).
@@ -177,8 +177,8 @@ class RLM(Module):
         self.language_model = language_model
         self.sub_language_model = sub_language_model or language_model
 
-        # Interpreter
-        self.interpreter = interpreter or NativePythonInterpreter(
+        # Interpreter (Deno/WASM sandbox for security, like DSPy)
+        self.interpreter = interpreter or DenoInterpreter(
             max_output_chars=max_output_chars
         )
 

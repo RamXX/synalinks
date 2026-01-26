@@ -112,6 +112,16 @@ Building robust LM apps is hard. Synalinks simplifies it with:
 uv pip install synalinks
 ```
 
+**For RLM (Recursive Language Model) support**, Deno is required for secure sandboxed code execution:
+
+```shell
+# macOS
+brew install deno
+
+# Linux/WSL
+curl -fsSL https://deno.land/install.sh | sh
+```
+
 ## Example
 
 ```python
