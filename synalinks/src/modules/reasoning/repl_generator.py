@@ -165,7 +165,7 @@ _BASE_RULES = [
 
 _STRICT_JSON_RULES = [
     "JSON SAFETY - Your response must be valid JSON. Use single quotes for Python strings (including SUBMIT). Do NOT use double quotes inside code. If you truly need a double quote character, build it with chr(34) and string concatenation.",
-    "BACKSLASH SAFETY - Never include literal backslashes in code (regex/escapes will break JSON). If absolutely needed, build them via BACKSLASH (preloaded) or chr(92) and string concatenation. Avoid regex patterns that require backslashes.",
+    "BACKSLASH SAFETY - Never include literal backslashes in code (regex/escapes will break JSON). If absolutely needed, build them via chr(92) and string concatenation. Avoid regex patterns that require backslashes.",
     "NEWLINE SAFETY - Do not include literal newline characters inside JSON strings. If you need multiple statements, separate them with semicolons.",
     "ASCII ONLY - Use ASCII characters only. No smart quotes or em dashes; use '-' for dashes.",
     "SINGLE-LINE CODE - Keep code to a single line; use semicolons to separate statements.",
