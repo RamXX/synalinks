@@ -19,94 +19,10 @@ Usage:
 """
 
 import asyncio
-import copy
-import json
 import os
-import warnings
-
-import litellm
 
 import synalinks
-from synalinks.src.backend import ChatRole
-from synalinks.src.language_models.language_model import LanguageModel
 from synalinks.src.modules.reasoning.repl_module import RLM
-from synalinks.src.utils.nlp_utils import shorten_text
-
-
-# =============================================================================
-# Groq Workaround (structured output patch)
-# =============================================================================
-
-
-def _clean_messages_for_groq(messages: list) -> list:
-    """Remove tool_calls from messages for Groq compatibility."""
-    cleaned = []
-    for msg in messages:
-        clean_msg = {"role": msg.get("role"), "content": msg.get("content", "")}
-        cleaned.append(clean_msg)
-    return cleaned
-
-
-_original_call = None
-
-
-async def _patched_call(self, messages, schema=None, streaming=False, **kwargs):
-    """Patched __call__ for Groq structured output support."""
-    formatted_messages = messages.get_json().get("messages", [])
-    input_kwargs = copy.deepcopy(kwargs)
-    schema = copy.deepcopy(schema)
-
-    if self.model.startswith("groq"):
-        formatted_messages = _clean_messages_for_groq(formatted_messages)
-
-    if schema:
-        if self.model.startswith("groq"):
-            kwargs.update({
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {"name": "structured_output", "schema": schema},
-                }
-            })
-        else:
-            raise ValueError(f"Provider '{self.model.split('/')[0]}' not supported in this example")
-
-    if self.api_base:
-        kwargs.update({"api_base": self.api_base})
-
-    for i in range(self.retry):
-        try:
-            response = await litellm.acompletion(
-                model=self.model,
-                messages=formatted_messages,
-                timeout=self.timeout,
-                caching=self.caching,
-                **kwargs,
-            )
-            response_str = response["choices"][0]["message"]["content"].strip()
-
-            if schema:
-                return json.loads(response_str)
-            else:
-                return {"role": ChatRole.ASSISTANT, "content": response_str, "tool_call_id": None, "tool_calls": []}
-        except Exception as e:
-            warnings.warn(f"Error: {shorten_text(str(e))}")
-            await asyncio.sleep(1)
-
-    return None
-
-
-def patch_synalinks_for_groq():
-    """Apply Groq patch once at startup."""
-    global _original_call
-    if _original_call is None:
-        _original_call = LanguageModel.__call__
-        LanguageModel.__call__ = _patched_call
-
-
-def create_groq_language_model(model_name: str, **kwargs) -> synalinks.LanguageModel:
-    """Create a Groq LanguageModel with automatic patching."""
-    patch_synalinks_for_groq()
-    return synalinks.LanguageModel(model=f"groq/{model_name}", **kwargs)
 
 
 # =============================================================================
@@ -134,8 +50,8 @@ async def main():
         print("Error: GROQ_API_KEY environment variable not set")
         return
 
-    # Create language model (Kimi is a strong coding model)
-    lm = create_groq_language_model("moonshotai/kimi-k2-instruct-0905", timeout=120)
+    # Create language model (Groq support is built into LanguageModel)
+    lm = synalinks.LanguageModel(model="groq/moonshotai/kimi-k2-instruct-0905", timeout=120)
 
     # Create RLM - equivalent to dspy.RLM("context, query -> answer, evidence")
     rlm = RLM(
