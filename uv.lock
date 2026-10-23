@@ -4858,7 +4858,7 @@ requires-dist = [
     { name = "inquirer" },
     { name = "jinja2" },
     { name = "jsonschema" },
-    { name = "litellm" },
+    { name = "litellm", specifier = "<1.107" },
     { name = "matplotlib" },
     { name = "mcp" },
     { name = "mixpanel" },
